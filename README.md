@@ -1,6 +1,6 @@
-# Commercial Deployments Terraform Module
+# Plane Commercial Deployments Terraform Module
 
-A Terraform module that provisions a complete AWS infrastructure: VPC, EKS (with cert-manager and EBS CSI add-ons), ElastiCache (Redis), OpenSearch, S3, and RDS PostgreSQL.
+A Terraform module that provisions AWS infrastructure for running [Plane](https://plane.so) (open-source project management). It deploys: VPC, EKS (with cert-manager and EBS CSI add-ons), ElastiCache (Redis), OpenSearch, S3, and RDS PostgreSQL.
 
 ## Prerequisites
 
@@ -99,6 +99,8 @@ aws secretsmanager get-secret-value --secret-id <rds_password_secret_arn> --quer
 - **RDS and Redis**: Accessible only from within the VPC (e.g., from EKS pods) as they run in private subnets
 - **OpenSearch**: Publicly accessible via HTTPS using the master username and password from Secrets Manager
 
+**Deploy Plane**: This module provisions infrastructure only. To deploy the Plane application on the EKS cluster, see [Plane's deployment documentation](https://docs.plane.so/self-hosting).
+
 ## Cleanup
 
 To destroy all resources:
@@ -125,7 +127,7 @@ module "plane_infra" {
   source = "git::https://github.com/your-org/commercial-deployments.git?ref=main"
   # Or use a local path: source = "../commercial-deployments"
 
-  cluster_name        = "my-eks-cluster"
+  cluster_name        = "plane-eks-cluster"
   region              = "us-west-2"
   vpc_cidr            = "10.0.0.0/16"
   single_nat_gateway  = true
@@ -135,13 +137,13 @@ module "plane_infra" {
   node_min_size       = 2
   node_max_size       = 4
 
-  cache_node_type   = "cache.t3.micro"
-  cache_num_nodes   = 1
-  bucket_name_prefix = "my-app"
-  db_name           = "appdb"
+  cache_node_type     = "cache.t3.micro"
+  cache_num_nodes     = 1
+  bucket_name_prefix  = "plane"
+  db_name             = "planedb"
 
   tags = {
-    Environment = "production"
+    Environment = "plane"
   }
 }
 
