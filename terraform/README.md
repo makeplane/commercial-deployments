@@ -75,8 +75,8 @@ After apply, the following outputs are available:
 | Category | Outputs |
 |----------|---------|
 | VPC | `vpc_id`, `private_subnet_ids`, `public_subnet_ids` |
-| EKS | `eks_cluster_endpoint`, `configure_kubectl`, `eks_addon_versions` |
-| Services | `redis_endpoint`, `opensearch_endpoint`, `opensearch_kibana_endpoint`, `s3_bucket_id`, `rds_cluster_endpoint`, `rds_reader_endpoint`, `rds_db_name` |
+| EKS | `eks_cluster_id`, `eks_cluster_endpoint`, `configure_kubectl`, `eks_addon_versions`, `eks_cluster_security_group_id`, `eks_node_security_group_id`, `eks_cluster_certificate_authority_data` (sensitive) |
+| Services | `redis_endpoint`, `redis_port`, `opensearch_endpoint`, `opensearch_kibana_endpoint`, `s3_bucket_id`, `rds_cluster_endpoint`, `rds_reader_endpoint`, `rds_db_name` |
 | Secrets | `plane_password_secret_arn` (OpenSearch), `rds_password_secret_arn` |
 
 ## Post-Deployment
