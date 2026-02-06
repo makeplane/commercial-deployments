@@ -22,13 +22,6 @@ tags = {
   Environment = "plane"
 }
 
-# MQ - password is auto-generated and stored in Secrets Manager
-mq_username        = "admin"
-mq_instance_type   = "mq.m7g.medium"
-mq_deployment_mode = "CLUSTER_MULTI_AZ"
-mq_engine_version  = "4.2"
-
-
 # Cache
 cache_node_type = "cache.t3.micro"
 cache_num_nodes = 1
