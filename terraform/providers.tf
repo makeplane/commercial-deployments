@@ -3,7 +3,7 @@ provider "aws" {
 
   default_tags {
     tags = merge(
-      { Provider = "plane.so" },
+      { kustomize-provider = "plane.so" },
       var.tags
     )
   }
