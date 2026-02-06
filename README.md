@@ -30,7 +30,8 @@ The root [main.tf](main.tf) deploys `plane_infra` with minimal required inputs. 
 
 ```hcl
 module "plane_infra" {
-  source = "./terraform"
+  source = "git::https://github.com/your-org/commercial-deployments.git?ref=main"
+  #source = "./terraform" for local deployment
 
   cluster_name       = "plane-eks-cluster"
   region             = "us-west-2"
