@@ -30,11 +30,7 @@ module "plane_infra" {
   node_group_name     = var.node_group_name
   tags                = var.tags
 
-  # MQ, Cache, OpenSearch, Object Store (optional overrides)
-  mq_username               = var.mq_username
-  mq_engine_version         = var.mq_engine_version
-  mq_instance_type          = var.mq_instance_type
-  mq_deployment_mode        = var.mq_deployment_mode
+  # Cache, OpenSearch, Object Store (optional overrides)
   cache_node_type           = var.cache_node_type
   cache_num_nodes           = var.cache_num_nodes
   opensearch_master_username = var.opensearch_master_username
@@ -78,11 +74,6 @@ output "configure_kubectl" {
   value       = module.plane_infra.configure_kubectl
 }
 
-output "mq_broker_endpoints" {
-  description = "Amazon MQ broker endpoints"
-  value       = module.plane_infra.mq_broker_endpoints
-}
-
 output "redis_endpoint" {
   description = "Redis endpoint"
   value       = module.plane_infra.redis_endpoint
@@ -114,7 +105,7 @@ output "rds_db_name" {
 }
 
 output "plane_password_secret_arn" {
-  description = "ARN of the plane-password secret (contains rabbit_mq_password, opensearch_password)"
+  description = "ARN of the plane-password secret (contains opensearch_password)"
   value       = module.plane_infra.plane_password_secret_arn
   sensitive   = true
 }

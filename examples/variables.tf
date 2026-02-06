@@ -74,31 +74,6 @@ variable "tags" {
   default     = {}
 }
 
-# MQ
-variable "mq_username" {
-  description = "RabbitMQ username"
-  type        = string
-  default     = "admin"
-}
-
-variable "mq_engine_version" {
-  description = "RabbitMQ engine version (valid: 4.2, 3.13)"
-  type        = string
-  default     = "4.2"
-}
-
-variable "mq_instance_type" {
-  description = "MQ broker instance type"
-  type        = string
-  default     = "mq.t3.micro"
-}
-
-variable "mq_deployment_mode" {
-  description = "MQ deployment mode: SINGLE_INSTANCE, ACTIVE_STANDBY_MULTI_AZ, or CLUSTER_MULTI_AZ"
-  type        = string
-  default     = "SINGLE_INSTANCE"
-}
-
 # Cache
 variable "cache_node_type" {
   description = "Redis node type"

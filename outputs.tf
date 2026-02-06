@@ -49,11 +49,6 @@ output "eks_addon_versions" {
   value       = module.eks.addon_versions
 }
 
-output "mq_broker_endpoints" {
-  description = "Amazon MQ broker endpoints"
-  value       = module.mq.broker_endpoints
-}
-
 output "redis_endpoint" {
   description = "Redis primary endpoint"
   value       = module.cache.redis_endpoint
@@ -95,7 +90,7 @@ output "rds_db_name" {
 }
 
 output "plane_password_secret_arn" {
-  description = "ARN of the plane-password secret in Secrets Manager (contains rabbit_mq_password, opensearch_password)"
+  description = "ARN of the plane-password secret in Secrets Manager (contains opensearch_password)"
   value       = aws_secretsmanager_secret.plane_password.arn
   sensitive   = true
 }

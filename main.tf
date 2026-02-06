@@ -49,11 +49,6 @@ module "eks" {
   depends_on          = [module.vpc]
 }
 
-resource "random_password" "mq" {
-  length  = 32
-  special = false
-}
-
 resource "random_password" "opensearch" {
   length           = 32
   special          = true
@@ -62,7 +57,7 @@ resource "random_password" "opensearch" {
 
 resource "aws_secretsmanager_secret" "plane_password" {
   name                    = "${var.cluster_name}/plane-password"
-  description             = "Plane infrastructure passwords (RabbitMQ, OpenSearch)"
+  description             = "Plane infrastructure passwords (OpenSearch)"
   recovery_window_in_days = 0
 
   tags = merge(var.tags, {
@@ -73,29 +68,10 @@ resource "aws_secretsmanager_secret" "plane_password" {
 resource "aws_secretsmanager_secret_version" "plane_password" {
   secret_id     = aws_secretsmanager_secret.plane_password.id
   secret_string = jsonencode({
-    rabbit_mq_password  = random_password.mq.result
     opensearch_password = random_password.opensearch.result
   })
 
   depends_on = [aws_secretsmanager_secret.plane_password]
-}
-
-module "mq" {
-  source = "./modules/mq"
-
-  cluster_name               = var.cluster_name
-  vpc_id                     = module.vpc.vpc_id
-  vpc_cidr                   = var.vpc_cidr
-  subnet_ids                 = module.vpc.private_subnet_ids
-  allowed_security_group_ids = [module.eks.node_security_group_id]
-  mq_username                = var.mq_username
-  mq_password                = random_password.mq.result
-  engine_version             = var.mq_engine_version
-  instance_type              = var.mq_instance_type
-  deployment_mode            = var.mq_deployment_mode
-  tags                       = var.tags
-
-  depends_on = [module.vpc, aws_secretsmanager_secret_version.plane_password]
 }
 
 module "cache" {
