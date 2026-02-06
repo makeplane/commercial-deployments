@@ -16,37 +16,19 @@ terraform {
 module "plane_infra" {
   source = "./.."
 
-  cluster_name        = var.cluster_name
-  region              = var.region
-  vpc_cidr            = var.vpc_cidr
-  availability_zones  = var.availability_zones
-  single_nat_gateway  = var.single_nat_gateway
-  cluster_version     = var.cluster_version
-  node_instance_types = var.node_instance_types
-  node_desired_size   = var.node_desired_size
-  node_min_size       = var.node_min_size
-  node_max_size       = var.node_max_size
-  node_disk_size      = var.node_disk_size
-  node_group_name     = var.node_group_name
-  tags                = var.tags
+  cluster_name       = var.cluster_name
+  region             = var.region
+  vpc_cidr           = var.vpc_cidr
+  availability_zones = var.availability_zones
+  single_nat_gateway = var.single_nat_gateway
+  cluster_version    = var.cluster_version
+  tags               = var.tags
 
-  # Cache, OpenSearch, Object Store (optional overrides)
-  cache_node_type            = var.cache_node_type
-  cache_num_nodes            = var.cache_num_nodes
-  opensearch_master_username = var.opensearch_master_username
-  opensearch_instance_type   = var.opensearch_instance_type
-  opensearch_instance_count  = var.opensearch_instance_count
-  bucket_name_prefix         = var.bucket_name_prefix
-  enable_s3_vpc_endpoint     = var.enable_s3_vpc_endpoint
-
-  # RDS Multi-AZ DB Cluster (PostgreSQL)
-  db_name              = var.db_name
-  db_username          = var.db_username
-  db_engine_version    = var.db_engine_version
-  db_instance_class    = var.db_instance_class
-  db_allocated_storage = var.db_allocated_storage
-  db_storage_type      = var.db_storage_type
-  db_iops              = var.db_iops
+  eks          = var.eks
+  cache        = var.cache
+  opensearch   = var.opensearch
+  object_store = var.object_store
+  db           = var.db
 }
 
 output "vpc_id" {

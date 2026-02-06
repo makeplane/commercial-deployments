@@ -38,13 +38,13 @@ module "eks" {
   cluster_version     = var.cluster_version
   vpc_id              = module.vpc.vpc_id
   subnet_ids          = module.vpc.private_subnet_ids
-  node_group_name     = var.node_group_name
-  node_instance_types = var.node_instance_types
-  node_desired_size   = var.node_desired_size
-  node_min_size       = var.node_min_size
-  node_max_size       = var.node_max_size
-  node_disk_size      = var.node_disk_size
-  ssh_key_name        = var.ssh_key_name
+  node_group_name     = var.eks.node_group_name
+  node_instance_types = var.eks.node_instance_types
+  node_desired_size   = var.eks.node_desired_size
+  node_min_size       = var.eks.node_min_size
+  node_max_size       = var.eks.node_max_size
+  node_disk_size      = var.eks.node_disk_size
+  ssh_key_name        = var.eks.ssh_key_name
   tags                = var.tags
   depends_on          = [module.vpc]
 }
@@ -81,9 +81,9 @@ module "cache" {
   vpc_id             = module.vpc.vpc_id
   vpc_cidr           = var.vpc_cidr
   subnet_ids         = module.vpc.private_subnet_ids
-  node_type          = var.cache_node_type
-  num_cache_clusters = var.cache_num_nodes
-  engine_version     = var.cache_engine_version
+  node_type          = var.cache.node_type
+  num_cache_clusters = var.cache.num_nodes
+  engine_version     = var.cache.engine_version
   tags               = var.tags
 
   depends_on = [module.vpc]
@@ -93,12 +93,12 @@ module "opensearch" {
   source = "./modules/opensearch"
 
   domain_name     = "${var.cluster_name}-search"
-  master_username = var.opensearch_master_username
+  master_username = var.opensearch.master_username
   master_password = random_password.opensearch.result
-  engine_version  = var.opensearch_engine_version
-  instance_type   = var.opensearch_instance_type
-  instance_count  = var.opensearch_instance_count
-  ebs_volume_size = var.opensearch_ebs_volume_size
+  engine_version  = var.opensearch.engine_version
+  instance_type   = var.opensearch.instance_type
+  instance_count  = var.opensearch.instance_count
+  ebs_volume_size = var.opensearch.ebs_volume_size
   tags            = var.tags
 
   depends_on = [aws_secretsmanager_secret_version.plane_password]
@@ -107,11 +107,11 @@ module "opensearch" {
 module "object_store" {
   source = "./modules/object_store"
 
-  bucket_name_prefix  = var.bucket_name_prefix
+  bucket_name_prefix  = var.object_store.bucket_name_prefix
   vpc_id              = module.vpc.vpc_id
   route_table_ids     = module.vpc.private_route_table_ids
-  enable_versioning   = var.enable_s3_versioning
-  enable_vpc_endpoint = var.enable_s3_vpc_endpoint
+  enable_versioning   = var.object_store.enable_versioning
+  enable_vpc_endpoint = var.object_store.enable_vpc_endpoint
   tags                = var.tags
 
   depends_on = [module.vpc]
@@ -125,13 +125,13 @@ module "rds" {
   vpc_cidr           = var.vpc_cidr
   subnet_ids         = module.vpc.private_subnet_ids
   availability_zones = local.availability_zones
-  db_name            = var.db_name
-  db_username        = var.db_username
-  engine_version     = var.db_engine_version
-  instance_class     = var.db_instance_class
-  allocated_storage  = var.db_allocated_storage
-  storage_type       = var.db_storage_type
-  iops               = var.db_iops
+  db_name            = var.db.name
+  db_username        = var.db.username
+  engine_version     = var.db.engine_version
+  instance_class     = var.db.instance_class
+  allocated_storage  = var.db.allocated_storage
+  storage_type       = var.db.storage_type
+  iops               = var.db.iops
   tags               = var.tags
 
   depends_on = [module.vpc]
