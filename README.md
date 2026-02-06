@@ -7,10 +7,10 @@ Deploy [Plane](https://plane.so) (open-source project management) on AWS. This r
 
 ## Prerequisites
 
-- **Terraform** >= 1.0
-- **AWS CLI** configured with credentials
-- **kubectl** for cluster access
-- **Kustomize** (for application deployment)
+- **Terraform** >= 1.0 — [Download](https://developer.hashicorp.com/terraform/downloads)
+- **AWS CLI** configured with credentials — [Install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- **kubectl** for cluster access — [Install](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- **Kustomize** (for application deployment) — [Install](https://kustomize.io/) (or use `kubectl kustomize` built-in)
 
 ---
 
