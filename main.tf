@@ -1,0 +1,162 @@
+locals {
+  # Use provided AZs or default to first 3 in the region
+  availability_zones = var.availability_zones != null ? var.availability_zones : [
+    "${var.region}a",
+    "${var.region}b",
+    "${var.region}c"
+  ]
+
+  # 3 public and 3 private subnets, each with /22 CIDR (1024 IPs per subnet)
+  # For 10.0.0.0/16: public = 10.0.0.0/22, 10.0.4.0/22, 10.0.8.0/22; private = 10.0.12.0/22, 10.0.16.0/22, 10.0.20.0/22
+  subnet_count = 3
+  # newbits = 6 gives /22 subnets from /16 (2^6 = 64 possible /22 blocks)
+  public_subnet_cidrs = [
+    for i in range(local.subnet_count) : cidrsubnet(var.vpc_cidr, 6, i)
+  ]
+  private_subnet_cidrs = [
+    for i in range(local.subnet_count) : cidrsubnet(var.vpc_cidr, 6, local.subnet_count + i)
+  ]
+}
+
+module "vpc" {
+  source = "./modules/vpc"
+
+  cluster_name         = var.cluster_name
+  vpc_cidr             = var.vpc_cidr
+  availability_zones   = local.availability_zones
+  public_subnet_cidrs  = local.public_subnet_cidrs
+  private_subnet_cidrs = local.private_subnet_cidrs
+  enable_nat_gateway   = true
+  single_nat_gateway   = var.single_nat_gateway
+  tags                 = var.tags
+}
+
+module "eks" {
+  source = "./modules/eks"
+
+  cluster_name        = var.cluster_name
+  cluster_version     = var.cluster_version
+  vpc_id              = module.vpc.vpc_id
+  subnet_ids          = module.vpc.private_subnet_ids
+  node_group_name     = var.node_group_name
+  node_instance_types = var.node_instance_types
+  node_desired_size   = var.node_desired_size
+  node_min_size       = var.node_min_size
+  node_max_size       = var.node_max_size
+  node_disk_size      = var.node_disk_size
+  ssh_key_name        = var.ssh_key_name
+  tags                = var.tags
+  depends_on          = [module.vpc]
+}
+
+resource "random_password" "mq" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "opensearch" {
+  length           = 32
+  special          = true
+  override_special = "_-"
+}
+
+resource "aws_secretsmanager_secret" "plane_password" {
+  name                    = "${var.cluster_name}/plane-password"
+  description             = "Plane infrastructure passwords (RabbitMQ, OpenSearch)"
+  recovery_window_in_days = 0
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-plane-password"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "plane_password" {
+  secret_id     = aws_secretsmanager_secret.plane_password.id
+  secret_string = jsonencode({
+    rabbit_mq_password  = random_password.mq.result
+    opensearch_password = random_password.opensearch.result
+  })
+
+  depends_on = [aws_secretsmanager_secret.plane_password]
+}
+
+module "mq" {
+  source = "./modules/mq"
+
+  cluster_name               = var.cluster_name
+  vpc_id                     = module.vpc.vpc_id
+  vpc_cidr                   = var.vpc_cidr
+  subnet_ids                 = module.vpc.private_subnet_ids
+  allowed_security_group_ids = [module.eks.node_security_group_id]
+  mq_username                = var.mq_username
+  mq_password                = random_password.mq.result
+  engine_version             = var.mq_engine_version
+  instance_type              = var.mq_instance_type
+  deployment_mode            = var.mq_deployment_mode
+  tags                       = var.tags
+
+  depends_on = [module.vpc, aws_secretsmanager_secret_version.plane_password]
+}
+
+module "cache" {
+  source = "./modules/cache"
+
+  cluster_id         = var.cluster_name
+  vpc_id             = module.vpc.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  subnet_ids         = module.vpc.private_subnet_ids
+  node_type          = var.cache_node_type
+  num_cache_clusters = var.cache_num_nodes
+  engine_version     = var.cache_engine_version
+  tags               = var.tags
+
+  depends_on = [module.vpc]
+}
+
+module "opensearch" {
+  source = "./modules/opensearch"
+
+  domain_name     = "${var.cluster_name}-search"
+  master_username = var.opensearch_master_username
+  master_password = random_password.opensearch.result
+  engine_version  = var.opensearch_engine_version
+  instance_type   = var.opensearch_instance_type
+  instance_count  = var.opensearch_instance_count
+  ebs_volume_size = var.opensearch_ebs_volume_size
+  tags            = var.tags
+
+  depends_on = [aws_secretsmanager_secret_version.plane_password]
+}
+
+module "object_store" {
+  source = "./modules/object_store"
+
+  bucket_name_prefix  = var.bucket_name_prefix
+  vpc_id              = module.vpc.vpc_id
+  route_table_ids     = module.vpc.private_route_table_ids
+  enable_versioning   = var.enable_s3_versioning
+  enable_vpc_endpoint = var.enable_s3_vpc_endpoint
+  tags                = var.tags
+
+  depends_on = [module.vpc]
+}
+
+module "rds" {
+  source = "./modules/rds"
+
+  cluster_name       = var.cluster_name
+  vpc_id             = module.vpc.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  subnet_ids         = module.vpc.private_subnet_ids
+  availability_zones = local.availability_zones
+  db_name            = var.db_name
+  db_username        = var.db_username
+  engine_version     = var.db_engine_version
+  instance_class     = var.db_instance_class
+  allocated_storage  = var.db_allocated_storage
+  storage_type       = var.db_storage_type
+  iops               = var.db_iops
+  tags               = var.tags
+
+  depends_on = [module.vpc]
+}
