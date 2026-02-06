@@ -66,7 +66,7 @@ resource "aws_secretsmanager_secret" "plane_password" {
 }
 
 resource "aws_secretsmanager_secret_version" "plane_password" {
-  secret_id     = aws_secretsmanager_secret.plane_password.id
+  secret_id = aws_secretsmanager_secret.plane_password.id
   secret_string = jsonencode({
     opensearch_password = random_password.opensearch.result
   })

@@ -31,13 +31,13 @@ module "plane_infra" {
   tags                = var.tags
 
   # Cache, OpenSearch, Object Store (optional overrides)
-  cache_node_type           = var.cache_node_type
-  cache_num_nodes           = var.cache_num_nodes
+  cache_node_type            = var.cache_node_type
+  cache_num_nodes            = var.cache_num_nodes
   opensearch_master_username = var.opensearch_master_username
   opensearch_instance_type   = var.opensearch_instance_type
   opensearch_instance_count  = var.opensearch_instance_count
-  bucket_name_prefix        = var.bucket_name_prefix
-  enable_s3_vpc_endpoint    = var.enable_s3_vpc_endpoint
+  bucket_name_prefix         = var.bucket_name_prefix
+  enable_s3_vpc_endpoint     = var.enable_s3_vpc_endpoint
 
   # RDS Multi-AZ DB Cluster (PostgreSQL)
   db_name              = var.db_name
