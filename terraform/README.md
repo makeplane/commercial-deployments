@@ -124,7 +124,7 @@ Use this repository as a Terraform module in your own project:
 
 ```hcl
 module "plane_infra" {
-  source = "git::https://github.com/your-org/commercial-deployments.git?ref=main"
+  source = "git::https://github.com/makeplane/commercial-deployments.git?ref=main"
   # Or use a local path: source = "../commercial-deployments"
 
   cluster_name       = "plane-eks-cluster"

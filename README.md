@@ -34,7 +34,7 @@ module "plane_infra" {
   #source = "./terraform" for local deployment
 
   cluster_name       = "plane-eks-cluster"
-  region             = "us-west-2"
+  region             = "us-west-2" # required
   vpc_cidr           = "10.0.0.0/16"
   single_nat_gateway = true
   cluster_version    = "1.34"
@@ -49,7 +49,76 @@ Override defaults by passing `eks`, `cache`, `opensearch`, `object_store`, or `d
 
 ### Outputs
 
-After apply, Terraform outputs include:
+Add these output blocks to your configuration to expose module outputs (e.g. in `main.tf` or `outputs.tf`):
+
+```hcl
+output "vpc_id" {
+  description = "VPC ID"
+  value       = module.plane_infra.vpc_id
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs"
+  value       = module.plane_infra.private_subnet_ids
+}
+
+output "eks_cluster_id" {
+  description = "EKS cluster ID"
+  value       = module.plane_infra.eks_cluster_id
+}
+
+output "eks_cluster_endpoint" {
+  description = "EKS cluster API endpoint"
+  value       = module.plane_infra.eks_cluster_endpoint
+}
+
+output "configure_kubectl" {
+  description = "Command to configure kubectl"
+  value       = module.plane_infra.configure_kubectl
+}
+
+output "redis_endpoint" {
+  description = "Redis endpoint"
+  value       = module.plane_infra.redis_endpoint
+}
+
+output "opensearch_endpoint" {
+  description = "OpenSearch endpoint"
+  value       = module.plane_infra.opensearch_endpoint
+}
+
+output "s3_bucket_id" {
+  description = "S3 bucket ID"
+  value       = module.plane_infra.s3_bucket_id
+}
+
+output "rds_cluster_endpoint" {
+  description = "RDS cluster writer endpoint"
+  value       = module.plane_infra.rds_cluster_endpoint
+}
+
+output "rds_reader_endpoint" {
+  description = "RDS cluster reader endpoint"
+  value       = module.plane_infra.rds_reader_endpoint
+}
+
+output "rds_db_name" {
+  description = "Database name"
+  value       = module.plane_infra.rds_db_name
+}
+
+output "plane_password_secret_arn" {
+  description = "ARN of the plane-password secret (contains opensearch_password)"
+  value       = module.plane_infra.plane_password_secret_arn
+  sensitive   = true
+}
+
+output "rds_password_secret_arn" {
+  description = "ARN of the RDS master user password secret in Secrets Manager"
+  value       = module.plane_infra.rds_password_secret_arn
+  sensitive   = true
+}
+```
 
 | Output | Description |
 |--------|-------------|
