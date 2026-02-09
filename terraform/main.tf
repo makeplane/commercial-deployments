@@ -52,12 +52,26 @@ module "eks" {
 resource "random_password" "opensearch" {
   length           = 32
   special          = true
-  override_special = "_-"
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
+}
+
+resource "random_password" "mq" {
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_upper        = 1
+  min_lower        = 1
+  min_numeric      = 1
+  min_special      = 1
 }
 
 resource "aws_secretsmanager_secret" "plane_password" {
   name                    = "${var.cluster_name}/plane-password"
-  description             = "Plane infrastructure passwords (OpenSearch)"
+  description             = "Plane infrastructure passwords (OpenSearch, MQ)"
   recovery_window_in_days = 0
 
   tags = merge(var.tags, {
@@ -69,6 +83,7 @@ resource "aws_secretsmanager_secret_version" "plane_password" {
   secret_id = aws_secretsmanager_secret.plane_password.id
   secret_string = jsonencode({
     opensearch_password = random_password.opensearch.result
+    mq_password         = random_password.mq.result
   })
 
   depends_on = [aws_secretsmanager_secret.plane_password]
@@ -87,6 +102,24 @@ module "cache" {
   tags               = var.tags
 
   depends_on = [module.vpc]
+}
+
+module "mq" {
+  source = "./modules/mq"
+
+  cluster_name               = var.cluster_name
+  vpc_id                     = module.vpc.vpc_id
+  vpc_cidr                   = var.vpc_cidr
+  subnet_ids                 = [module.vpc.private_subnet_ids[0]]
+  mq_username                = var.mq.mq_username
+  mq_password                = random_password.mq.result
+  allowed_security_group_ids = [module.eks.node_security_group_id]
+  engine_version             = var.mq.engine_version
+  instance_type              = var.mq.instance_type
+  deployment_mode            = var.mq.deployment_mode
+  tags                       = var.tags
+
+  depends_on = [module.vpc, aws_secretsmanager_secret_version.plane_password]
 }
 
 module "opensearch" {

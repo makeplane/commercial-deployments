@@ -59,6 +59,21 @@ output "redis_port" {
   value       = module.cache.redis_port
 }
 
+output "mq_broker_id" {
+  description = "Amazon MQ RabbitMQ broker ID"
+  value       = module.mq.broker_id
+}
+
+output "mq_broker_endpoints" {
+  description = "Amazon MQ RabbitMQ broker endpoints (AMQP)"
+  value       = module.mq.broker_endpoints
+}
+
+output "mq_security_group_id" {
+  description = "Security group ID of the Amazon MQ broker"
+  value       = module.mq.security_group_id
+}
+
 output "opensearch_endpoint" {
   description = "OpenSearch domain endpoint"
   value       = module.opensearch.domain_endpoint
