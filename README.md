@@ -2,7 +2,7 @@
 
 Deploy [Plane](https://plane.so) (open-source project management) on AWS. This repository provides:
 
-1. **Terraform** — Provisions the AWS infrastructure (VPC, EKS, Redis, OpenSearch, S3, RDS PostgreSQL)
+1. **Terraform** — Provisions the AWS infrastructure (VPC, EKS, Redis, Amazon MQ RabbitMQ, OpenSearch, S3, RDS PostgreSQL)
 2. **Kustomize** — Deploys the Plane application on the EKS cluster (coming soon)
 
 ## Prerequisites
@@ -30,8 +30,8 @@ The root [main.tf](main.tf) deploys `plane_infra` with minimal required inputs. 
 
 ```hcl
 module "plane_infra" {
-  source = "git::https://github.com/your-org/commercial-deployments.git?ref=main"
-  #source = "./terraform" for local deployment
+  source = "git::https://github.com/makeplane/commercial-deployments.git//terraform?ref=main"
+  # source = "./terraform"  # for local development
 
   cluster_name       = "plane-eks-cluster"
   region             = "us-west-2" # required
@@ -45,7 +45,7 @@ module "plane_infra" {
 }
 ```
 
-Override defaults by passing `eks`, `cache`, `opensearch`, `object_store`, or `db` objects. See [terraform/README.md](terraform/README.md) for all options.
+Override defaults by passing `eks`, `cache`, `mq`, `opensearch`, `object_store`, or `db` objects. See [terraform/README.md](terraform/README.md) for all options.
 
 ### Outputs
 
@@ -82,6 +82,21 @@ output "redis_endpoint" {
   value       = module.plane_infra.redis_endpoint
 }
 
+output "mq_broker_id" {
+  description = "Amazon MQ RabbitMQ broker ID"
+  value       = module.plane_infra.mq_broker_id
+}
+
+output "mq_broker_endpoints" {
+  description = "Amazon MQ RabbitMQ broker endpoints (AMQP)"
+  value       = module.plane_infra.mq_broker_endpoints
+}
+
+output "mq_security_group_id" {
+  description = "Security group ID of the Amazon MQ broker"
+  value       = module.plane_infra.mq_security_group_id
+}
+
 output "opensearch_endpoint" {
   description = "OpenSearch endpoint"
   value       = module.plane_infra.opensearch_endpoint
@@ -108,7 +123,7 @@ output "rds_db_name" {
 }
 
 output "plane_password_secret_arn" {
-  description = "ARN of the plane-password secret (contains opensearch_password)"
+  description = "ARN of the plane-password secret (contains opensearch_password, mq_password)"
   value       = module.plane_infra.plane_password_secret_arn
   sensitive   = true
 }
@@ -128,12 +143,15 @@ output "rds_password_secret_arn" {
 | `eks_cluster_endpoint` | EKS API endpoint |
 | `configure_kubectl` | Command to configure kubectl |
 | `redis_endpoint` | Redis endpoint |
+| `mq_broker_id` | Amazon MQ RabbitMQ broker ID |
+| `mq_broker_endpoints` | Amazon MQ RabbitMQ broker endpoints (AMQP) |
+| `mq_security_group_id` | Amazon MQ broker security group ID |
 | `opensearch_endpoint` | OpenSearch endpoint |
 | `s3_bucket_id` | S3 bucket ID |
 | `rds_cluster_endpoint` | RDS writer endpoint |
 | `rds_reader_endpoint` | RDS reader endpoint |
 | `rds_db_name` | Database name |
-| `plane_password_secret_arn` | OpenSearch password (Secrets Manager) |
+| `plane_password_secret_arn` | OpenSearch and MQ passwords (Secrets Manager) |
 | `rds_password_secret_arn` | RDS password (Secrets Manager) |
 
 ### Configure kubectl
@@ -150,7 +168,7 @@ aws eks update-kubeconfig --region us-west-2 --name plane-eks-cluster
 
 After infrastructure is ready:
 
-1. Retrieve secrets from AWS Secrets Manager (OpenSearch and RDS passwords)
+1. Retrieve secrets from AWS Secrets Manager (OpenSearch, MQ, and RDS passwords)
 2. Apply Kustomize manifests to deploy Plane on the EKS cluster
 3. Configure ingress and access
 
@@ -164,4 +182,4 @@ To destroy infrastructure:
 terraform destroy
 ```
 
-**Warning**: This deletes all data in RDS, OpenSearch, Redis, and S3. Ensure backups exist if needed.
+**Warning**: This deletes all data in RDS, OpenSearch, Redis, Amazon MQ, and S3. Ensure backups exist if needed.

@@ -80,6 +80,22 @@ variable "cache" {
   }
 }
 
+variable "mq" {
+  description = "Amazon MQ RabbitMQ configuration"
+  type = object({
+    mq_username     = string
+    engine_version  = string
+    instance_type   = string
+    deployment_mode = string
+  })
+  default = {
+    mq_username     = "plane"
+    engine_version  = "3.13"
+    instance_type   = "mq.m7.medium"
+    deployment_mode = "CLUSTER_MULTI_AZ"
+  }
+}
+
 variable "opensearch" {
   description = "OpenSearch configuration"
   type = object({
