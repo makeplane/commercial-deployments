@@ -1,0 +1,13 @@
+# Ignore overlay secret files containing sensitive data
+# These should NOT be committed to version control
+**/secrets-vars.yaml
+
+# Alternative naming patterns you might use
+**/secrets.yaml
+**/sensitive.yaml
+**/.env
+**/*.env.yaml
+
+# Keep example/template files
+!**/secrets-vars.yaml.example
+!**/secrets.yaml.example

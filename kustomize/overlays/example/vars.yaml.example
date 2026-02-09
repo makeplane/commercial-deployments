@@ -1,0 +1,32 @@
+# Example variables configuration file
+# 
+# Copy this file to vars.yaml if it doesn't exist:
+#   cp vars.yaml.example vars.yaml
+# 
+# This file contains non-sensitive configuration values
+# It's safe to commit to git (unlike secrets-vars.yaml)
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: overlay-vars
+  annotations:
+    config.kubernetes.io/local-config: "true"
+data:
+  # Application version used across all images and config
+  APP_VERSION: "v2.3.3"
+  
+  # Domain configuration (without protocol)
+  APP_DOMAIN: "plane.mycompany.com"
+  
+  # Web URL (with protocol - http for dev, https for production)
+  WEB_URL: "http://plane.mycompany.com"
+  
+  # CORS allowed origins (comma-separated, both http and https)
+  CORS_ALLOWED_ORIGINS: "http://plane.mycompany.com,https://plane.mycompany.com"
+  
+  # Ingress class (nginx, traefik, etc.)
+  INGRESS_CLASS: "nginx"
+  
+  # Deployment configuration
+  IS_AIRGAPPED: "0"  # Set to "1" for air-gapped deployments

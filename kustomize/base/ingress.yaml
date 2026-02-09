@@ -1,0 +1,69 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: plane-ingress
+  namespace: plane
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: plane.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-web
+                port:
+                  number: 3000
+          - path: /spaces/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-space
+                port:
+                  number: 3000
+          - path: /god-mode/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-admin
+                port:
+                  number: 3000
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000
+          - path: /auth/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000
+          - path: /live/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-live
+                port:
+                  number: 3000
+          - path: /graphql/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000
+          - path: /marketplace/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000

@@ -1,0 +1,348 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: plane-ns
+
+resources:
+  - ../../base
+  - vars.yaml
+  - secrets-vars.yaml
+
+# Include ALL infrastructure components (local)
+components:
+  - ../../components/silo
+  - ../../components/email-service
+  # Uncomment these if you want to deploy the infrastructure components locally
+  # - ../../components/postgres
+  # - ../../components/redis
+  # - ../../components/rabbitmq
+  # - ../../components/minio
+  # - ../../components/opensearch
+
+# ============================================================
+# APPLICATION VERSION - CUSTOMIZE THIS FOR UPGRADES
+# ============================================================
+# Current Version: v2.3.3 (also defined in vars.yaml for ConfigMap replacements)
+# ============================================================
+images:
+  - name: artifacts.plane.so/makeplane/backend-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/web-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/space-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/admin-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/live-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/monitor-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/silo-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/email-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/iframely
+    newTag: v1.2.0  # iframely uses separate versioning
+
+# All configuration is now handled by replacements from vars.yaml and secrets-vars.yaml
+# No manual patches needed!
+
+# ============================================================
+# REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
+# ============================================================
+# This feature automatically replaces values across multiple resources
+# 
+# vars.yaml (ConfigMap) - Non-sensitive values:
+#   - APP_VERSION, APP_DOMAIN, NAMESPACE, INGRESS_CLASS
+# 
+# secrets-vars.yaml (Secret) - Sensitive values:
+#   - DATABASE_URL, REDIS_URL, AMQP_URL, OpenSearch creds, etc.
+# ============================================================
+replacements:
+  # ====== FROM vars.yaml (ConfigMap) ======
+  # Replace APP_VERSION in plane-monitor-vars ConfigMap
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_VERSION
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_VERSION
+  
+  # Replace APP_DOMAIN in ConfigMaps
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+  
+  # Replace APP_DOMAIN in Ingress host
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - spec.rules.0.host
+  
+  # Replace INGRESS_CLASS in Ingress
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.INGRESS_CLASS
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - spec.ingressClassName
+  
+  # Replace WEB_URL in plane-app-vars
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.WEB_URL
+      - select:
+          kind: ConfigMap
+          name: plane-silo-vars
+        fieldPaths:
+          - data.APP_BASE_URL
+          - data.SILO_API_BASE_URL
+
+  
+  # Replace CORS_ALLOWED_ORIGINS in plane-app-vars
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
+  
+  # Replace IS_AIRGAPPED in plane-monitor-vars
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.IS_AIRGAPPED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+  
+  # ====== FROM secrets-vars.yaml (Secret) ======
+  
+  # Infrastructure URLs in plane-app-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.DATABASE_URL
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMQP_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+  
+  # Application secret keys in plane-app-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.SECRET_KEY
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AES_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AES_SECRET_KEY
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.LIVE_SERVER_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+  
+  # OpenSearch configuration in plane-opensearch-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_ENABLED
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_ENABLED
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_URL
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_USERNAME
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_USERNAME
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_PASSWORD
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_PASSWORD
+  
+  # MinIO/S3 configuration in plane-doc-store-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_ACCESS_KEY_ID
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_ACCESS_KEY_ID
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_SECRET_ACCESS_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_SECRET_ACCESS_KEY
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_ENDPOINT_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_ENDPOINT_URL
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_BUCKET_NAME
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_BUCKET_NAME
+  
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_REGION
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_REGION
+  
+  # Live service REDIS_URL in plane-live-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL_LIVE
+    targets:
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.REDIS_URL

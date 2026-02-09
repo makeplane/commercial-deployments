@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: plane
+
+commonLabels:
+  app.kubernetes.io/part-of: plane-enterprise
+
+resources:
+  # Namespace and RBAC
+  - service-account.yaml
+
+  # ConfigMaps and Secrets
+  - configs/app-configmap.yaml
+  - configs/app-secret.yaml
+  - configs/live-configmap.yaml
+  - configs/live-secret.yaml
+  - configs/doc-store-secret.yaml
+  - configs/opensearch-secret.yaml
+  - configs/monitor-configmap.yaml
+  - configs/outbox-poller-configmap.yaml
+  - configs/automation-consumer-configmap.yaml
+  - configs/silo-secret.yaml
+
+  # StatefulSets (Required)
+  - statefulsets/monitor.yaml
+
+  # Deployments (Core Apps + Required Services)
+  - deployments/api.yaml
+  - deployments/web.yaml
+  - deployments/space.yaml
+  - deployments/admin.yaml
+  - deployments/live.yaml
+  - deployments/worker.yaml
+  - deployments/beat-worker.yaml
+  - deployments/iframely.yaml
+  - deployments/outbox-poller.yaml
+  - deployments/automation-consumer.yaml
+
+  # Services
+  - services/api.yaml
+  - services/web.yaml
+  - services/space.yaml
+  - services/admin.yaml
+  - services/live.yaml
+  - services/monitor.yaml
+  - services/iframely.yaml
+
+  # Jobs
+  - jobs/migrator.yaml
+
+  # Ingress
+  - ingress.yaml
+
+# Default image tags
+images:
+  - name: artifacts.plane.so/makeplane/backend-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/web-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/space-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/admin-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/live-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/monitor-commercial
+    newTag: v2.3.3
+  - name: artifacts.plane.so/makeplane/iframely
+    newTag: v1.2.0

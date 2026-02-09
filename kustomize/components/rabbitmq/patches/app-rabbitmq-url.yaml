@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: plane-app-secrets
+  namespace: plane
+stringData:
+  AMQP_URL: amqp://plane:plane@plane-rabbitmq/

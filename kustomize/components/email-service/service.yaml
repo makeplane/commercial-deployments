@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: plane-email-service
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: email-service
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local  # Important for email servers
+  selector:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: email-service
+  ports:
+  - name: smtp
+    port: 25
+    targetPort: 10025
+    protocol: TCP
+  - name: smtps
+    port: 465
+    targetPort: 10465
+    protocol: TCP
+  - name: submission
+    port: 587
+    targetPort: 10587
+    protocol: TCP

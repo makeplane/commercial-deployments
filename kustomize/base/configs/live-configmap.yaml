@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-live-vars
+  namespace: plane
+data:
+  API_BASE_URL: "http://plane-api:8000/"
+  LIVE_BASE_PATH: "/live"
+  LIVE_SENTRY_DSN: ""
+  LIVE_SENTRY_ENVIRONMENT: ""
+  LIVE_SENTRY_TRACES_SAMPLE_RATE: ""
+  IFRAMELY_URL: "http://plane-iframely:8061/"
+  EXTERNAL_IFRAMELY_URL: ""

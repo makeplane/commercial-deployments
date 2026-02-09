@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-email-vars
+  namespace: plane
+data:
+  SMTP_DOMAIN: "smtp.gmail.com"
+  EMAIL_SAVE_ENDPOINT: "http://plane-api:8000/intake/email/"
+  WEBHOOK_URL: "http://plane-api:8000/intake/email/"
+  domain-blacklist.txt: |
+    10minutemail.com
+    10minutemail.net
+    10minutemail.org
+  spam.txt: |
+    casino
+    lottery
+    jackpot

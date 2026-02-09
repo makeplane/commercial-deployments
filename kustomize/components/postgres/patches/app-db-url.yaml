@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: plane-app-secrets
+  namespace: plane
+stringData:
+  DATABASE_URL: postgresql://plane:plane@plane-postgres/plane

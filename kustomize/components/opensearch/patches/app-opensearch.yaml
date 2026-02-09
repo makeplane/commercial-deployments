@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: plane-opensearch-secrets
+  namespace: plane
+stringData:
+  # OpenSearch configuration - PLACEHOLDERS
+  # These will be filled by opensearch component OR provided externally
+  OPENSEARCH_ENABLED: "1"
+  OPENSEARCH_URL: http://plane-opensearch:9200
+  OPENSEARCH_USERNAME: plane
+  OPENSEARCH_PASSWORD: Secure@Pass#123!%^&*
+  OPENSEARCH_INDEX_PREFIX: plane_
+  OPENSEARCH_INITIAL_ADMIN_PASSWORD: Secure@Pass#123!%^&*
