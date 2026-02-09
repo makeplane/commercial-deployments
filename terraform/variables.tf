@@ -91,7 +91,7 @@ variable "mq" {
   default = {
     mq_username     = "plane"
     engine_version  = "3.13"
-    instance_type   = "mq.m7.medium"
+    instance_type   = "mq.m7g.medium"
     deployment_mode = "CLUSTER_MULTI_AZ"
   }
 }
