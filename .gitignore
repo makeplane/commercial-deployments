@@ -22,6 +22,23 @@ terraform.tfvars.local
 crash.log
 crash.*.log
 
+# Kustomize - User-specific secrets (NEVER COMMIT!)
+# Note: base/ secrets with placeholders ARE committed for reference
+kustomize/examples/**/external-urls-secret.yaml
+kustomize/overlays/**/external-urls-secret.yaml
+kustomize/overlays/**/secrets-vars.yaml
+kustomize/my-*.yaml
+kustomize/*-production-secrets.yaml
+
+# Kustomize - User-specific configurations
+kustomize/overlays/my-*/
+kustomize/examples/my-*/
+
+# Kustomize - Build output
+kustomize/kustomization-output/
+kustomize/manifests/
+kustomize/*.generated.yaml
+
 # IDE and editors
 .idea/
 .vscode/
@@ -36,6 +53,8 @@ Thumbs.db
 # Secrets and keys
 *.pem
 *.key
+*.crt
+ca-bundle.crt
 .env
 .env.*
 *.secret
@@ -44,3 +63,7 @@ Thumbs.db
 *.log
 *.tmp
 .cache/
+tmp/
+
+# Git
+.git/

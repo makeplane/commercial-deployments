@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-email-service-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: email-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: email-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: email-service
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: email-service
+          image: artifacts.plane.so/makeplane/email-commercial:v2.3.3
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 100
+          stdin: true
+          tty: true
+          envFrom:
+            - configMapRef:
+                name: plane-email-vars
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 50m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
+          readinessProbe:
+            exec:
+              command:
+              - nc
+              - -zv
+              - localhost
+              - "10025"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+          - name: tls-cert
+            mountPath: /opt/email/keys
+          - name: spam-blacklist
+            mountPath: /opt/email/spam.txt
+            subPath: spam.txt
+          - name: spam-blacklist
+            mountPath: /opt/email/domain-blacklist.txt
+            subPath: domain-blacklist.txt
+      volumes:
+        - name: spam-blacklist
+          configMap:
+            name: plane-email-vars
+        - name: tls-cert
+          secret:
+            secretName: plane-mail-tls-secret
+            items:
+            - key: tls.crt
+              path: cert.pem
+            - key: tls.key
+              path: key.pem
+            optional: false

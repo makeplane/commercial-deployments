@@ -1,0 +1,28 @@
+# This ConfigMap holds all the variables for this overlay
+# It won't be deployed to the cluster - it's just used as a source for replacements
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: overlay-vars
+  annotations:
+    # This annotation tells Kustomize to not deploy this ConfigMap
+    config.kubernetes.io/local-config: "true"
+data:
+  # Application version used across all images and config
+  APP_VERSION: "v2.3.3"
+  
+  # Domain configuration
+  APP_DOMAIN: "plane.mycompany.com"
+  
+  # Web URL (with protocol)
+  WEB_URL: "http://plane.mycompany.com"
+  
+  # CORS allowed origins (comma-separated)
+  CORS_ALLOWED_ORIGINS: "http://plane.mycompany.com,https://plane.mycompany.com"
+  
+  # Ingress class
+  INGRESS_CLASS: "nginx"
+  
+  # Other configuration flags
+  IS_AIRGAPPED: "0"
+  

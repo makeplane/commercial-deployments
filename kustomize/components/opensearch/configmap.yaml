@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-opensearch-init
+  namespace: plane
+data:
+  create-user.sh: |
+    #!/bin/bash
+
+    echo "=== OpenSearch Initialization Script ==="
+
+    echo "Modifying internal_users.yml before starting OpenSearch..."
+
+    # Hardcoded values
+    export OPENSEARCH_USER=${OPENSEARCH_USER:-"plane"}
+    export OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD:-"Secure@Pass#123!%^&*"}
+
+    echo "=== Configuration ==="
+    echo "USER: ${OPENSEARCH_USER}"
+    echo "PASSWORD: **********"
+    echo ""
+
+    # Run the user creation script before OpenSearch starts
+    export HASHED_PASSWORD=$(bash /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p "${OPENSEARCH_PASSWORD}")
+
+    # Path to internal users file
+    INTERNAL_USERS_FILE="/usr/share/opensearch/config/opensearch-security/internal_users.yml"
+
+    # Ensure the directory exists
+    mkdir -p "$(dirname "$INTERNAL_USERS_FILE")"
+
+    # Check if user already exists
+    if grep -q "^${OPENSEARCH_USER}:" "$INTERNAL_USERS_FILE"; then
+        echo "User ${OPENSEARCH_USER} already exists in internal_users.yml"
+    else
+        echo "Adding user ${OPENSEARCH_USER} to internal_users.yml"
+        cat << EOF >> "$INTERNAL_USERS_FILE"
+
+    ${OPENSEARCH_USER}:
+      hash: "${HASHED_PASSWORD}"
+      reserved: false
+      backend_roles:
+      - "admin"
+      description: "User for Plane"
+    EOF
+        echo "User ${OPENSEARCH_USER} added successfully to configuration"
+    fi
+
+    echo "Starting OpenSearch..."
+    # Start OpenSearch with the original entrypoint
+    exec /usr/share/opensearch/opensearch-docker-entrypoint.sh

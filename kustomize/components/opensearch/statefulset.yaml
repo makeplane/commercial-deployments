@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: plane-opensearch
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: opensearch
+spec:
+  serviceName: plane-opensearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: opensearch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: opensearch
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: opensearch
+          image: opensearchproject/opensearch:3.3.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9600
+              name: performance
+          envFrom:
+            - secretRef:
+                name: plane-opensearch-secrets
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: OPENSEARCH_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+            - name: DISABLE_SECURITY_PLUGIN
+              value: "true"
+            - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+              value: "Secure@Pass#123!%^&*"
+          volumeMounts:
+            - name: opensearch-data
+              mountPath: /usr/share/opensearch/data
+            - mountPath: /docker-entrypoint-init.d
+              name: plane-opensearch-init
+          resources:
+            requests:
+              memory: 2Gi
+              cpu: 500m
+            limits:
+              memory: 3Gi
+              cpu: 750m
+      volumes:
+      - name: plane-opensearch-init
+        configMap:
+          name: plane-opensearch-init
+          defaultMode: 0755
+          items:
+          - key: create-user.sh
+            path: create-user.sh
+  volumeClaimTemplates:
+    - metadata:
+        name: opensearch-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ''
+        resources:
+          requests:
+            storage: 5Gi

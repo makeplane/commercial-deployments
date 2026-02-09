@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: plane-app-secrets
+  namespace: plane
+stringData:
+  REDIS_URL: redis://plane-redis:6379/
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: plane-live-secrets
+  namespace: plane
+stringData:
+  REDIS_URL: redis://plane-redis:6379/

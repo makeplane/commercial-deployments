@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-automation-consumer-vars
+  namespace: plane
+data:
+  # Automation Consumer Configuration
+  AUTOMATION_EVENT_STREAM_QUEUE_NAME: "plane.event_stream.automations"
+  AUTOMATION_EVENT_STREAM_PREFETCH: "10"
+  AUTOMATION_EXCHANGE_NAME: "plane.event_stream"
+  AUTOMATION_EVENT_TYPES: "issue"

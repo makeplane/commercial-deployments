@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-monitor-vars
+  namespace: plane
+data:
+  # Monitor service configuration
+  APP_VERSION: "v0.0.0"
+  PRIME_HOST: "https://prime.plane.so"
+  MACHINE_SIGNATURE: "1cc520b3830d49399d60ea7e07cf1f000eced636bcaf1c92e72e8b90edb238bb"
+  APP_DOMAIN: "plane.dev.local"
+  DEPLOY_PLATFORM: "KUBERNETES"
+  API_URL: "http://plane-api:8000/"
+  API_HOSTNAME: "http://plane-api:8000/"
+  IS_AIRGAPPED: "0"

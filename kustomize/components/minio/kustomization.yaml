@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - statefulset.yaml
+  - service.yaml
+  - job-bucket-create.yaml
+
+patches:
+  - path: patches/app-minio-config.yaml
