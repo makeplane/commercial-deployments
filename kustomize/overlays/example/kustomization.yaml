@@ -53,10 +53,10 @@ images:
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
 # ============================================================
 # This feature automatically replaces values across multiple resources
-# 
+#
 # vars.yaml (ConfigMap) - Non-sensitive values:
 #   - APP_VERSION, APP_DOMAIN, NAMESPACE, INGRESS_CLASS
-# 
+#
 # secrets-vars.yaml (Secret) - Sensitive values:
 #   - DATABASE_URL, REDIS_URL, AMQP_URL, OpenSearch creds, etc.
 # ============================================================
@@ -78,7 +78,7 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
-  
+
   # Replace APP_DOMAIN in ConfigMaps
   - source:
       kind: ConfigMap
@@ -95,7 +95,7 @@ replacements:
           name: plane-monitor-vars
         fieldPaths:
           - data.APP_DOMAIN
-  
+
   # Replace APP_DOMAIN in Ingress host
   - source:
       kind: ConfigMap
@@ -106,7 +106,7 @@ replacements:
           kind: Ingress
         fieldPaths:
           - spec.rules.0.host
-  
+
   # Replace INGRESS_CLASS in Ingress
   - source:
       kind: ConfigMap
@@ -117,7 +117,7 @@ replacements:
           kind: Ingress
         fieldPaths:
           - spec.ingressClassName
-  
+
   # Replace WEB_URL in plane-app-vars
   - source:
       kind: ConfigMap
@@ -136,7 +136,7 @@ replacements:
           - data.APP_BASE_URL
           - data.SILO_API_BASE_URL
 
-  
+
   # Replace CORS_ALLOWED_ORIGINS in plane-app-vars
   - source:
       kind: ConfigMap
@@ -148,7 +148,7 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.CORS_ALLOWED_ORIGINS
-  
+
   # Replace IS_AIRGAPPED in plane-monitor-vars
   - source:
       kind: ConfigMap
@@ -165,9 +165,9 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.IS_AIRGAPPED
-  
+
   # ====== FROM secrets-vars.yaml (Secret) ======
-  
+
   # Infrastructure URLs in plane-app-secrets
   - source:
       kind: Secret
@@ -179,7 +179,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.DATABASE_URL
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -190,7 +190,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.REDIS_URL
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -201,7 +201,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.AMQP_URL
-  
+
   # Application secret keys in plane-app-secrets
   - source:
       kind: Secret
@@ -213,7 +213,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.SECRET_KEY
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -224,7 +224,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.AES_SECRET_KEY
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -235,7 +235,7 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
-  
+
   # OpenSearch configuration in plane-opensearch-secrets
   - source:
       kind: Secret
@@ -247,7 +247,7 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_ENABLED
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -258,7 +258,7 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_URL
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -269,7 +269,7 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_USERNAME
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -280,7 +280,7 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_PASSWORD
-  
+
   # MinIO/S3 configuration in plane-doc-store-secrets
   - source:
       kind: Secret
@@ -292,7 +292,7 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_ACCESS_KEY_ID
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -303,7 +303,7 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_SECRET_ACCESS_KEY
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -314,7 +314,7 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_S3_ENDPOINT_URL
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -325,7 +325,7 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_S3_BUCKET_NAME
-  
+
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -336,7 +336,7 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_REGION
-  
+
   # Live service REDIS_URL in plane-live-secrets
   - source:
       kind: Secret
@@ -348,3 +348,37 @@ replacements:
           name: plane-live-secrets
         fieldPaths:
           - stringData.REDIS_URL
+
+  # Silo service infrastructure URLs in plane-silo-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.DATABASE_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMQP_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
