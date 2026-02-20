@@ -57,19 +57,19 @@ resources:
 
 # Default image tags
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
+  - name: makeplane/backend-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/web-commercial
+  - name: makeplane/web-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/space-commercial
+  - name: makeplane/space-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/admin-commercial
+  - name: makeplane/admin-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/live-commercial
+  - name: makeplane/live-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/monitor-commercial
+  - name: makeplane/monitor-commercial
     newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/iframely
+  - name: makeplane/iframely
     newTag: v1.2.0
-  - name: artifacts.plane.so/makeplane/silo-commercial
+  - name: makeplane/silo-commercial
     newTag: v2.3.3

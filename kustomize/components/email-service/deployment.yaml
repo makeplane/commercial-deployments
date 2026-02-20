@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: email-service
-          image: artifacts.plane.so/makeplane/email-commercial:v2.3.3
+          image: makeplane/email-commercial:v2.3.3
           imagePullPolicy: Always
           securityContext:
             runAsUser: 100

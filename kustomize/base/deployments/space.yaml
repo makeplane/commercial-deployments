@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: space
-          image: artifacts.plane.so/makeplane/space-commercial:v2.3.3
+          image: makeplane/space-commercial:v2.3.3
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

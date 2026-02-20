@@ -197,15 +197,15 @@ Additional features that can be enabled:
 
 All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 
-- `artifacts.plane.so/makeplane/backend-commercial:v2.3.4` - Backend API & Workers
-- `artifacts.plane.so/makeplane/web-commercial:v2.3.4` - Web frontend
-- `artifacts.plane.so/makeplane/space-commercial:v2.3.4` - Space frontend
-- `artifacts.plane.so/makeplane/admin-commercial:v2.3.4` - Admin panel
-- `artifacts.plane.so/makeplane/live-commercial:v2.3.4` - Live collaboration
-- `artifacts.plane.so/makeplane/monitor-commercial:v2.3.4` - Monitor service
-- `artifacts.plane.so/makeplane/silo-commercial:v2.3.4` - Silo service
-- `artifacts.plane.so/makeplane/email-commercial:v2.3.4` - Email service (optional)
-- `artifacts.plane.so/makeplane/iframely:v1.2.0` - URL preview service
+- `makeplane/backend-commercial:v2.3.4` - Backend API & Workers
+- `makeplane/web-commercial:v2.3.4` - Web frontend
+- `makeplane/space-commercial:v2.3.4` - Space frontend
+- `makeplane/admin-commercial:v2.3.4` - Admin panel
+- `makeplane/live-commercial:v2.3.4` - Live collaboration
+- `makeplane/monitor-commercial:v2.3.4` - Monitor service
+- `makeplane/silo-commercial:v2.3.4` - Silo service
+- `makeplane/email-commercial:v2.3.4` - Email service (optional)
+- `makeplane/iframely:v1.2.0` - URL preview service
 
 **Note**: You need valid Plane Commercial credentials to pull these images. Configure image pull secrets if required:
 
@@ -811,7 +811,7 @@ resources:
 # Optional: add ../../components/email-service to components if needed
 
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
+  - name: makeplane/backend-commercial
     newTag: v2.3.4
   # ... other images
 
@@ -921,10 +921,10 @@ components:
 
 # Use private registry for images
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
+  - name: makeplane/backend-commercial
     newName: my-registry.internal/plane/backend
     newTag: v2.3.4
-  - name: artifacts.plane.so/makeplane/web-commercial
+  - name: makeplane/web-commercial
     newName: my-registry.internal/plane/web
     newTag: v2.3.4
   # ... other images
