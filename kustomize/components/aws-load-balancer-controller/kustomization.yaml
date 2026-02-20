@@ -1,16 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-resources:
-  - service-account.yaml
-
-helmCharts:
-  - name: aws-load-balancer-controller
-    repo: https://aws.github.io/eks-charts
-    version: 1.7.2
-    releaseName: aws-load-balancer-controller
-    namespace: kube-system
-    valuesFile: values.yaml
-
+# This component only patches the plane Ingress with ALB annotations.
+# Install the AWS Load Balancer Controller and its IRSA ServiceAccount yourself
+# (e.g. via Terraform or AWS_load_balancer_setup.md), then set INGRESS_CLASS: "alb" in vars.yaml.
 patches:
   - path: patches/ingress-annotations.yaml

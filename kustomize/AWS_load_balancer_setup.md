@@ -33,7 +33,7 @@ aws eks describe-cluster \
   --output text
 ```
 
-Example output: `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7`
+Example output: `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9`
 
 If your cluster does not have an OIDC provider associated in IAM, create it using the [EKS documentation](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html).
 
@@ -315,14 +315,14 @@ Create a role that the controller’s Kubernetes service account will assume via
 
 1. **Build the OIDC provider ARN**  
    From Step 1 you have an issuer like:  
-   `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7`  
+   `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9`  
    The IAM OIDC provider ARN format is:  
    `arn:aws:iam::<ACCOUNT_ID>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<OIDC_ID>`  
-   Example: `arn:aws:iam::426043895157:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7`
+   Example: `arn:aws:iam::1234567890123:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9`
 
 2. **Save the trust policy** as `trust-policy.json`. Replace:
    - `<OIDC_PROVIDER_ARN>` — e.g. `arn:aws:iam::<ACCOUNT_ID>:oidc-provider/oidc.eks.<region>.amazonaws.com/id/<OIDC_ID>`
-   - `<OIDC_ISSUER>:sub` — the condition key must be your issuer URL with `https://` removed, plus `:sub`. Example: `oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7:sub`
+   - `<OIDC_ISSUER>:sub` — the condition key must be your issuer URL with `https://` removed, plus `:sub`. Example: `oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9:sub`
 
 ```json
 {
@@ -344,7 +344,7 @@ Create a role that the controller’s Kubernetes service account will assume via
 }
 ```
 
-Example with real values: if the issuer is `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7`, then the condition key is `oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D391360C2468BD7:sub`.
+Example with real values: if the issuer is `https://oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9`, then the condition key is `oidc.eks.us-east-1.amazonaws.com/id/C877FBF6772ACD393D891360C2468BD9:sub`.
 
 3. **Create the role** (use a role name that matches your naming convention, e.g. `<cluster-name>-aws-lb-controller`):
 
@@ -442,42 +442,31 @@ If you use a different cluster name, region, or account, ensure the role name, t
 
 ## Kustomize Components (ingress-nginx and ALB)
 
-You can install an ingress controller via Kustomize components so it is managed in the same overlay as the rest of the app. Two components are provided; **pick one** per overlay.
-
-### Enabling Helm in Kustomize
-
-Components that ship the controller use Helm charts. Build with Helm enabled:
-
-```bash
-kustomize build --enable-helm overlays/<your-overlay> | kubectl apply -f -
-```
-
-Or with kubectl:
-
-```bash
-kubectl kustomize overlays/<your-overlay> --enable-helm | kubectl apply -f -
-```
+Two optional components **patch the plane Ingress** with controller-specific annotations. They do **not** install the controllers or any resources outside the plane namespace. Install the ingress controller (and for ALB, the IRSA ServiceAccount) yourself, then include the matching component and set `INGRESS_CLASS` in `vars.yaml`. **Pick one** component per overlay.
 
 ### Option 1: ingress-nginx component
 
-1. In your overlay `kustomization.yaml`, add the component under `components:`:
+1. Install the ingress-nginx controller (e.g. `kubectl apply -f ...` or Helm) in your cluster.
+2. In your overlay `kustomization.yaml`, add under `components:`:
    ```yaml
    components:
      - ../../components/ingress-nginx
    ```
-2. In `vars.yaml` (or `overlay-vars` ConfigMap), set:
+3. In `vars.yaml`, set:
    ```yaml
    INGRESS_CLASS: "nginx"
    ```
-3. Optionally edit `kustomize/components/ingress-nginx/values.yaml` (e.g. `controller.service.type`, replicas, tolerations).
-4. Build and apply with `--enable-helm` as above.
+4. Build and apply as usual (no `--enable-helm` needed):
+   ```bash
+   kubectl apply -k overlays/<your-overlay>
+   ```
 
-The component installs the ingress-nginx Helm chart and patches the base Ingress with nginx-specific annotations (e.g. `proxy-body-size`).
+The component only patches the base Ingress with nginx-specific annotations (e.g. `proxy-body-size`).
 
 ### Option 2: AWS Load Balancer Controller component
 
-1. Complete **Steps 1–4** in this document (OIDC, IAM policy, IAM role + attach policy, and the IRSA ServiceAccount). The component expects that ServiceAccount to exist in `kube-system`; you can create it manually or let the component provide it (see below).
-2. In your overlay `kustomization.yaml`, add the component under `components:`:
+1. Complete **Steps 1–5** in this document (OIDC, IAM policy, IAM role, ServiceAccount, and Helm install of the controller) so the controller and its IRSA ServiceAccount exist in `kube-system`.
+2. In your overlay `kustomization.yaml`, add under `components:`:
    ```yaml
    components:
      - ../../components/aws-load-balancer-controller
@@ -486,18 +475,15 @@ The component installs the ingress-nginx Helm chart and patches the base Ingress
    ```yaml
    INGRESS_CLASS: "alb"
    ```
-4. Edit the component’s `values.yaml` and, if you use the component’s ServiceAccount, its `service-account.yaml`:
-   - **values.yaml:** set `clusterName`, `region`, and `vpcId` to your EKS cluster values.
-   - **service-account.yaml:** set `<ACCOUNT_ID>` and `<cluster-name>` in the `eks.amazonaws.com/role-arn` annotation to match the IAM role you created in Step 3.
-5. Build and apply with `--enable-helm` as above.
+4. Build and apply as usual (no `--enable-helm` needed): `kubectl apply -k overlays/<your-overlay>`.
 
-The component installs the AWS Load Balancer Controller Helm chart (and optionally the IRSA ServiceAccount), and patches the base Ingress with ALB annotations (`scheme`, `target-type`, `listen-ports`).
+The component only patches the base Ingress with ALB annotations (`scheme`, `target-type`, `listen-ports`).
 
 ### Summary
 
-| Choice | Component | `vars.yaml` INGRESS_CLASS | Customize |
-|--------|-----------|---------------------------|-----------|
-| NGINX Ingress | `../../components/ingress-nginx` | `nginx` | `components/ingress-nginx/values.yaml` |
-| AWS ALB | `../../components/aws-load-balancer-controller` | `alb` | `components/aws-load-balancer-controller/values.yaml` and `service-account.yaml` |
+| Choice | Component | `vars.yaml` INGRESS_CLASS | You must install |
+|--------|-----------|---------------------------|------------------|
+| NGINX Ingress | `../../components/ingress-nginx` | `nginx` | ingress-nginx controller |
+| AWS ALB | `../../components/aws-load-balancer-controller` | `alb` | AWS LB Controller + IRSA (Steps 1–5 in this doc) |
 
 Use only one of these components per overlay so the same Ingress is not patched by both controllers.

@@ -12,7 +12,7 @@ resources:
 components:
   - ../../components/silo
   - ../../components/email-service
-  # -- Ingress controller: pick ONE (requires kustomize build --enable-helm) --
+  # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
   # - ../../components/ingress-nginx
   # - ../../components/aws-load-balancer-controller
   # Uncomment these if you want to deploy the infrastructure components locally
@@ -166,20 +166,6 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.IS_AIRGAPPED
-  
-  # Replace AWS LB Controller role ARN in ServiceAccount. Only has effect when
-  # components/aws-load-balancer-controller is included; set AWS_LB_CONTROLLER_ROLE_ARN in vars.yaml.
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.AWS_LB_CONTROLLER_ROLE_ARN
-    targets:
-      - select:
-          kind: ServiceAccount
-          name: aws-load-balancer-controller
-          namespace: kube-system
-        fieldPaths:
-          - metadata.annotations.eks.amazonaws.com~1role-arn
   
   # ====== FROM secrets-vars.yaml (Secret) ======
   

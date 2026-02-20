@@ -162,7 +162,7 @@ Additional features that can be enabled:
 
 ### Optional but Recommended
 
-- **Ingress Controller** (nginx, traefik, etc.)
+- **Ingress Controller** (nginx, traefik, etc.). Optional overlay components `ingress-nginx` and `aws-load-balancer-controller` only patch the plane Ingress with controller-specific annotations; you must install the controller yourself (e.g. below or via Helm). See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for the ALB controller.
   ```bash
   # Install nginx ingress controller
   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
