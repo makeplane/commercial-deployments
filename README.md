@@ -33,11 +33,12 @@ module "plane_infra" {
   source = "git::https://github.com/makeplane/commercial-deployments.git//terraform?ref=main"
   # source = "./terraform"  # for local development
 
-  cluster_name       = "plane-eks-cluster"
-  region             = "us-west-2" # required
-  vpc_cidr           = "10.0.0.0/16"
-  single_nat_gateway = true
-  cluster_version    = "1.34"
+  cluster_name             = "plane-eks-cluster"
+  region                   = "us-west-2" # required
+  vpc_cidr                 = "10.0.0.0/16"
+  single_nat_gateway       = true
+  enable_aws_lb_controller = true # to use aws ALB
+  cluster_version          = "1.34"
 
   tags = {
     Environment = "plane"
