@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: plane-app-vars
+            - configMapRef:
+                name: plane-silo-vars
             - secretRef:
                 name: plane-app-secrets
             - secretRef:

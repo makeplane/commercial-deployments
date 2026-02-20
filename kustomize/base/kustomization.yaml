@@ -20,6 +20,7 @@ resources:
   - configs/monitor-configmap.yaml
   - configs/outbox-poller-configmap.yaml
   - configs/automation-consumer-configmap.yaml
+  - configs/silo-configmap.yaml
   - configs/silo-secret.yaml
 
   # StatefulSets (Required)
@@ -36,6 +37,7 @@ resources:
   - deployments/iframely.yaml
   - deployments/outbox-poller.yaml
   - deployments/automation-consumer.yaml
+  - deployments/silo.yaml
 
   # Services
   - services/api.yaml
@@ -45,6 +47,7 @@ resources:
   - services/live.yaml
   - services/monitor.yaml
   - services/iframely.yaml
+  - services/silo.yaml
 
   # Jobs
   - jobs/migrator.yaml
@@ -68,3 +71,5 @@ images:
     newTag: v2.3.3
   - name: artifacts.plane.so/makeplane/iframely
     newTag: v1.2.0
+  - name: artifacts.plane.so/makeplane/silo-commercial
+    newTag: v2.3.3

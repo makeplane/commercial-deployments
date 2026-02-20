@@ -10,7 +10,6 @@ resources:
 
 # Include ALL infrastructure components (local)
 components:
-  - ../../components/silo
   - ../../components/email-service
   # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
   # - ../../components/ingress-nginx
