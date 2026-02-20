@@ -8,7 +8,7 @@ data:
   PRIME_HOST: "https://prime.plane.so"
   MACHINE_SIGNATURE: "1cc520b3830d49399d60ea7e07cf1f000eced636bcaf1c92e72e8b90edb238bb"
   APP_DOMAIN: "plane.example.com"
-  APP_VERSION: "v2.3.3"
+  APP_VERSION: "v2.3.4"
   
   # Internal Service URLs
   PAYMENT_SERVER_BASE_URL: "http://plane-monitor:8080/"

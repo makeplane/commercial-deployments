@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: silo
-          image: makeplane/silo-commercial:v2.3.3
+          image: makeplane/silo-commercial:v2.3.4
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

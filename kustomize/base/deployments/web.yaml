@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: web
-          image: makeplane/web-commercial:v2.3.3
+          image: makeplane/web-commercial:v2.3.4
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: api
-          image: makeplane/backend-commercial:v2.3.3
+          image: makeplane/backend-commercial:v2.3.4
           imagePullPolicy: Always
           command:
             - ./bin/docker-entrypoint-api-ee.sh

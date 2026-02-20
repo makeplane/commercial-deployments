@@ -14,7 +14,7 @@ metadata:
     config.kubernetes.io/local-config: "true"
 data:
   # Application version used across all images and config
-  APP_VERSION: "v2.3.3"
+  APP_VERSION: "v2.3.4"
   
   # Domain configuration (without protocol)
   APP_DOMAIN: "plane.mycompany.com"

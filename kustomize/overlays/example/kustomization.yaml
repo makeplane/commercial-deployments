@@ -24,25 +24,25 @@ components:
 # ============================================================
 # APPLICATION VERSION - CUSTOMIZE THIS FOR UPGRADES
 # ============================================================
-# Current Version: v2.3.3 (also defined in vars.yaml for ConfigMap replacements)
+# Current Version: v2.3.4 (also defined in vars.yaml for ConfigMap replacements)
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/web-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/space-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/admin-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/live-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/monitor-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/silo-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/email-commercial
-    newTag: v2.3.3
+    newTag: v2.3.4
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
