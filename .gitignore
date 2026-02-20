@@ -27,6 +27,7 @@ crash.*.log
 kustomize/examples/**/external-urls-secret.yaml
 kustomize/overlays/**/external-urls-secret.yaml
 kustomize/overlays/**/secrets-vars.yaml
+kustomize/overlays/**/vars.yaml
 kustomize/my-*.yaml
 kustomize/*-production-secrets.yaml
 

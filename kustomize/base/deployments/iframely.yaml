@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: iframely
-          image: artifacts.plane.so/makeplane/iframely:v1.2.0
+          image: makeplane/iframely:v1.2.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8061

@@ -3,8 +3,6 @@ kind: Ingress
 metadata:
   name: plane-ingress
   namespace: plane
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
 spec:
   ingressClassName: nginx
   rules:
@@ -67,3 +65,10 @@ spec:
                 name: plane-api
                 port:
                   number: 8000
+          - path: /silo/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-silo
+                port:
+                  number: 3000

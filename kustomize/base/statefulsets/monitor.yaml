@@ -22,7 +22,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: monitor
-          image: artifacts.plane.so/makeplane/monitor-commercial:v2.3.3
+          image: makeplane/monitor-commercial:v2.3.4
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

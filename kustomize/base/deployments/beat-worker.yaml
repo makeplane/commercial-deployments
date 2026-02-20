@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: beat-worker
-          image: artifacts.plane.so/makeplane/backend-commercial:v2.3.3
+          image: makeplane/backend-commercial:v2.3.4
           imagePullPolicy: Always
           command:
             - ./bin/docker-entrypoint-beat.sh

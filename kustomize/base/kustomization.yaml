@@ -20,6 +20,7 @@ resources:
   - configs/monitor-configmap.yaml
   - configs/outbox-poller-configmap.yaml
   - configs/automation-consumer-configmap.yaml
+  - configs/silo-configmap.yaml
   - configs/silo-secret.yaml
 
   # StatefulSets (Required)
@@ -36,6 +37,7 @@ resources:
   - deployments/iframely.yaml
   - deployments/outbox-poller.yaml
   - deployments/automation-consumer.yaml
+  - deployments/silo.yaml
 
   # Services
   - services/api.yaml
@@ -45,6 +47,7 @@ resources:
   - services/live.yaml
   - services/monitor.yaml
   - services/iframely.yaml
+  - services/silo.yaml
 
   # Jobs
   - jobs/migrator.yaml
@@ -54,17 +57,19 @@ resources:
 
 # Default image tags
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/web-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/space-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/admin-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/live-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/monitor-commercial
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/iframely
+  - name: makeplane/backend-commercial
+    newTag: v2.3.4
+  - name: makeplane/web-commercial
+    newTag: v2.3.4
+  - name: makeplane/space-commercial
+    newTag: v2.3.4
+  - name: makeplane/admin-commercial
+    newTag: v2.3.4
+  - name: makeplane/live-commercial
+    newTag: v2.3.4
+  - name: makeplane/monitor-commercial
+    newTag: v2.3.4
+  - name: makeplane/iframely
     newTag: v1.2.0
+  - name: makeplane/silo-commercial
+    newTag: v2.3.4

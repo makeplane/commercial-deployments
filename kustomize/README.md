@@ -31,17 +31,17 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 
 ## Quick Reference
 
-**Current Version**: `v2.3.3` (iframely: `v1.2.0`)
+**Current Version**: `v2.3.4` (iframely: `v1.2.0`)
 
 **Core Services Deployed** (from `base/`):
-- 10 Deployments: api, web, space, admin, live, worker, beat-worker, iframely, outbox-poller, automation-consumer
+- 11 Deployments: api, web, space, admin, live, worker, beat-worker, iframely, outbox-poller, automation-consumer, silo
 - 1 StatefulSet: monitor
 - 1 Job: migrator (database migrations)
 - 1 Ingress: path-based routing for all services
 
 **Infrastructure Components** (optional, in `components/`):
 - `postgres`, `redis`, `rabbitmq`, `minio`, `opensearch` - Deploy locally OR use external services
-- `silo`, `email-service` - Optional features
+- `email-service` - Optional features
 
 **How Configuration Works**:
 ```
@@ -53,7 +53,7 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 ```
 
 **File You'll Edit**:
-- `overlays/my-env/vars.yaml` - Domain, version, ingress class
+- `overlays/my-env/vars.yaml` - Domain, version, ingress class (e.g. traefik-external)
 - `overlays/my-env/secrets-vars.yaml` - Credentials and connection strings
 - `overlays/my-env/kustomization.yaml` - Components and image versions
 
@@ -78,6 +78,7 @@ Core Plane application services and required components defined in `base/`:
 - `iframely` - URL preview service (v1.2.0)
 - `outbox-poller` - Outbox pattern poller
 - `automation-consumer` - Automation task consumer
+- `silo` - Integrations
 
 **StatefulSets:**
 - `monitor` - Monitoring and metrics service
@@ -87,10 +88,10 @@ Core Plane application services and required components defined in `base/`:
 
 **Ingress:**
 - Single ingress with path-based routing for all services
-- Paths: `/` (web), `/spaces/` (space), `/god-mode/` (admin), `/api/`, `/auth/`, `/live/`
+- Paths: `/` (web), `/spaces/` (space), `/god-mode/` (admin), `/api/`, `/auth/`, `/live/`, `/silo/`
 
 **Services:**
-- Service definitions for api, web, space, admin, live, monitor, iframely
+- Service definitions for api, web, space, admin, live, monitor, iframely, silo
 
 **ConfigMaps & Secrets:**
 - Application configuration, Live config, OpenSearch config, Monitor config, Silo config
@@ -135,11 +136,6 @@ Additional features that can be enabled:
 - Adds: Deployment, Service, ConfigMap
 - Provides email sending capabilities
 
-**silo** (Silo integration)  
-- Adds: Deployment, Service, ConfigMap
-- Patches: Ingress to add `/silo/` path
-- Enables silo functionality
-
 ## Prerequisites
 
 ### Required
@@ -162,11 +158,24 @@ Additional features that can be enabled:
 
 ### Optional but Recommended
 
-- **Ingress Controller** (nginx, traefik, etc.)
+- **Ingress Controller** – Traefik is the recommended default. Install it yourself (e.g. below or via Helm). Optional overlay components `ingress-nginx` and `aws-load-balancer-controller` only patch the plane Ingress with controller-specific annotations. See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for the ALB controller.
   ```bash
-  # Install nginx ingress controller
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
+  # Add Traefik Helm repo and install Traefik ingress controller
+  helm repo add traefik https://traefik.github.io/charts
+  helm repo update
+
+  helm upgrade --install traefik traefik/traefik \
+    --namespace traefik \
+    --create-namespace \
+    --set image.tag=v3.6.2 \
+    --set "providers.kubernetesIngress.enabled=true" \
+    --set "ingressClass.enabled=true" \
+    --set "ingressClass.name=traefik-external" \
+    --set "providers.kubernetesIngress.ingressClass=traefik-external" \
+    --set service.type=LoadBalancer \
+    --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb"
   ```
+  Then set `INGRESS_CLASS: "traefik-external"` in your overlay's `vars.yaml`.
 
 - **Cert-Manager** for automatic TLS certificates
   ```bash
@@ -188,15 +197,15 @@ Additional features that can be enabled:
 
 All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 
-- `artifacts.plane.so/makeplane/backend-commercial:v2.3.3` - Backend API & Workers
-- `artifacts.plane.so/makeplane/web-commercial:v2.3.3` - Web frontend
-- `artifacts.plane.so/makeplane/space-commercial:v2.3.3` - Space frontend
-- `artifacts.plane.so/makeplane/admin-commercial:v2.3.3` - Admin panel
-- `artifacts.plane.so/makeplane/live-commercial:v2.3.3` - Live collaboration
-- `artifacts.plane.so/makeplane/monitor-commercial:v2.3.3` - Monitor service
-- `artifacts.plane.so/makeplane/silo-commercial:v2.3.3` - Silo service (optional)
-- `artifacts.plane.so/makeplane/email-commercial:v2.3.3` - Email service (optional)
-- `artifacts.plane.so/makeplane/iframely:v1.2.0` - URL preview service
+- `makeplane/backend-commercial:v2.3.4` - Backend API & Workers
+- `makeplane/web-commercial:v2.3.4` - Web frontend
+- `makeplane/space-commercial:v2.3.4` - Space frontend
+- `makeplane/admin-commercial:v2.3.4` - Admin panel
+- `makeplane/live-commercial:v2.3.4` - Live collaboration
+- `makeplane/monitor-commercial:v2.3.4` - Monitor service
+- `makeplane/silo-commercial:v2.3.4` - Silo service
+- `makeplane/email-commercial:v2.3.4` - Email service (optional)
+- `makeplane/iframely:v1.2.0` - URL preview service
 
 **Note**: You need valid Plane Commercial credentials to pull these images. Configure image pull secrets if required:
 
@@ -291,9 +300,8 @@ spec:
 | **minio** | Use local S3 storage | Using AWS S3, Google Cloud Storage |
 | **opensearch** | Use local OpenSearch | Using AWS OpenSearch Service |
 | **email-service** | Need email delivery | Using external email service |
-| **silo** | Need silo functionality | Not needed |
 
-**Important**: Infrastructure components (postgres, redis, rabbitmq, minio, opensearch) are **required**. If not included as components, you MUST provide external URLs in secrets.
+**Note:** Silo is always deployed from `base/` (not a component). Infrastructure components (postgres, redis, rabbitmq, minio, opensearch) are **required**; if not included as components, you MUST provide external URLs in `secrets-vars.yaml`.
 
 ## Component Details
 
@@ -417,17 +425,7 @@ components:
 
 **Configuration:** Set email provider credentials via environment variables
 
-#### Silo Component
-
-**What it adds:**
-- `Deployment` for silo service
-- `Service` exposing silo API
-- `ConfigMap` with silo configuration
-- `Patch` to add `/silo/` path to main ingress
-
-**Use when:** You need silo integration functionality
-
-**Configuration:** Configure via `plane-silo-vars` ConfigMap and `plane-silo-secrets`
+**Silo** is not a component; it is always deployed from `base/` (deployment, service, configmap, and `/silo/` ingress path). Configure via `plane-silo-vars` ConfigMap and `plane-silo-secrets`.
 
 ## Deployment Scenarios
 
@@ -451,7 +449,6 @@ components:
   - ../../components/rabbitmq      # Local RabbitMQ
   - ../../components/minio         # Local MinIO
   - ../../components/opensearch    # Local OpenSearch
-  - ../../components/silo          # Optional
   - ../../components/email-service # Optional
 ```
 
@@ -478,7 +475,6 @@ resources:
 
 # NO infrastructure components - use external services
 components:
-  - ../../components/silo          # Optional: if needed
   - ../../components/email-service # Optional: if needed
 
 # Configure external services in secrets-vars.yaml:
@@ -564,7 +560,7 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
        config.kubernetes.io/local-config: "true"
    data:
      # Application version (keep in sync with image tags below)
-     APP_VERSION: "v2.3.3"
+     APP_VERSION: "v2.3.4"
      
      # Domain configuration (without protocol)
      APP_DOMAIN: "plane.yourcompany.com"
@@ -575,8 +571,8 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
      # CORS allowed origins (comma-separated)
      CORS_ALLOWED_ORIGINS: "https://plane.yourcompany.com"
      
-     # Ingress class (nginx, traefik, alb, etc.)
-     INGRESS_CLASS: "nginx"
+     # Ingress class (traefik-external, nginx, alb, etc.)
+     INGRESS_CLASS: "traefik-external"
      
      # Air-gapped deployment flag
      IS_AIRGAPPED: "0"  # Set to "1" for air-gapped environments
@@ -812,12 +808,11 @@ resources:
   - secrets-vars.yaml
 
 # NO infrastructure components - using AWS managed services
-components:
-  - ../../components/silo  # Optional
+# Optional: add ../../components/email-service to components if needed
 
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
-    newTag: v2.3.3
+  - name: makeplane/backend-commercial
+    newTag: v2.3.4
   # ... other images
 
 patches:
@@ -926,12 +921,12 @@ components:
 
 # Use private registry for images
 images:
-  - name: artifacts.plane.so/makeplane/backend-commercial
+  - name: makeplane/backend-commercial
     newName: my-registry.internal/plane/backend
-    newTag: v2.3.3
-  - name: artifacts.plane.so/makeplane/web-commercial
+    newTag: v2.3.4
+  - name: makeplane/web-commercial
     newName: my-registry.internal/plane/web
-    newTag: v2.3.3
+    newTag: v2.3.4
   # ... other images
 ```
 

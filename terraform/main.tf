@@ -49,6 +49,18 @@ module "eks" {
   depends_on          = [module.vpc]
 }
 
+module "aws_lb_controller" {
+  count  = var.enable_aws_lb_controller ? 1 : 0
+  source = "./modules/aws-lb-controller"
+
+  cluster_name      = var.cluster_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = var.tags
+
+  depends_on = [module.eks]
+}
+
 resource "random_password" "opensearch" {
   length           = 32
   special          = true
