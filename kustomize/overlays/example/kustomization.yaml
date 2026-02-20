@@ -13,7 +13,7 @@ components:
   - ../../components/email-service
   # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
   # - ../../components/ingress-nginx
-  # - ../../components/aws-load-balancer-controller
+  - ../../components/aws-load-balancer-controller
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -117,6 +117,17 @@ replacements:
           kind: Ingress
         fieldPaths:
           - spec.ingressClassName
+
+  # Replace ALB SSL Certificate ARN in Ingress annotations
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ALB_SSL_CERT_ARN
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - metadata.annotations.alb\.ingress\.kubernetes\.io/certificate-arn
 
   # Replace WEB_URL in plane-app-vars
   - source:

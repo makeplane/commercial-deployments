@@ -23,5 +23,8 @@ data:
   # Ingress class
   INGRESS_CLASS: "nginx"
   
+  # AWS ALB SSL Certificate ARN (required when using ALB ingress controller)
+  ALB_SSL_CERT_ARN: "arn:aws:acm:us-east-1:1232423423:certificate/f8e65ac6-a0dd-46d2-8809-dea53ec3b765"
+
   # Other configuration flags
   IS_AIRGAPPED: "0"
