@@ -30,3 +30,7 @@ data:
   
   # Deployment configuration
   IS_AIRGAPPED: "0"  # Set to "1" for air-gapped deployments
+  
+  # AWS Load Balancer Controller (only when using components/aws-load-balancer-controller)
+  # IAM role ARN for IRSA, e.g. arn:aws:iam::123456789012:role/my-cluster-aws-lb-controller
+  AWS_LB_CONTROLLER_ROLE_ARN: ""

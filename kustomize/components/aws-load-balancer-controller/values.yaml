@@ -1,0 +1,12 @@
+# Values for aws-load-balancer-controller Helm chart
+# https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller
+#
+# Replace <cluster-name>, <region>, and <vpc-id> with your EKS cluster details.
+
+clusterName: <cluster-name>
+region: <region>
+vpcId: <vpc-id>
+
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller

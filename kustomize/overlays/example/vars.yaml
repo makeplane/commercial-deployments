@@ -26,3 +26,5 @@ data:
   # Other configuration flags
   IS_AIRGAPPED: "0"
   
+  # Set when using components/aws-load-balancer-controller (IAM role ARN for IRSA)
+  AWS_LB_CONTROLLER_ROLE_ARN: ""

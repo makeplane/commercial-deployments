@@ -66,6 +66,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "enable_aws_lb_controller" {
+  description = "Create IAM policy and IRSA role for the AWS Load Balancer Controller"
+  type        = bool
+  default     = false
+}
+
 variable "cache" {
   description = "ElastiCache Redis configuration"
   type = object({

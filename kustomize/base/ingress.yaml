@@ -3,8 +3,6 @@ kind: Ingress
 metadata:
   name: plane-ingress
   namespace: plane
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
 spec:
   ingressClassName: nginx
   rules:

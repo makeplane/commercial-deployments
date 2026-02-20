@@ -39,6 +39,11 @@ output "oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.cluster.arn
 }
 
+output "oidc_provider_url" {
+  description = "URL of the OIDC provider for the cluster (for IRSA trust policies)"
+  value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
 output "addon_versions" {
   description = "Versions of installed EKS add-ons"
   value = {

@@ -49,6 +49,11 @@ output "eks_addon_versions" {
   value       = module.eks.addon_versions
 }
 
+output "aws_lb_controller_role_arn" {
+  description = "IAM role ARN for AWS Load Balancer Controller (set in service-account.yaml annotation)"
+  value       = var.enable_aws_lb_controller ? module.aws_lb_controller[0].role_arn : null
+}
+
 output "redis_endpoint" {
   description = "Redis primary endpoint"
   value       = module.cache.redis_endpoint
