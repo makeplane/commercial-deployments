@@ -213,6 +213,45 @@ replacements:
         fieldPaths:
           - stringData.AMQP_URL
 
+  # AWS Secret ARNs in plane-app-secrets and plane-live-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMAZONMQ_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AMAZONMQ_SECRET_ARN
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ELASTICACHE_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.ELASTICACHE_SECRET_ARN
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.ELASTICACHE_SECRET_ARN
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.RDS_SECRET_ARN
+
   # Application secret keys in plane-app-secrets
   - source:
       kind: Secret
