@@ -11,6 +11,8 @@ resources:
 # Include ALL infrastructure components (local)
 components:
   - ../../components/email-service
+  # Optional: enable EKS IRSA role annotation on plane-srv-account
+  # - ../../components/eks-irsa-plane-serviceaccount
   # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
   # - ../../components/ingress-nginx
   - ../../components/aws-load-balancer-controller
@@ -213,11 +215,11 @@ replacements:
         fieldPaths:
           - stringData.AMQP_URL
 
-  # AWS Secret ARNs in plane-app-secrets and plane-live-secrets
+  # AWS Secrets Manager ARNs in plane-app-secrets and plane-live-secrets
   - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.AMAZONMQ_SECRET_ARN
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AMAZONMQ_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -226,9 +228,9 @@ replacements:
           - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.ELASTICACHE_SECRET_ARN
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ELASTICACHE_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -242,9 +244,9 @@ replacements:
           - stringData.ELASTICACHE_SECRET_ARN
 
   - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.RDS_SECRET_ARN
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -391,7 +393,7 @@ replacements:
   - source:
       kind: Secret
       name: overlay-secret-vars
-      fieldPath: stringData.REDIS_URL_LIVE
+      fieldPath: stringData.REDIS_URL
     targets:
       - select:
           kind: Secret

@@ -28,3 +28,11 @@ data:
 
   # Other configuration flags
   IS_AIRGAPPED: "0"
+
+  # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
+  AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/mq/secrets-GMMWoG"
+  ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/redis/secrets-K0zoig"
+  RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/secrets-oFsQ2M"
+
+  # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
+  PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::426043895157:role/PlaneS3Role"
