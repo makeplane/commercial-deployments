@@ -37,3 +37,13 @@ data:
   # Sentry (optional monitoring)
   SENTRY_DSN: ""
   SENTRY_ENVIRONMENT: ""
+
+  # AWS Secrets Manager key mappings
+  REDIS_AUTH_TOKEN_KEY: "authToken"
+  RABBITMQ_USER_KEY: "username"
+  RABBITMQ_PASSWORD_KEY: "password"
+  RDS_DB_NAME_KEY: "dbname"
+  RDS_DB_HOST_KEY: "host"
+  RDS_DB_PASSWORD_KEY: "password"
+  RDS_DB_PORT_KEY: "port"
+  RDS_DB_USERNAME_KEY: "username"

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - path: patches/service-account-role-arn.yaml
+    target:
+      kind: ServiceAccount
+      name: plane-srv-account
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PLANE_SERVICE_ACCOUNT_ROLE_ARN
+    targets:
+      - select:
+          kind: ServiceAccount
+          name: plane-srv-account
+        fieldPaths:
+          - metadata.annotations.eks\.amazonaws\.com/role-arn

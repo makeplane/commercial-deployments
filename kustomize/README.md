@@ -594,7 +594,6 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
      
      DATABASE_URL: "postgresql://user:pass@your-rds.amazonaws.com:5432/plane"
      REDIS_URL: "redis://your-elasticache.amazonaws.com:6379/"
-     REDIS_URL_LIVE: "redis://your-elasticache.amazonaws.com:6379/"
      AMQP_URL: "amqps://user:pass@your-mq.amazonaws.com:5671/"
      
      # ====== OPENSEARCH CONFIGURATION ======
@@ -631,7 +630,6 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
 **Configured via secrets-vars.yaml (sensitive):**
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection string (main)
-- `REDIS_URL_LIVE` - Redis connection string for Live service
 - `AMQP_URL` - RabbitMQ connection string
 - `OPENSEARCH_*` - OpenSearch configuration
 - `AWS_*` - S3/MinIO configuration
@@ -829,7 +827,6 @@ replacements:
 stringData:
   DATABASE_URL: "postgresql://planeuser:XXXXX@plane-db.xxx.us-east-1.rds.amazonaws.com:5432/plane?sslmode=require"
   REDIS_URL: "rediss://plane-cache.xxx.cache.amazonaws.com:6379?ssl_cert_reqs=required"
-  REDIS_URL_LIVE: "rediss://plane-cache.xxx.cache.amazonaws.com:6379?ssl_cert_reqs=required"
   AMQP_URL: "amqps://planeuser:XXXXX@b-xxx.mq.us-east-1.amazonaws.com:5671"
   OPENSEARCH_URL: "https://search-plane-xxx.us-east-1.es.amazonaws.com"
   OPENSEARCH_USERNAME: "admin"

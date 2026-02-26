@@ -6,3 +6,15 @@ kind: Component
 # (e.g. via Terraform or AWS_load_balancer_setup.md), then set INGRESS_CLASS: "alb" in vars.yaml.
 patches:
   - path: patches/ingress-annotations.yaml
+
+replacements:
+  # Replace ALB SSL Certificate ARN in Ingress annotations (only when this component is enabled)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ALB_SSL_CERT_ARN
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - metadata.annotations.alb\.ingress\.kubernetes\.io/certificate-arn
