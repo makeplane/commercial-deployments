@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+replacements:
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_USERNAME
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_USERNAME
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_PASSWORD
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_PASSWORD

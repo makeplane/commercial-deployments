@@ -12,13 +12,13 @@ data:
   APP_VERSION: "v2.3.4"
   
   # Domain configuration
-  APP_DOMAIN: "gp.loadtest.plane.town"
+  APP_DOMAIN: "your-domain.example.com"
   
   # Web URL (with protocol)
-  WEB_URL: "http://gp.loadtest.plane.town"
+  WEB_URL: "https://your-domain.example.com"
   
   # CORS allowed origins (comma-separated)
-  CORS_ALLOWED_ORIGINS: "http://gp.loadtest.plane.town,https://gp.loadtest.plane.town"
+  CORS_ALLOWED_ORIGINS: "https://your-domain.example.com"
   
   # Ingress class
   INGRESS_CLASS: "nginx"
@@ -30,9 +30,9 @@ data:
   IS_AIRGAPPED: "0"
 
   # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
-  AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/mq/secrets-GMMWoG"
-  ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/redis/secrets-K0zoig"
-  RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:426043895157:secret:gp/api/secrets-oFsQ2M"
+  AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-mq-secret"
+  ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
+  RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
 
-  # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
-  PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::426043895157:role/PlaneS3Role"
+  # Optional: EKS IRSA and Pod Identity for Plane workloads (ServiceAccount annotation)
+  PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"

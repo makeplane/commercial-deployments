@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+replacements:
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_ACCESS_KEY_ID
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_ACCESS_KEY_ID
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_SECRET_ACCESS_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_SECRET_ACCESS_KEY
