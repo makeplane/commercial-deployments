@@ -36,9 +36,9 @@ data:
   IS_AIRGAPPED: "0"  # Set to "1" for air-gapped deployments
 
   # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
-  AMAZONMQ_SECRET_ARN: ""
-  ELASTICACHE_SECRET_ARN: ""
-  RDS_SECRET_ARN: ""
+  AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-mq-secret"
+  ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
+  RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
 
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
-  PLANE_SERVICE_ACCOUNT_ROLE_ARN: ""
+  PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"

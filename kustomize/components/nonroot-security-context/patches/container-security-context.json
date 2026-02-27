@@ -1,0 +1,14 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/securityContext",
+    "value": {
+      "allowPrivilegeEscalation": false,
+      "capabilities": {
+        "drop": ["ALL"]
+      },
+      "runAsNonRoot": true,
+      "runAsUser": 1000
+    }
+  }
+]

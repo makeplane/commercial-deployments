@@ -16,6 +16,14 @@ components:
   # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
   - ../../components/ingress-nginx
   # - ../../components/aws-load-balancer-controller
+  # Optional: enable when providing static DATABASE_URL; omit when using IRSA/EKS Pod Identity with RDS_SECRET_ARN
+  # - ../../components/static-db-url
+  # Optional: enable when using external OpenSearch with username/password auth
+  # - ../../components/opensearch-external-auth
+  # Optional: enable when using static AWS keys for S3; omit when using IRSA via eks-irsa-plane-serviceaccount
+  # - ../../components/s3-static-credentials
+  # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
+  # - ../../components/nonroot-security-context
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -169,18 +177,7 @@ replacements:
           - data.IS_AIRGAPPED
 
   # ====== FROM secrets-vars.yaml (Secret) ======
-
-  # Infrastructure URLs in plane-app-secrets
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.DATABASE_URL
-    targets:
-      - select:
-          kind: Secret
-          name: plane-app-secrets
-        fieldPaths:
-          - stringData.DATABASE_URL
+  # DATABASE_URL: use component static-db-url when providing static URL; omit when using IRSA with RDS_SECRET_ARN
 
   - source:
       kind: Secret
@@ -299,52 +296,9 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_URL
+  # OPENSEARCH_USERNAME/PASSWORD: use component opensearch-external-auth when needed
 
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.OPENSEARCH_USERNAME
-    targets:
-      - select:
-          kind: Secret
-          name: plane-opensearch-secrets
-        fieldPaths:
-          - stringData.OPENSEARCH_USERNAME
-
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.OPENSEARCH_PASSWORD
-    targets:
-      - select:
-          kind: Secret
-          name: plane-opensearch-secrets
-        fieldPaths:
-          - stringData.OPENSEARCH_PASSWORD
-
-  # MinIO/S3 configuration in plane-doc-store-secrets
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.AWS_ACCESS_KEY_ID
-    targets:
-      - select:
-          kind: Secret
-          name: plane-doc-store-secrets
-        fieldPaths:
-          - stringData.AWS_ACCESS_KEY_ID
-
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.AWS_SECRET_ACCESS_KEY
-    targets:
-      - select:
-          kind: Secret
-          name: plane-doc-store-secrets
-        fieldPaths:
-          - stringData.AWS_SECRET_ACCESS_KEY
-
+  # MinIO/S3 configuration in plane-doc-store-secrets (AWS_ACCESS_KEY_ID/SECRET: use component s3-static-credentials when needed)
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -390,18 +344,7 @@ replacements:
         fieldPaths:
           - stringData.REDIS_URL
 
-  # Silo service infrastructure URLs in plane-silo-secrets
-  - source:
-      kind: Secret
-      name: overlay-secret-vars
-      fieldPath: stringData.DATABASE_URL
-    targets:
-      - select:
-          kind: Secret
-          name: plane-silo-secrets
-        fieldPaths:
-          - stringData.DATABASE_URL
-
+  # Silo service infrastructure URLs in plane-silo-secrets (DATABASE_URL: use component static-db-url when needed)
   - source:
       kind: Secret
       name: overlay-secret-vars

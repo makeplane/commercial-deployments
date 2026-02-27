@@ -12,6 +12,8 @@ Kubernetes deployment for Plane Commercial using Kustomize.
 - [Component Decision Matrix](#component-decision-matrix)
 - [Component Details](#component-details)
 - [Deployment Scenarios](#deployment-scenarios)
+- [Deploying with IRSA or EKS Pod Identity](#deploying-with-irsa-or-eks-pod-identity)
+- [Running workloads as non-root](#running-workloads-as-non-root)
 - [Configuration](#configuration)
 - [Production Considerations](#production-considerations)
 - [Security Best Practices](#security-best-practices)
@@ -529,6 +531,52 @@ patches:
 ```bash
 kubectl apply -k overlays/hybrid/
 ```
+
+## Deploying with IRSA or EKS Pod Identity
+
+On EKS you can avoid static credentials by using **IRSA** (IAM Roles for Service Accounts) or **EKS Pod Identity**. The Plane ServiceAccount is then annotated with an IAM role ARN; pods assume that role and can call AWS APIs (Secrets Manager, S3, etc.) without storing access keys.
+
+**Steps:**
+
+1. **Create an IAM role** (e.g. via Terraform or AWS Console) that has policies to access the resources your Plane workloads need (Secrets Manager for RDS/RabbitMQ/Redis secrets, S3 for uploads, etc.).
+
+2. **Enable the IRSA component** in your overlay and set the role ARN in `vars.yaml`:
+   ```yaml
+   # overlays/my-env/kustomization.yaml
+   components:
+     - ../../components/eks-irsa-plane-serviceaccount
+   ```
+   ```yaml
+   # overlays/my-env/vars.yaml
+   data:
+     PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneWorkloadRole"
+   ```
+
+3. **Use AWS Secrets Manager ARNs** in `vars.yaml` so the application fetches DB/Redis/RabbitMQ credentials at runtime instead of using static connection strings:
+   ```yaml
+   data:
+     RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/rds"
+     ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/redis"
+     AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mq"
+   ```
+
+4. **Do not enable** the `static-db-url` or `s3-static-credentials` components when using IRSA; leave `DATABASE_URL` and AWS keys out of `secrets-vars.yaml` (or omit those components) so the app uses the IAM role and the ARNs above.
+
+See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for ALB controller and IRSA setup if you use the AWS Load Balancer Controller.
+
+## Running workloads as non-root
+
+To run all Plane workload containers as a non-root user (recommended for hardened environments), enable the **non-root security context** component. It sets pod- and container-level `securityContext` on every Deployment (e.g. `runAsNonRoot: true`, `runAsUser: 1000`, dropped capabilities, `seccompProfile: RuntimeDefault`).
+
+**Enable the component** in your overlay:
+
+```yaml
+# overlays/my-env/kustomization.yaml
+components:
+  - ../../components/nonroot-security-context
+```
+
+No extra configuration is required. The component patches all base Deployments (api, web, space, admin, live, worker, etc.) with the same non-root security context. Ensure your container images support running as the configured user (e.g. UID 1000); Plane Commercial images are built to run as non-root.
 
 ## Configuration
 
