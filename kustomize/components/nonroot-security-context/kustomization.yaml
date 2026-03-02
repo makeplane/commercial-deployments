@@ -8,3 +8,9 @@ patches:
   - path: patches/container-security-context.json
     target:
       kind: Deployment
+  - path: patches/pod-security-context.json
+    target:
+      kind: StatefulSet
+  - path: patches/container-security-context.json
+    target:
+      kind: StatefulSet
