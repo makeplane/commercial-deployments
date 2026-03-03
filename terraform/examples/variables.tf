@@ -85,7 +85,7 @@ variable "opensearch" {
   })
   default = {
     master_username = "admin"
-    engine_version  = "OpenSearch_2.11"
+    engine_version  = "OpenSearch_2.19"
     instance_type   = "t3.small.search"
     instance_count  = 2
     ebs_volume_size = 10

@@ -17,7 +17,7 @@ variable "master_password" {
 variable "engine_version" {
   description = "OpenSearch engine version"
   type        = string
-  default     = "OpenSearch_2.11"
+  default     = "OpenSearch_2.19"
 }
 
 variable "instance_type" {
