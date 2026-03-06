@@ -44,6 +44,11 @@ output "oidc_provider_url" {
   value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
+output "ebs_csi_pod_identity_association_id" {
+  description = "ID of the EBS CSI Pod Identity association"
+  value       = aws_eks_pod_identity_association.ebs_csi.association_id
+}
+
 output "addon_versions" {
   description = "Versions of installed EKS add-ons"
   value = {
