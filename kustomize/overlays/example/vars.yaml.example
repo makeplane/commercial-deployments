@@ -41,8 +41,8 @@ data:
   RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
 
   # Pi service - AWS Secrets Manager ARNs (distinct from main plane ARNs)
-  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-rds-secret"
-  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret"
+  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-rds-secret" #PI db ARN
+  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret" #plane-application db arn
   PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-mq-secret"
   PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-model-secret"
 
