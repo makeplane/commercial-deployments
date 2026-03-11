@@ -88,3 +88,80 @@ replacements:
           name: plane-pi-api-vars
         fieldPaths:
           - data.AWS_SECRET_CACHE_TTL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_OPENSEARCH_ML_MODEL_ID
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.OPENSEARCH_ML_MODEL_ID
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_EMBEDDING_MODEL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.EMBEDDING_MODEL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_ENABLED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_PROVIDER
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_PROVIDER
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_MODEL_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_MODEL_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_NAME
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_NAME
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_AWS_REGION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_AWS_REGION
