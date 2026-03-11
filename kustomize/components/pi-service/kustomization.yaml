@@ -7,6 +7,7 @@ resources:
   - api.yaml
   - beat-worker.yaml
   - worker.yaml
+  - migrator.yaml
   - service.yaml
 
 replacements:
