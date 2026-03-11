@@ -43,21 +43,21 @@ data:
   CELERY_DOCS_SYNC_ENABLED: "0"
   CELERY_DOCS_SYNC_INTERVAL: "86400"
 
-  # AWS Secrets Manager key mappings
-  RABBITMQ_PASSWORD_KEY: "password"
-  RABBITMQ_USER_KEY: "username"
+  # AWS Secrets Manager key mappings (overridden per-environment via overlays)
+  RABBITMQ_PASSWORD_KEY: ""
+  RABBITMQ_USER_KEY: ""
 
-  RDS_DB_HOST_KEY: "host"
-  RDS_DB_NAME_KEY: "dbname"
-  RDS_DB_PASSWORD_KEY: "password"
-  RDS_DB_PORT_KEY: "port"
-  RDS_DB_USERNAME_KEY: "username"
+  RDS_DB_HOST_KEY: ""
+  RDS_DB_NAME_KEY: ""
+  RDS_DB_PASSWORD_KEY: ""
+  RDS_DB_PORT_KEY: ""
+  RDS_DB_USERNAME_KEY: ""
 
-  FOLLOWER_DB_HOST_KEY: "host"
-  FOLLOWER_DB_NAME_KEY: "dbname"
-  FOLLOWER_DB_PASSWORD_KEY: "password"
-  FOLLOWER_DB_PORT_KEY: "port"
-  FOLLOWER_DB_USERNAME_KEY: "username"
+  FOLLOWER_RDS_DB_HOST_KEY: ""
+  FOLLOWER_RDS_DB_NAME_KEY: ""
+  FOLLOWER_RDS_DB_PASSWORD_KEY: ""
+  FOLLOWER_RDS_DB_PORT_KEY: ""
+  FOLLOWER_RDS_DB_USERNAME_KEY: ""
 
   # AWS Secrets Manager ARNs (replaced at overlay time)
   RDS_SECRET_ARN: ""

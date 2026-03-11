@@ -35,6 +35,16 @@ data:
   # Deployment configuration
   IS_AIRGAPPED: "0"  # Set to "1" for air-gapped deployments
 
+  # AWS Secrets Manager key mappings (environment-specific)
+  REDIS_AUTH_TOKEN_KEY: "authToken"
+  RABBITMQ_USER_KEY: "username"
+  RABBITMQ_PASSWORD_KEY: "password"
+  RDS_DB_NAME_KEY: "dbname"
+  RDS_DB_HOST_KEY: "host"
+  RDS_DB_PASSWORD_KEY: "password"
+  RDS_DB_PORT_KEY: "port"
+  RDS_DB_USERNAME_KEY: "username"
+
   # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
   AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-mq-secret"
   ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
@@ -45,6 +55,20 @@ data:
   PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret" #plane-application db arn
   PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-mq-secret"
   PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-model-secret"
+
+  # AWS Secrets Manager key mappings (PI-specific)
+  PI_RABBITMQ_USER_KEY: "username"
+  PI_RABBITMQ_PASSWORD_KEY: "password"
+  PI_RDS_DB_NAME_KEY: "dbname"
+  PI_RDS_DB_HOST_KEY: "host"
+  PI_RDS_DB_PASSWORD_KEY: "password"
+  PI_RDS_DB_PORT_KEY: "port"
+  PI_RDS_DB_USERNAME_KEY: "username"
+  PI_FOLLOWER_RDS_DB_HOST_KEY: "host"
+  PI_FOLLOWER_RDS_DB_NAME_KEY: "dbname"
+  PI_FOLLOWER_RDS_DB_PASSWORD_KEY: "password"
+  PI_FOLLOWER_RDS_DB_PORT_KEY: "port"
+  PI_FOLLOWER_RDS_DB_USERNAME_KEY: "username"
 
   # Pi service - AI provider config
   PI_OPENSEARCH_ML_MODEL_ID: "4lRq0ZwB0CqWNiURy_vi"
