@@ -23,7 +23,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: pi-migrator
-          image: artifacts.plane.so/makeplane/plane-pi-commercial:v2.3.4
+          image: makeplane/plane-pi-commercial:v2.3.4
           imagePullPolicy: Always
           command:
             - ./bin/entrypoint-migrator.sh

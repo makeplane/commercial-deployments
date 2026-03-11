@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: pi-beat
-          image: artifacts.plane.so/makeplane/plane-pi-commercial:v2.3.4
+          image: makeplane/plane-pi-commercial:v2.3.4
           imagePullPolicy: Always
           command:
             - ./bin/entrypoint-celery-beat.sh
