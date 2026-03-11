@@ -65,7 +65,19 @@ replacements:
           name: plane-pi-api-vars
         fieldPaths:
           - data.PLANE_FRONTEND_URL
-          - data.PLANE_API_HOST
+
+  # Pi: PLANE_API_HOST is set from PI_BASE_URL in overlay (not here)
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_INTERNAL_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
 
   - source:
       kind: ConfigMap

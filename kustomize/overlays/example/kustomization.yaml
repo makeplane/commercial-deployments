@@ -213,6 +213,63 @@ replacements:
         fieldPaths:
           - spec.volumeClaimTemplates.0.spec.storageClassName
 
+  # PRIME_HOST in plane-app-vars (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PRIME_HOST
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PRIME_HOST
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.PRIME_HOST
+
+  # PI_BASE_URL in plane-app-vars (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_BASE_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PI_BASE_URL
+
+  # Pi service: PI_BASE_URL from vars -> plane-pi-api-vars.PLANE_API_HOST only
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_BASE_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_API_HOST
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_INTERNAL_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
+
   # AWS Secrets Manager key mappings for pi service (from PI-specific keys in vars.yaml)
   - source:
       kind: ConfigMap
@@ -459,6 +516,11 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
 
   # AWS Secrets Manager ARNs in plane-app-secrets and plane-live-secrets
   - source:
@@ -625,3 +687,14 @@ replacements:
           name: plane-silo-secrets
         fieldPaths:
           - stringData.AMQP_URL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OPENSEARCH_INDEX_PREFIX
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_INDEX_PREFIX

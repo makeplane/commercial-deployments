@@ -30,6 +30,8 @@ data:
   
   # Web URL (will be overridden by overlay for production domain)
   WEB_URL: "http://plane.example.com"
+  # Pi base URL (overridden by overlay when Pi is enabled)
+  PI_BASE_URL: ""
   
   # CORS Configuration
   CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
