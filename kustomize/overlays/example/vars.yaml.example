@@ -40,5 +40,14 @@ data:
   ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
   RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
 
+  # Pi service - AWS Secrets Manager ARNs (distinct from main plane ARNs)
+  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-rds-secret"
+  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret"
+  PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-mq-secret"
+  PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-model-secret"
+
+  # Secrets Manager credential cache TTL in seconds (applies to api, silo, live, pi)
+  AWS_SECRET_CACHE_TTL: "300"
+
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
   PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"

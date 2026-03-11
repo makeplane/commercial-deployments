@@ -176,6 +176,27 @@ replacements:
         fieldPaths:
           - data.IS_AIRGAPPED
 
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AWS_SECRET_CACHE_TTL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-silo-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-live-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+
   # ====== FROM secrets-vars.yaml (Secret) ======
   # DATABASE_URL: use component static-db-url when providing static URL; omit when using IRSA with RDS_SECRET_ARN
 

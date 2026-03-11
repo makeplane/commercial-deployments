@@ -47,3 +47,4 @@ data:
   RDS_DB_PASSWORD_KEY: "password"
   RDS_DB_PORT_KEY: "port"
   RDS_DB_USERNAME_KEY: "username"
+  AWS_SECRET_CACHE_TTL: "300"

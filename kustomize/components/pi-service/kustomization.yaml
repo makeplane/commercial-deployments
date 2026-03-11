@@ -1,0 +1,89 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+  - api.yaml
+  - beat-worker.yaml
+  - worker.yaml
+  - service.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_AMAZONMQ_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AMAZONMQ_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_MODEL_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.MODEL_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_FRONTEND_URL
+          - data.PLANE_API_HOST
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AWS_SECRET_CACHE_TTL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL

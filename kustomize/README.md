@@ -564,6 +564,48 @@ On EKS you can avoid static credentials by using **IRSA** (IAM Roles for Service
 
 See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for ALB controller and IRSA setup if you use the AWS Load Balancer Controller.
 
+## Pi Service (AI/Intelligence Features)
+
+The pi service is deployed as a Kustomize component. It adds:
+- 3 Deployments: `plane-pi-api-wl`, `plane-pi-worker-wl`, `plane-pi-beat-wl`
+- 1 Service: `plane-pi-api` (port 8000)
+- 1 ConfigMap + 1 Secret: `plane-pi-api-vars`, `plane-pi-api-secrets`
+
+### Enable it
+
+In your overlay `kustomization.yaml` add:
+
+```yaml
+components:
+  - ../../components/pi-service
+```
+
+### Configure it (IRSA / Pod Identity)
+
+Pi reuses the existing `plane-srv-account`. Ensure the IAM role used by IRSA/Pod Identity has `secretsmanager:GetSecretValue` on the pi Secrets Manager ARNs.
+
+Add these keys to your overlay `vars.yaml`:
+
+```yaml
+data:
+  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:gp/pi/api/secrets-xxxx"
+  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:gp/api/secrets-xxxx"
+  PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:gp/api/mq/secrets-xxxx"
+  PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:gp/pi/api/model/secrets-xxxx"
+```
+
+If you are not using Secrets Manager, you can provide static fallbacks in `plane-pi-api-secrets` (see `components/pi-service/secret.yaml`).
+
+### Add the pi image tag override
+
+The pi workloads use `artifacts.plane.so/makeplane/plane-pi-commercial`. Add it to your overlay `images:` section:
+
+```yaml
+images:
+  - name: artifacts.plane.so/makeplane/plane-pi-commercial
+    newTag: v2.3.4
+```
+
 ## Running workloads as non-root
 
 To run all Plane workload containers as a non-root user (recommended for hardened environments), enable the **non-root security context** component. It sets pod- and container-level `securityContext` on every Deployment (e.g. `runAsNonRoot: true`, `runAsUser: 1000`, dropped capabilities, `seccompProfile: RuntimeDefault`).
@@ -674,6 +716,7 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
 - `CORS_ALLOWED_ORIGINS` - Comma-separated allowed origins
 - `INGRESS_CLASS` - Ingress controller class
 - `IS_AIRGAPPED` - Air-gapped deployment flag (0 or 1)
+- `AWS_SECRET_CACHE_TTL` - Secrets Manager credential cache TTL in seconds (applies to api, silo, live, and pi when enabled)
 
 **Configured via secrets-vars.yaml (sensitive):**
 - `DATABASE_URL` - PostgreSQL connection string
