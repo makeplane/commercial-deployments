@@ -72,3 +72,10 @@ spec:
                 name: plane-silo
                 port:
                   number: 3000
+          - path: /pi/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-pi-api
+                port:
+                  number: 8000

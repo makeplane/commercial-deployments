@@ -254,6 +254,18 @@ replacements:
         fieldPaths:
           - data.PLANE_API_HOST
 
+  # Pi service: custom LLM API key placeholder (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MODEL_CUSTOM_LLM_API_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.MODEL_CUSTOM_LLM_API_KEY
+
   - source:
       kind: ConfigMap
       name: overlay-vars

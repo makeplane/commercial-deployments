@@ -29,6 +29,7 @@ data:
   CUSTOM_LLM_MAX_TOKENS: "128000"
   CUSTOM_LLM_PROVIDER: "bedrock"
   CUSTOM_LLM_AWS_REGION: "us-east-2"
+  MODEL_CUSTOM_LLM_API_KEY: ""
 
   EMBEDDING_MODEL: "bedrock/amazon.titan-embed-text-v1"
   OPENSEARCH_ML_MODEL_ID: ""
