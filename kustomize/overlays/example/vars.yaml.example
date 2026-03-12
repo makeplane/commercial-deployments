@@ -21,6 +21,9 @@ data:
   
   # Web URL (with protocol - http for dev, https for production)
   WEB_URL: "http://plane.mycompany.com"
+
+  # Pi configuration
+  PI_BASE_URL: "https://plane.mycompany.com"
   
   # CORS allowed origins (comma-separated, both http and https)
   CORS_ALLOWED_ORIGINS: "http://plane.mycompany.com,https://plane.mycompany.com"
@@ -71,16 +74,26 @@ data:
   PI_FOLLOWER_RDS_DB_USERNAME_KEY: "username"
 
   # Pi service - AI provider config
-  PI_OPENSEARCH_ML_MODEL_ID: "4lRq0ZwB0CqWNiURy_vi"
+  PI_OPENSEARCH_ML_MODEL_ID: "<opensearch-ml-model-id>"
   PI_EMBEDDING_MODEL: "bedrock/amazon.titan-embed-text-v1"
   PI_CUSTOM_LLM_ENABLED: "true"
   PI_CUSTOM_LLM_PROVIDER: "bedrock"
-  PI_CUSTOM_LLM_MODEL_KEY: "global.anthropic.claude-sonnet-4-6"
-  PI_CUSTOM_LLM_NAME: "claude-sonnet-4-6"
+  PI_CUSTOM_LLM_MODEL_KEY: "<provider-model-key>"
+  PI_CUSTOM_LLM_NAME: "<friendly-model-name>"
   PI_CUSTOM_LLM_AWS_REGION: "us-east-2"
+  MODEL_CUSTOM_LLM_API_KEY: "<api-key-or-placeholder>"
 
   # Secrets Manager credential cache TTL in seconds (applies to api, silo, live, pi)
   AWS_SECRET_CACHE_TTL: "300"
 
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
   PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"
+
+  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3)
+  MONITOR_STORAGE_CLASS: "gp2"
+
+  # OpenSearch configuration
+  OPENSEARCH_INDEX_PREFIX: "plane"
+
+  # Prime / preview host (optional)
+  PRIME_HOST: "https://prime.plane.so"

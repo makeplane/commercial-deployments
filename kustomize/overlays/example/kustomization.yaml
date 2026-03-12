@@ -40,23 +40,23 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/web-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/space-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/admin-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/live-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/monitor-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/silo-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/email-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/plane-pi-commercial
-    newTag: choreaddsupportreadpisecretsfromsecret-manager
+    newTag: v2.3.4
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
@@ -267,9 +267,9 @@ replacements:
           - data.MODEL_CUSTOM_LLM_API_KEY
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PI_INTERNAL_SECRET
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_INTERNAL_SECRET
     targets:
       - select:
           kind: Secret
