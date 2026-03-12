@@ -255,6 +255,18 @@ replacements:
         fieldPaths:
           - data.PLANE_API_HOST
 
+  # Pi service: OAuth redirect URI from vars -> plane-pi-api-vars.PLANE_OAUTH_REDIRECT_URI
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_OAUTH_REDIRECT_URI
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_OAUTH_REDIRECT_URI
+
   # Pi service: custom LLM API key placeholder (from vars.yaml)
   - source:
       kind: ConfigMap
@@ -594,6 +606,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.AES_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
