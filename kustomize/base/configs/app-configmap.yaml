@@ -30,7 +30,10 @@ data:
   
   # Web URL (will be overridden by overlay for production domain)
   WEB_URL: "http://plane.example.com"
-  
+  # Pi (overridden by overlay when Pi is enabled)
+  PI_BASE_URL: ""
+  PI_BASE_PATH: "/pi"
+
   # CORS Configuration
   CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
   
@@ -38,12 +41,13 @@ data:
   SENTRY_DSN: ""
   SENTRY_ENVIRONMENT: ""
 
-  # AWS Secrets Manager key mappings
-  REDIS_AUTH_TOKEN_KEY: "authToken"
-  RABBITMQ_USER_KEY: "username"
-  RABBITMQ_PASSWORD_KEY: "password"
-  RDS_DB_NAME_KEY: "dbname"
-  RDS_DB_HOST_KEY: "host"
-  RDS_DB_PASSWORD_KEY: "password"
-  RDS_DB_PORT_KEY: "port"
-  RDS_DB_USERNAME_KEY: "username"
+  # AWS Secrets Manager key mappings (overridden per-environment via overlays)
+  REDIS_AUTH_TOKEN_KEY: ""
+  RABBITMQ_USER_KEY: ""
+  RABBITMQ_PASSWORD_KEY: ""
+  RDS_DB_NAME_KEY: ""
+  RDS_DB_HOST_KEY: ""
+  RDS_DB_PASSWORD_KEY: ""
+  RDS_DB_PORT_KEY: ""
+  RDS_DB_USERNAME_KEY: ""
+  AWS_SECRET_CACHE_TTL: "300"

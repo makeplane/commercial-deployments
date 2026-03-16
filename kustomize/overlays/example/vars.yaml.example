@@ -21,6 +21,10 @@ data:
   
   # Web URL (with protocol - http for dev, https for production)
   WEB_URL: "http://plane.mycompany.com"
+
+  # Pi configuration
+  PI_BASE_URL: "https://plane.mycompany.com"
+  PI_OAUTH_REDIRECT_URI: "https://plane.mycompany.com/pi/api/v1/oauth/callback/"
   
   # CORS allowed origins (comma-separated, both http and https)
   CORS_ALLOWED_ORIGINS: "http://plane.mycompany.com,https://plane.mycompany.com"
@@ -35,10 +39,62 @@ data:
   # Deployment configuration
   IS_AIRGAPPED: "0"  # Set to "1" for air-gapped deployments
 
+  # AWS Secrets Manager key mappings (environment-specific)
+  REDIS_AUTH_TOKEN_KEY: "authToken"
+  RABBITMQ_USER_KEY: "username"
+  RABBITMQ_PASSWORD_KEY: "password"
+  RDS_DB_NAME_KEY: "dbname"
+  RDS_DB_HOST_KEY: "host"
+  RDS_DB_PASSWORD_KEY: "password"
+  RDS_DB_PORT_KEY: "port"
+  RDS_DB_USERNAME_KEY: "username"
+
   # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
   AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-mq-secret"
   ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
   RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
 
+  # Pi service - AWS Secrets Manager ARNs (distinct from main plane ARNs)
+  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-rds-secret" #PI db ARN
+  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret" #plane-application db arn
+  PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-mq-secret"
+  PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-model-secret"
+
+  # AWS Secrets Manager key mappings (PI-specific)
+  PI_RABBITMQ_USER_KEY: "username"
+  PI_RABBITMQ_PASSWORD_KEY: "password"
+  PI_RDS_DB_NAME_KEY: "dbname"
+  PI_RDS_DB_HOST_KEY: "host"
+  PI_RDS_DB_PASSWORD_KEY: "password"
+  PI_RDS_DB_PORT_KEY: "port"
+  PI_RDS_DB_USERNAME_KEY: "username"
+  PI_FOLLOWER_RDS_DB_HOST_KEY: "host"
+  PI_FOLLOWER_RDS_DB_NAME_KEY: "dbname"
+  PI_FOLLOWER_RDS_DB_PASSWORD_KEY: "password"
+  PI_FOLLOWER_RDS_DB_PORT_KEY: "port"
+  PI_FOLLOWER_RDS_DB_USERNAME_KEY: "username"
+
+  # Pi service - AI provider config
+  PI_OPENSEARCH_ML_MODEL_ID: "<opensearch-ml-model-id>"
+  PI_EMBEDDING_MODEL: "bedrock/amazon.titan-embed-text-v1"
+  PI_CUSTOM_LLM_ENABLED: "true"
+  PI_CUSTOM_LLM_PROVIDER: "bedrock"
+  PI_CUSTOM_LLM_MODEL_KEY: "<provider-model-key>"
+  PI_CUSTOM_LLM_NAME: "<friendly-model-name>"
+  PI_CUSTOM_LLM_AWS_REGION: "us-east-2"
+  MODEL_CUSTOM_LLM_API_KEY: "<api-key-or-placeholder>"
+
+  # Secrets Manager credential cache TTL in seconds (applies to api, silo, live, pi)
+  AWS_SECRET_CACHE_TTL: "300"
+
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
   PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"
+
+  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3)
+  MONITOR_STORAGE_CLASS: "gp2"
+
+  # OpenSearch configuration
+  OPENSEARCH_INDEX_PREFIX: "plane"
+
+  # Prime / preview host (optional)
+  PRIME_HOST: "https://prime.plane.so"

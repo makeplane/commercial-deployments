@@ -1,0 +1,179 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+  - api.yaml
+  - beat-worker.yaml
+  - worker.yaml
+  - migrator.yaml
+  - service.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_AMAZONMQ_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AMAZONMQ_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_MODEL_SECRET_ARN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.MODEL_SECRET_ARN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_FRONTEND_URL
+
+  # Pi: PLANE_API_HOST is set from PI_BASE_URL in overlay (not here)
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_INTERNAL_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AWS_SECRET_CACHE_TTL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_OPENSEARCH_ML_MODEL_ID
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.OPENSEARCH_ML_MODEL_ID
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_EMBEDDING_MODEL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.EMBEDDING_MODEL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_ENABLED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_PROVIDER
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_PROVIDER
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_MODEL_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_MODEL_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_NAME
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_NAME
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_AWS_REGION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_AWS_REGION

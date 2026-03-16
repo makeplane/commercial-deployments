@@ -14,3 +14,9 @@ patches:
   - path: patches/container-security-context.json
     target:
       kind: StatefulSet
+  - path: patches/pod-security-context.json
+    target:
+      kind: Job
+  - path: patches/container-security-context.json
+    target:
+      kind: Job

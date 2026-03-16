@@ -22,8 +22,11 @@ components:
   # - ../../components/opensearch-external-auth
   # Optional: enable when using static AWS keys for S3; omit when using IRSA via eks-irsa-plane-serviceaccount
   # - ../../components/s3-static-credentials
+  # Pi service (AI/Intelligence features)
+  - ../../components/pi-service
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
-  # - ../../components/nonroot-security-context
+  # Keep this AFTER pi-service so it patches pi workloads too.
+  - ../../components/nonroot-security-context
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -52,6 +55,8 @@ images:
   - name: makeplane/silo-commercial
     newTag: v2.3.4
   - name: makeplane/email-commercial
+    newTag: v2.3.4
+  - name: makeplane/plane-pi-commercial
     newTag: v2.3.4
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
@@ -176,6 +181,342 @@ replacements:
         fieldPaths:
           - data.IS_AIRGAPPED
 
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AWS_SECRET_CACHE_TTL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-silo-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-live-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+
+  # Monitor StatefulSet storage class (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MONITOR_STORAGE_CLASS
+    targets:
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.volumeClaimTemplates.0.spec.storageClassName
+
+  # PRIME_HOST in plane-app-vars (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PRIME_HOST
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PRIME_HOST
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.PRIME_HOST
+
+  # PI_BASE_URL in plane-app-vars (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_BASE_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PI_BASE_URL
+
+  # Pi service: PI_BASE_URL from vars -> plane-pi-api-vars.PLANE_API_HOST only
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_BASE_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_API_HOST
+
+  # Pi service: OAuth redirect URI from vars -> plane-pi-api-vars.PLANE_OAUTH_REDIRECT_URI
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_OAUTH_REDIRECT_URI
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.PLANE_OAUTH_REDIRECT_URI
+
+  # Pi service: custom LLM API key placeholder (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MODEL_CUSTOM_LLM_API_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.MODEL_CUSTOM_LLM_API_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_INTERNAL_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.PI_INTERNAL_SECRET
+
+  # AWS Secrets Manager key mappings for pi service (from PI-specific keys in vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RABBITMQ_USER_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RABBITMQ_USER_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RABBITMQ_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RABBITMQ_PASSWORD_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_DB_HOST_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_DB_HOST_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_DB_NAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_DB_NAME_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_DB_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_DB_PASSWORD_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_DB_PORT_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_DB_PORT_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_RDS_DB_USERNAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.RDS_DB_USERNAME_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_DB_HOST_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_DB_HOST_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_DB_NAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_DB_NAME_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_DB_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_DB_PASSWORD_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_DB_PORT_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_DB_PORT_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_FOLLOWER_RDS_DB_USERNAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.FOLLOWER_RDS_DB_USERNAME_KEY
+
+  # AWS Secrets Manager key mappings for main app (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.REDIS_AUTH_TOKEN_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.REDIS_AUTH_TOKEN_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RABBITMQ_USER_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RABBITMQ_USER_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RABBITMQ_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RABBITMQ_PASSWORD_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_DB_NAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_NAME_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_DB_HOST_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_HOST_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_DB_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_PASSWORD_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_DB_PORT_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_PORT_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.RDS_DB_USERNAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_USERNAME_KEY
+
   # ====== FROM secrets-vars.yaml (Secret) ======
   # DATABASE_URL: use component static-db-url when providing static URL; omit when using IRSA with RDS_SECRET_ARN
 
@@ -198,6 +539,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
           - stringData.AMQP_URL
 
@@ -260,6 +606,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.AES_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
@@ -366,3 +717,14 @@ replacements:
           name: plane-silo-secrets
         fieldPaths:
           - stringData.AMQP_URL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OPENSEARCH_INDEX_PREFIX
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_INDEX_PREFIX
