@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+  - api.yaml
+  - service.yaml
+
+replacements:
+  # API_BASE_URL from overlay WEB_URL
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-node-runner-vars
+        fieldPaths:
+          - data.API_BASE_URL
+
