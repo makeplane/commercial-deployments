@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-flux-consumer-vars
+  namespace: plane
+data:
+  FLUX_QUEUE_NAME: "plane.flux"
+  FLUX_PREFETCH_COUNT: "10"
+  API_BASE_URL: ""
+  APP_BASE_URL: ""
