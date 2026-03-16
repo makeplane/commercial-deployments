@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-app-vars
+  namespace: plane
+data:
+  RUNNER_BASE_URL: "http://plane-node-runner.plane-ns.svc.cluster.local:3000"

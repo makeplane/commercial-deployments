@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-node-runner-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: node-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: node-runner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: node-runner
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: node-runner
+          image: makeplane/node-runner-commercial:v2.3.4
+          imagePullPolicy: Always
+          command:
+            - node
+            - apps/runners/node-runner/dist/index.js
+          envFrom:
+            - configMapRef:
+                name: plane-node-runner-vars
+            - secretRef:
+                name: plane-node-runner-secrets
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
