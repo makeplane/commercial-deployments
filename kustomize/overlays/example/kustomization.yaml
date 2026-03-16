@@ -168,6 +168,18 @@ replacements:
         fieldPaths:
           - data.CORS_ALLOWED_ORIGINS
 
+  # Replace ALLOW_ALL_ATTACHMENT_TYPES in plane-app-vars (leave empty in vars.yaml to disable)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ALLOW_ALL_ATTACHMENT_TYPES
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.ALLOW_ALL_ATTACHMENT_TYPES
+
   # Replace IS_AIRGAPPED in plane-monitor-vars
   - source:
       kind: ConfigMap
