@@ -17,10 +17,10 @@ replacements:
       fieldPath: data.PI_RDS_SECRET_ARN
     targets:
       - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
-          - data.RDS_SECRET_ARN
+          - stringData.RDS_SECRET_ARN
 
   - source:
       kind: ConfigMap
@@ -28,10 +28,10 @@ replacements:
       fieldPath: data.PI_AMAZONMQ_SECRET_ARN
     targets:
       - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
-          - data.AMAZONMQ_SECRET_ARN
+          - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
       kind: ConfigMap
@@ -39,10 +39,10 @@ replacements:
       fieldPath: data.PI_FOLLOWER_RDS_SECRET_ARN
     targets:
       - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
-          - data.FOLLOWER_RDS_SECRET_ARN
+          - stringData.FOLLOWER_RDS_SECRET_ARN
 
   - source:
       kind: ConfigMap
@@ -50,10 +50,10 @@ replacements:
       fieldPath: data.PI_MODEL_SECRET_ARN
     targets:
       - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
-          - data.MODEL_SECRET_ARN
+          - stringData.MODEL_SECRET_ARN
 
   - source:
       kind: ConfigMap

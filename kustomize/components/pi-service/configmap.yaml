@@ -60,10 +60,4 @@ data:
   FOLLOWER_RDS_DB_PORT_KEY: ""
   FOLLOWER_RDS_DB_USERNAME_KEY: ""
 
-  # AWS Secrets Manager ARNs (replaced at overlay time)
-  RDS_SECRET_ARN: ""
-  AMAZONMQ_SECRET_ARN: ""
-  FOLLOWER_RDS_SECRET_ARN: ""
-  MODEL_SECRET_ARN: ""
-
   AWS_SECRET_CACHE_TTL: "300"
