@@ -24,6 +24,8 @@ components:
   # - ../../components/s3-static-credentials
   # Pi service (AI/Intelligence features)
   - ../../components/pi-service
+  # Node runner service (automation script execution)
+  - ../../components/runner
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service so it patches pi workloads too.
   - ../../components/nonroot-security-context
@@ -57,6 +59,8 @@ images:
   - name: makeplane/email-commercial
     newTag: v2.3.4
   - name: makeplane/plane-pi-commercial
+    newTag: v2.3.4
+  - name: makeplane/node-runner-commercial
     newTag: v2.3.4
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning

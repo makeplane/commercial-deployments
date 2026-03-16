@@ -12,8 +12,8 @@ data:
   INIT_TIMEOUT_MS: "5000"
   ISOLATE_MEMORY_MB: "128"
 
-  # API base URL (replaced from overlay-vars.WEB_URL)
-  API_BASE_URL: "http://plane.example.com"
+  # Internal Kubernetes service URL for the Plane API
+  API_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
 
   # Control service base URL (set per environment)
   CONTROL_SERVICE_BASE_URL: ""

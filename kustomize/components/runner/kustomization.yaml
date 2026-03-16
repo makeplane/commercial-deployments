@@ -7,16 +7,7 @@ resources:
   - api.yaml
   - service.yaml
 
-replacements:
-  # API_BASE_URL from overlay WEB_URL
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.WEB_URL
-    targets:
-      - select:
-          kind: ConfigMap
-          name: plane-node-runner-vars
-        fieldPaths:
-          - data.API_BASE_URL
+patches:
+  - path: patches/app-runner-url.yaml
+
 
