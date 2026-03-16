@@ -20,9 +20,6 @@ resources:
   - configs/monitor-configmap.yaml
   - configs/outbox-poller-configmap.yaml
   - configs/automation-consumer-configmap.yaml
-  - configs/flux-configmap.yaml
-  - configs/flux-consumer-configmap.yaml
-  - configs/flux-secret.yaml
   - configs/silo-configmap.yaml
   - configs/silo-secret.yaml
 
@@ -40,8 +37,6 @@ resources:
   - deployments/iframely.yaml
   - deployments/outbox-poller.yaml
   - deployments/automation-consumer.yaml
-  - deployments/flux.yaml
-  - deployments/flux-consumer.yaml
   - deployments/silo.yaml
 
   # Services
@@ -77,6 +72,4 @@ images:
   - name: makeplane/iframely
     newTag: v1.2.0
   - name: makeplane/silo-commercial
-    newTag: v2.3.4
-  - name: makeplane/flux-commercial
     newTag: v2.3.4

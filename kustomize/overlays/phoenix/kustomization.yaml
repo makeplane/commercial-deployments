@@ -11,6 +11,8 @@ resources:
 # Include ALL infrastructure components (local)
 components:
   - ../../components/email-service
+  - ../../components/flux
+  - ../../components/flux-consumer
   # Optional: enable EKS IRSA role annotation on plane-srv-account
   - ../../components/eks-irsa-plane-serviceaccount
   # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
@@ -62,6 +64,8 @@ images:
   - name: makeplane/silo-commercial
     newTag: v2.5.0-phoenix-a508900
   - name: makeplane/email-commercial
+    newTag: v2.5.0-phoenix-a508900
+  - name: makeplane/flux-commercial
     newTag: v2.5.0-phoenix-a508900
   - name: makeplane/plane-pi-commercial
     newTag: v2.5.0-phoenix-a508900
@@ -747,6 +751,29 @@ replacements:
       - select:
           kind: Secret
           name: plane-silo-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+
+  # Flux component: REDIS_URL and AMQP_URL in plane-flux-secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-flux-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMQP_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-flux-secrets
         fieldPaths:
           - stringData.AMQP_URL
 
