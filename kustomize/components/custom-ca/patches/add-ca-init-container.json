@@ -1,0 +1,28 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/initContainers",
+    "value": [
+      {
+        "name": "combine-ca-certs",
+        "image": "makeplane/backend-commercial",
+        "command": ["sh", "-c"],
+        "args": [
+          "cat /etc/ssl/certs/ca-certificates.crt /custom-ca/customCA.crt > /combined-ca/ca-bundle.crt"
+        ],
+        "volumeMounts": [
+          {
+            "name": "custom-ca",
+            "mountPath": "/custom-ca/customCA.crt",
+            "subPath": "customCA.crt",
+            "readOnly": true
+          },
+          {
+            "name": "combined-ca",
+            "mountPath": "/combined-ca"
+          }
+        ]
+      }
+    ]
+  }
+]

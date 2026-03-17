@@ -31,7 +31,7 @@ components:
   - ../../components/nonroot-security-context
   # Optional: mount a custom CA certificate into all containers.
   # Paste your CA cert (PEM) into ../../components/custom-ca/customCA.crt, then uncomment:
-  # - ../../components/custom-ca
+  - ../../components/custom-ca
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -46,25 +46,25 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/web-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/space-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/admin-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/live-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/monitor-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/silo-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/email-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/plane-pi-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/node-runner-commercial
-    newTag: v2.3.4
+    newTag: v2.3.8-phoenix-a2c313e
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
