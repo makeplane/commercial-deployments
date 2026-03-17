@@ -1,0 +1,14 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes",
+    "value": [
+      {
+        "name": "custom-ca",
+        "configMap": {
+          "name": "plane-custom-ca"
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,100 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# ============================================================
+# CUSTOM CA CERTIFICATE
+# ============================================================
+# Mounts a custom CA certificate into all plane workload containers
+# at /etc/ssl/certs/customCA.crt, and automatically sets:
+#   REQUESTS_CA_BUNDLE=/etc/ssl/certs/customCA.crt  (Python)
+#   NODE_EXTRA_CA_CERTS=/etc/ssl/certs/customCA.crt (Node.js)
+#
+# Usage:
+#   1. Paste your CA certificate (PEM format) into customCA.crt
+#      (see customCA.crt.example for the expected format)
+#   2. Enable this component in your overlay's kustomization.yaml:
+#      components:
+#        - ../../components/custom-ca
+# ============================================================
+
+configMapGenerator:
+  # Contains the raw certificate file — mounted as a volume
+  - name: plane-custom-ca
+    files:
+      - customCA.crt
+    options:
+      disableNameSuffixHash: true
+
+  # Contains the env vars that point runtimes at the cert
+  - name: plane-custom-ca-env
+    literals:
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/customCA.crt
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/customCA.crt
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  # ── Add volume to pod specs WITHOUT existing volumes ─────────────────────────
+  # (all base deployments, pi-service, runner, jobs, monitor — but NOT email-service)
+  - path: patches/add-ca-volume.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+  - path: patches/add-ca-volume.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/add-ca-volume.json
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Append volume to email-service which already has existing volumes ─────────
+  - path: patches/append-ca-volume.json
+    target:
+      kind: Deployment
+      name: plane-email-service-wl
+
+  # ── Add volumeMount to containers WITHOUT existing volumeMounts ──────────────
+  # (all base deployments, pi-service, runner, iframely — but NOT email-service)
+  - path: patches/add-ca-volumemount.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+  - path: patches/add-ca-volumemount.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Append volumeMount to containers WITH existing volumeMounts ──────────────
+  # email-service already has tls-cert + spam-blacklist mounts
+  - path: patches/append-ca-volumemount.json
+    target:
+      kind: Deployment
+      name: plane-email-service-wl
+  # monitor already has monitor-data mount
+  - path: patches/append-ca-volumemount.json
+    target:
+      kind: StatefulSet
+      name: plane-monitor
+
+  # ── Inject env vars into containers WITH existing envFrom ────────────────────
+  # (all deployments/jobs/statefulsets EXCEPT iframely which has no envFrom)
+  - path: patches/append-ca-envfrom.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=iframely"
+  - path: patches/append-ca-envfrom.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/append-ca-envfrom.json
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Inject env vars into iframely which has NO envFrom yet ───────────────────
+  - path: patches/add-ca-envfrom.json
+    target:
+      kind: Deployment
+      name: plane-iframely-wl

@@ -1,0 +1,7 @@
+-----BEGIN CERTIFICATE-----
+MIIBkTCB+wIJAMlyFqk69v+9MA0GCSqGSIb3DQEBCwUAMCExHzAdBgNVBAMTFk15
+SW50ZXJuYWxSb290Q0EtRXhhbXBsZTAeFw0yNTAxMDEwMDAwMDBaFw0zNTAxMDEw
+MDAwMDBaMCExHzAdBgNVBAMTFk15SW50ZXJuYWxSb290Q0EtRXhhbXBsZTBcMA0G
+CSqGSIb3DQEBAQUAAkEAreplace-this-with-your-actual-ca-cert-content-in-
+pem-base64-encoded-format-between-the-begin-and-end-certificate-markers
+-----END CERTIFICATE-----
