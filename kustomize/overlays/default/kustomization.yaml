@@ -1,0 +1,383 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: plane-default
+
+resources:
+  - ../../base
+  - vars.yaml
+  - secrets-vars.yaml
+
+# ============================================================
+# COMPONENTS
+# ============================================================
+# Enable/disable optional capabilities by commenting in/out entries.
+components:
+  # Email service (transactional email)
+  - ../../components/email-service
+
+  # Ingress controller: pick ONE — install the controller separately
+  - ../../components/ingress-nginx
+  # - ../../components/aws-load-balancer-controller
+
+  # Static DATABASE_URL injection — required when not using AWS IRSA/Pod Identity
+  - ../../components/static-db-url
+
+  # Static S3 credentials — required when not using AWS IRSA/Pod Identity
+  - ../../components/s3-static-credentials
+
+  # Node runner service (automation script execution)
+  - ../../components/runner
+
+  # Optional: harden all workloads with non-root security context
+  # - ../../components/nonroot-security-context
+
+  # Optional: mount a custom CA certificate into all containers
+  # Paste your CA cert (PEM) into ../../components/custom-ca/customCA.crt, then uncomment:
+  # - ../../components/custom-ca
+
+  # Optional: external OpenSearch with username/password auth
+  # - ../../components/opensearch-external-auth
+
+  # Optional: AI/Intelligence features (requires additional ARNs and AI model config)
+  # - ../../components/pi-service
+
+  # Optional: EKS IRSA/Pod Identity role annotation on the plane ServiceAccount
+  # Enable this (and remove static-db-url + s3-static-credentials) when running on EKS with IAM roles
+  # - ../../components/eks-irsa-plane-serviceaccount
+
+  # Optional: deploy infrastructure components locally (for development/testing)
+  # - ../../components/postgres
+  # - ../../components/redis
+  # - ../../components/rabbitmq
+  # - ../../components/minio
+  # - ../../components/opensearch
+
+# ============================================================
+# APPLICATION VERSION
+# ============================================================
+# Pin ALL images to the same release tag. Update this for upgrades.
+# ============================================================
+images:
+  - name: makeplane/backend-commercial
+    newTag: latest
+  - name: makeplane/web-commercial
+    newTag: latest
+  - name: makeplane/space-commercial
+    newTag: latest
+  - name: makeplane/admin-commercial
+    newTag: latest
+  - name: makeplane/live-commercial
+    newTag: latest
+  - name: makeplane/monitor-commercial
+    newTag: latest
+  - name: makeplane/silo-commercial
+    newTag: latest
+  - name: makeplane/email-commercial
+    newTag: latest
+  - name: makeplane/node-runner-commercial
+    newTag: latest
+  - name: makeplane/iframely
+    newTag: latest
+
+# ============================================================
+# REPLACEMENTS
+# ============================================================
+replacements:
+  # ====== FROM vars.yaml (ConfigMap) ======
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_VERSION
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_VERSION
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - spec.rules.0.host
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.INGRESS_CLASS
+    targets:
+      - select:
+          kind: Ingress
+        fieldPaths:
+          - spec.ingressClassName
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.WEB_URL
+      - select:
+          kind: ConfigMap
+          name: plane-silo-vars
+        fieldPaths:
+          - data.APP_BASE_URL
+          - data.SILO_API_BASE_URL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ALLOW_ALL_ATTACHMENT_TYPES
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.ALLOW_ALL_ATTACHMENT_TYPES
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.IS_AIRGAPPED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MONITOR_STORAGE_CLASS
+    targets:
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.volumeClaimTemplates.0.spec.storageClassName
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PRIME_HOST
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PRIME_HOST
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.PRIME_HOST
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OPENSEARCH_INDEX_PREFIX
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_INDEX_PREFIX
+
+  # ====== FROM secrets-vars.yaml (Secret) ======
+  # DATABASE_URL is injected by the static-db-url component
+  # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are injected by the s3-static-credentials component
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMQP_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.SECRET_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AES_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AES_SECRET_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.LIVE_SERVER_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_ENABLED
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_ENABLED
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_ENDPOINT_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_ENDPOINT_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_BUCKET_NAME
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_BUCKET_NAME
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_REGION
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_REGION
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.USE_MINIO
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.USE_MINIO
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.FILE_SIZE_LIMIT
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.FILE_SIZE_LIMIT
