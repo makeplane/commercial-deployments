@@ -6,8 +6,17 @@ kind: Component
 # ============================================================
 # Mounts a custom CA certificate into all plane workload containers
 # at /etc/ssl/certs/customCA.crt, and automatically sets:
-#   REQUESTS_CA_BUNDLE=/etc/ssl/certs/customCA.crt  (Python)
-#   NODE_EXTRA_CA_CERTS=/etc/ssl/certs/customCA.crt (Node.js)
+#   NODE_EXTRA_CA_CERTS=/etc/ssl/certs/customCA.crt          (Node.js — appends, does not replace)
+#   REQUESTS_CA_BUNDLE=/combined-ca/ca-bundle.crt             (Python requests)
+#   AWS_CA_BUNDLE=/combined-ca/ca-bundle.crt                  (Python boto3/botocore)
+#
+# /combined-ca/ca-bundle.crt is built at pod startup by an init container
+# that concatenates the system CA bundle with the custom CA, so that standard
+# TLS endpoints (e.g. AWS APIs) remain trusted alongside internal services.
+#
+# Each pod's init container uses the same image as its main container — no
+# additional images to procure or scan. The `images` transformer in your
+# overlay automatically applies the correct pinned tag to both.
 #
 # Usage:
 #   1. Paste your CA certificate (PEM format) into customCA.crt
@@ -28,8 +37,9 @@ configMapGenerator:
   # Contains the env vars that point runtimes at the cert
   - name: plane-custom-ca-env
     literals:
-      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/customCA.crt
+      - REQUESTS_CA_BUNDLE=/combined-ca/ca-bundle.crt
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/customCA.crt
+      - AWS_CA_BUNDLE=/combined-ca/ca-bundle.crt
     options:
       disableNameSuffixHash: true
 
@@ -98,3 +108,131 @@ patches:
     target:
       kind: Deployment
       name: plane-iframely-wl
+
+  # ── Add combined-ca emptyDir volume (runs after custom-ca volume exists) ─────
+  # All targets now have a volumes array, so always append with /-
+  - path: patches/append-combined-ca-volume.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/append-combined-ca-volume.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/append-combined-ca-volume.json
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Append combined-ca volumeMount to containers ─────────────────────────────
+  # All targets now have a volumeMounts array, so always append with /-
+  - path: patches/append-combined-ca-volumemount.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/append-combined-ca-volumemount.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/append-combined-ca-volumemount.json
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Add init container that builds the combined CA bundle ─────────────────────
+  # Default image is makeplane/backend-commercial; overrides below correct each
+  # service to use its own (already-scanned) image. Label-selector patches
+  # silently no-op when an optional component is not included in the overlay.
+  - path: patches/add-ca-init-container.json
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/add-ca-init-container.json
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+  - path: patches/add-ca-init-container.json
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise"
+
+  # ── Per-service init container image overrides ────────────────────────────────
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/silo-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=silo"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/web-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=web"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/space-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=space"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/admin-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=admin"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/live-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=live"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/iframely
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=iframely"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/monitor-commercial
+    target:
+      kind: StatefulSet
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=monitor"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/email-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=email-service"
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/node-runner-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=node-runner"
+  # pi-service (Deployments)
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/plane-pi-commercial
+    target:
+      kind: Deployment
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component in (pi-api,pi-beat,pi-worker)"
+  # pi-service (Job)
+  - patch: |
+      - op: replace
+        path: /spec/template/spec/initContainers/0/image
+        value: makeplane/plane-pi-commercial
+    target:
+      kind: Job
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=pi-migrator"

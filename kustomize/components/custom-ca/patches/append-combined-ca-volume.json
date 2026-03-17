@@ -1,0 +1,10 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes/-",
+    "value": {
+      "name": "combined-ca",
+      "emptyDir": {}
+    }
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts/-",
+    "value": {
+      "name": "combined-ca",
+      "mountPath": "/combined-ca",
+      "readOnly": true
+    }
+  }
+]
