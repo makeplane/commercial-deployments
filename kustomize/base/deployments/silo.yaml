@@ -32,6 +32,8 @@ spec:
                 name: plane-app-secrets
             - secretRef:
                 name: plane-silo-secrets
+            - secretRef:
+                name: plane-doc-store-secrets
           resources:
             requests:
               memory: 50Mi
