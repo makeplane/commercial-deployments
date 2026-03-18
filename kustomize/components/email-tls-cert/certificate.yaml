@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: plane-mail-tls-cert
+  namespace: plane
+spec:
+  secretName: plane-mail-tls-secret
+  dnsNames:
+    - smtp.gmail.com    # replaced at build time by overlay replacement from vars.yaml SMTP_DOMAIN
+  issuerRef:
+    name: plane-selfsigned-issuer
+    kind: Issuer

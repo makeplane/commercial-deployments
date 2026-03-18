@@ -7,3 +7,4 @@ resources:
 
 patches:
   - path: patches/app-redis-url.yaml
+  - path: patches/live-redis-url.yaml
