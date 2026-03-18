@@ -44,100 +44,82 @@ components:
   - ../../components/redis
   - ../../components/rabbitmq
   - ../../components/minio
-  # - ../../components/opensearch
+  - ../../components/opensearch
 
 # ============================================================
 # STORAGE CLASS PATCHES
 # ============================================================
 # Set storageClassName: gp2 on all local DB PVCs.
-# Patches are inline strategic-merge; volumeClaimTemplates is matched by metadata.name,
-# which is robust to ordering changes.
+# JSON 6902 patches are used (not strategic-merge) because kustomize replaces the entire
+# volumeClaimTemplate spec on strategic-merge, losing accessModes and resources.
+# Each StatefulSet has exactly one VolumeClaimTemplate so index 0 is always correct.
 patches:
   - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-postgres
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: postgres-data
-            spec:
-              storageClassName: gp2
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: gp2
     target:
       kind: StatefulSet
       name: plane-postgres
 
   - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-redis
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: redis-data
-            spec:
-              storageClassName: gp2
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: gp2
     target:
       kind: StatefulSet
       name: plane-redis
 
   - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-rabbitmq
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: rabbitmq-data
-            spec:
-              storageClassName: gp2
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: gp2
     target:
       kind: StatefulSet
       name: plane-rabbitmq
 
   - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-minio
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: minio-data
-            spec:
-              storageClassName: gp2
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: gp2
     target:
       kind: StatefulSet
       name: plane-minio
+
+  - patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: gp2
+    target:
+      kind: StatefulSet
+      name: plane-opensearch
+
 
 # ============================================================
 # APPLICATION VERSION
 # ============================================================
 # Pin ALL images to the same release tag. Update this for upgrades.
 images:
-  - name: makeplane/backend-commercial
-    newTag: latest
-  - name: makeplane/web-commercial
-    newTag: latest
-  - name: makeplane/space-commercial
-    newTag: latest
-  - name: makeplane/admin-commercial
-    newTag: latest
-  - name: makeplane/live-commercial
-    newTag: latest
-  - name: makeplane/monitor-commercial
-    newTag: latest
-  - name: makeplane/silo-commercial
-    newTag: latest
-  - name: makeplane/email-commercial
-    newTag: latest
-  - name: makeplane/node-runner-commercial
-    newTag: latest
-  - name: makeplane/iframely
-    newTag: latest
+  - name: artifacts.plane.so/makeplane/backend-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/web-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/space-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/admin-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/live-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/monitor-commercial
+    newTag: v2.3.8-phoenix-a2c313e
+  - name: artifacts.plane.so/makeplane/silo-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/email-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/node-runner-commercial
+    newTag: stable
+  - name: artifacts.plane.so/makeplane/iframely
+    newTag: v1.2.0
 
 # ============================================================
 # REPLACEMENTS
@@ -291,7 +273,19 @@ replacements:
           - stringData.OPENSEARCH_INDEX_PREFIX
 
   # ====== FROM secrets-vars.yaml (Secret) ======
-  # DATABASE_URL is injected by the static-db-url component
+  # DATABASE_URL — overlay-level replacement overrides the postgres component's app-db-url patch,
+  # which otherwise wins because component patches run before component replacements.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.DATABASE_URL
+
   # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are injected by the s3-static-credentials component
 
   - source:

@@ -41,4 +41,4 @@ data:
   OPENSEARCH_INDEX_PREFIX: "plane"
 
   # Prime / preview host
-  PRIME_HOST: "https://preview.prime.plane.so"
+  PRIME_HOST: "https://prime.plane.so"
