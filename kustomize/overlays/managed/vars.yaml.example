@@ -1,0 +1,44 @@
+# Example variables configuration file for the default overlay.
+#
+# Copy this file to vars.yaml if it doesn't exist:
+#   cp vars.yaml.example vars.yaml
+#
+# This file contains non-sensitive configuration values.
+# It is safe to commit to git (unlike secrets-vars.yaml).
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: overlay-vars
+  annotations:
+    config.kubernetes.io/local-config: "true"
+data:
+  # Application version used across all images and config
+  APP_VERSION: "latest"
+
+  # Domain configuration — set to your actual domain (without protocol)
+  APP_DOMAIN: "plane.example.com"
+
+  # Web URL — set to your actual URL (with protocol)
+  WEB_URL: "https://plane.example.com"
+
+  # CORS allowed origins (comma-separated, both http and https)
+  CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
+
+  # Allow all attachment types (leave empty to use default restrictions, set to "1" to allow all)
+  ALLOW_ALL_ATTACHMENT_TYPES: "1"
+
+  # Ingress class (nginx, traefik, alb, etc.)
+  INGRESS_CLASS: "nginx"
+
+  # Set to "1" for air-gapped deployments
+  IS_AIRGAPPED: "0"
+
+  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3, standard)
+  MONITOR_STORAGE_CLASS: "gp2"
+
+  # OpenSearch index prefix
+  OPENSEARCH_INDEX_PREFIX: "plane"
+
+  # Prime / preview host
+  PRIME_HOST: "https://preview.prime.plane.so"

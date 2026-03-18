@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: plane-default
+namespace: plane-managed
 
 resources:
   - ../../base
@@ -20,10 +20,10 @@ components:
   - ../../components/ingress-nginx
   # - ../../components/aws-load-balancer-controller
 
-  # Static DATABASE_URL injection — uses in-cluster postgres
+  # Static DATABASE_URL injection — required when not using AWS IRSA/Pod Identity
   - ../../components/static-db-url
 
-  # Static S3 credentials — uses in-cluster minio
+  # Static S3 credentials — required when not using AWS IRSA/Pod Identity
   - ../../components/s3-static-credentials
 
   # Node runner service (automation script execution)
@@ -39,84 +39,25 @@ components:
   # Optional: external OpenSearch with username/password auth
   # - ../../components/opensearch-external-auth
 
-  # Local infrastructure — ALL enabled (equivalent to helm defaults for this overlay)
-  - ../../components/postgres
-  - ../../components/redis
-  - ../../components/rabbitmq
-  - ../../components/minio
+  # Optional: AI/Intelligence features (requires additional ARNs and AI model config)
+  # - ../../components/pi-service
+
+  # Optional: EKS IRSA/Pod Identity role annotation on the plane ServiceAccount
+  # Enable this (and remove static-db-url + s3-static-credentials) when running on EKS with IAM roles
+  # - ../../components/eks-irsa-plane-serviceaccount
+
+  # Optional: deploy infrastructure components locally (for development/testing)
+  # - ../../components/postgres
+  # - ../../components/redis
+  # - ../../components/rabbitmq
+  # - ../../components/minio
   # - ../../components/opensearch
-
-# ============================================================
-# STORAGE CLASS PATCHES
-# ============================================================
-# Set storageClassName: gp2 on all local DB PVCs.
-# Patches are inline strategic-merge; volumeClaimTemplates is matched by metadata.name,
-# which is robust to ordering changes.
-patches:
-  - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-postgres
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: postgres-data
-            spec:
-              storageClassName: gp2
-    target:
-      kind: StatefulSet
-      name: plane-postgres
-
-  - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-redis
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: redis-data
-            spec:
-              storageClassName: gp2
-    target:
-      kind: StatefulSet
-      name: plane-redis
-
-  - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-rabbitmq
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: rabbitmq-data
-            spec:
-              storageClassName: gp2
-    target:
-      kind: StatefulSet
-      name: plane-rabbitmq
-
-  - patch: |
-      apiVersion: apps/v1
-      kind: StatefulSet
-      metadata:
-        name: plane-minio
-      spec:
-        volumeClaimTemplates:
-          - metadata:
-              name: minio-data
-            spec:
-              storageClassName: gp2
-    target:
-      kind: StatefulSet
-      name: plane-minio
 
 # ============================================================
 # APPLICATION VERSION
 # ============================================================
 # Pin ALL images to the same release tag. Update this for upgrades.
+# ============================================================
 images:
   - name: makeplane/backend-commercial
     newTag: latest
