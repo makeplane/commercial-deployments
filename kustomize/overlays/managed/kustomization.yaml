@@ -39,6 +39,10 @@ components:
   # Optional: external OpenSearch with username/password auth
   # - ../../components/opensearch-external-auth
 
+  # Optional: auto-generate plane-mail-tls-secret via cert-manager (requires cert-manager installed)
+  # Without this, the TLS volume is optional=true and the pod starts without a cert.
+  # - ../../components/email-tls-cert
+
   # Optional: AI/Intelligence features (requires additional ARNs and AI model config)
   # - ../../components/pi-service
 
@@ -381,3 +385,16 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.FILE_SIZE_LIMIT
+
+  # SMTP_DOMAIN — replaces the hardcoded value in plane-email-vars configmap
+  # and the dnsNames[0] in the Certificate resource (when email-tls-cert component is enabled)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.SMTP_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-email-vars
+        fieldPaths:
+          - data.SMTP_DOMAIN

@@ -62,11 +62,7 @@ spec:
           configMap:
             name: plane-email-vars
         - name: tls-cert
-          secret:
-            secretName: plane-mail-tls-secret
-            items:
-            - key: tls.crt
-              path: cert.pem
-            - key: tls.key
-              path: key.pem
-            optional: false
+          # emptyDir by default — the email service generates its own self-signed cert at startup.
+          # To use a cert-manager-issued cert instead, enable the email-tls-cert component in
+          # your overlay, which patches this volume to mount the plane-mail-tls-secret.
+          emptyDir: {}

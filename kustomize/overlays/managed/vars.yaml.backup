@@ -10,14 +10,14 @@ data:
   # Application version used across all images and config
   APP_VERSION: "latest"
 
-  # Domain configuration — UPDATE THESE before applying
-  APP_DOMAIN: "kustomize.plane.town"
+  # Domain configuration
+  APP_DOMAIN: "plane.example.com"
 
   # Web URL (with protocol)
-  WEB_URL: "https://kustomize.plane.town"
+  WEB_URL: "https://plane.example.com"
 
   # CORS allowed origins (comma-separated)
-  CORS_ALLOWED_ORIGINS: "http://kustomize.plane.town,https://kustomize.plane.town"
+  CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
 
   # Allow all attachment types (leave empty to use default restrictions, set to "1" to allow all)
   ALLOW_ALL_ATTACHMENT_TYPES: "1"
@@ -28,11 +28,9 @@ data:
   # Other configuration flags
   IS_AIRGAPPED: "0"
 
-  # Storage class for monitor StatefulSet PVC — gp2 matches this overlay's intent
+  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3, standard)
   MONITOR_STORAGE_CLASS: "gp2"
 
   # OpenSearch configuration
   OPENSEARCH_INDEX_PREFIX: "plane"
-  PRIME_HOST: "https://prime.plane.so"
-  # SMTP domain for the inbound email service TLS certificate
-  SMTP_DOMAIN: "smtp.gmail.com"
+  PRIME_HOST: "https://preview.prime.plane.so"

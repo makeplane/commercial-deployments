@@ -42,3 +42,6 @@ data:
 
   # Prime / preview host
   PRIME_HOST: "https://prime.plane.so"
+
+  # SMTP domain for the inbound email service TLS certificate
+  SMTP_DOMAIN: "smtp.gmail.com"
