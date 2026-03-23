@@ -46,25 +46,25 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-68f760b
+    newTag: v2.5.0-phoenix-ca24872
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
