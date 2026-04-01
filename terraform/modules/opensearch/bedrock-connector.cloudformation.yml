@@ -1,0 +1,489 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template to connect Amazon OpenSearch to Bedrock model
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Amazon OpenSearch Configuration"
+        Parameters:
+          - AmazonOpenSearchEndpoint
+          - LambdaInvokeOpenSearchMLCommonsRoleName
+      - 
+        Label:
+          default: "Model Configuration"
+        Parameters:
+          - Model
+          - ModelName
+          - BedrockModelRegion
+          - AddProcessFunction
+          - AddOfflineBatchInference
+      -
+        Label:
+          default: "Lambda Configuration"
+        Parameters:
+          - SecurityGroupIds
+          - SubnetIds
+    ParameterLabels:
+      AmazonOpenSearchEndpoint:
+        default: "Amazon OpenSearch Endpoint"
+      LambdaInvokeOpenSearchMLCommonsRoleName:
+        default: "Lambda Invoke OpenSearch ML Commons Role Name"
+      ModelName:
+        default: "Model Name"
+      BedrockModelRegion:
+        default: "Model Region"
+      Model:
+        default: "Model"
+      AddProcessFunction:
+        default: "Add Process Function"
+      AddOfflineBatchInference:
+        default: "Enable Offline Batch Inference"
+      SecurityGroupIds:
+        default: "Security Group Ids"
+      SubnetIds:
+        default: "Subnet Ids"
+
+Parameters:
+  AmazonOpenSearchEndpoint:
+    Type: String
+    Description: "The endpoint of the Amazon OpenSearch Service. Example: https://example.us-east-1.es.amazonaws.com"
+    AllowedPattern: "https://.*"
+    ConstraintDescription: "Must be a valid Amazon OpenSearch Service endpoint."
+  ModelName:
+    Type: String
+    Description: The name of the model deployed, it will be used in the name of created AWS resources.
+  LambdaInvokeOpenSearchMLCommonsRoleName:
+    Type: String
+    Default: "LambdaInvokeOpenSearchMLCommonsRole"
+    ConstraintDescription: Must use alphanumeric and '+=,.@-_' characters.
+    Description: The name of the IAM role that is used by Lambda to invoke Amazon OpenSearch domain. Before deploying this template, it must be mapped to the OpenSearch domain's ml_full_access role . The IAM role will be created by this template if it does not exist. You can use the default value or specify a custom name. If you specify a custom name, it must be unique within your account.
+    AllowedPattern: "[a-zA-Z0-9+=,.@_-]+"
+  BedrockModelRegion:
+    Type: String
+    Description: Select the Bedrock service region from available options. Please make sure the model is access granted in the selected region Bedrock service. If your AOS service is in a region that is different than the bedrock service region, you may expect cross-region latency.
+    AllowedValues: ["us-east-1", "us-west-2", "eu-central-1", "ap-northeast-1", "ap-southeast-1"]
+  Model:
+    Type: String
+    Description: Select the model from Bedrock service to connect to Amazon OpenSearch Service. Make sure you have requested and obtained access to the model in Bedrock before using it. More details in https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html
+    AllowedValues: ["amazon.titan-embed-text-v1", "amazon.titan-embed-image-v1", "amazon.titan-embed-text-v2:0", "cohere.embed-english-v3", "cohere.embed-multilingual-v3", "anthropic.claude-3-sonnet-20240229-v1:0"]
+  AddProcessFunction:
+    Description: "Enable or disable the default pre and post processing functions in the connector"
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  AddOfflineBatchInference:
+    Description: This is compatible with AOS version 2.17 or greater. Enable or disable the bath_predict action in the connector. More details in https://docs.opensearch.org/docs/latest/ml-commons-plugin/api/model-apis/batch-predict/
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: The security Group where Lambda will be deployed that Amazon Opensearch also is deployed in.
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The one or more Subnets where Lambda will be deployed that Amazon Opensearch also is deployed in. The subnetds should be accessible to public NAT Gateway.
+
+Resources:
+  OpenSearchInvokeModelRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-', ["OpenSearchInvokeModelRole", !Ref ModelName]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: es.aws.internal
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: OpenSearchAccessAIModelPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:CreateModelInvocationJob
+                  - bedrock:GetModelInvocationJob
+                  - bedrock:ListModelInvocationJobs
+                  - bedrock:StopModelInvocationJob
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !GetAtt BedrockBatchJobRole.Arn
+
+  BedrockBatchJobRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Join ['-', ['bedrock-batch-job-role', !Ref ModelName]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+
+  HelperLambdaInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['-', ["HelperLambdaInvokeRole", !Ref ModelName]]
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+        - Effect: Allow
+          Principal:
+            Service:
+            - s3.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - iam:ListRoles
+            - iam:PassRole
+            - iam:GetRole
+            - iam:CreateRole
+            - iam:GetRolePolicy
+            - iam:CreatePolicy
+            - iam:AttachRolePolicy
+            - iam:PutRolePolicy
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:CreateBucket
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            - s3:DeleteBucket
+            Resource: "*"
+
+  HelperLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: [HelperLambdaInvokeRole]
+    Properties:
+      FunctionName: !Join ['-', ["HelperLambdaFunction", !Ref ModelName]]
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import urllib.request
+          import json
+          import botocore
+          import time
+
+          def lambda_handler(event, context):
+              print("event: " + str(event))
+              request_type = event['RequestType']
+              if request_type in ['Update']:
+                  return respond_success(event, context)
+
+              if request_type in ['Delete'] or event['ResourceProperties']['CleanupS3Bucket'] == 'true':
+                  clean_s3_bucket(event['ResourceProperties']['S3Bucket'])
+                  return respond_success(event, context)
+
+              try: 
+                  iam = boto3.client('iam')
+                  os_invoke_model_role_arn = event['ResourceProperties']['OpenSearchInvokeModelRole']
+                  lambda_invoke_aos_role_name = event['ResourceProperties']['LambdaInvokeAOSRole']
+                  bedrock_batch_job_role_arn = event['ResourceProperties']['BedrockBatchJobRole']
+                  role_arn = manage_iam_role(iam, lambda_invoke_aos_role_name, os_invoke_model_role_arn, bedrock_batch_job_role_arn)
+
+                  return download_and_upload_lambda(event, role_arn, context)
+              except Exception as e:
+                  print(f"Unexpected error in lambda_handler: {e}")
+                  return respond_failure(event, context, str(e))
+
+          def iam_role_exists(iam, role_name):
+              try:
+                  iam.get_role(RoleName=role_name)
+                  print("LambdaInvokeOpenSearchMLCommonsRole exists")
+                  return True
+              except iam.exceptions.NoSuchEntityException:
+                  print("LambdaInvokeOpenSearchMLCommonsRole does not exist")
+                  return False
+
+          def vpc_policy_exists(iam, role_name):
+              try:
+                  iam.get_role_policy(RoleName=role_name, PolicyName='VpcOpenSearchAccess')
+                  print("VpcOpenSearchAccess policy exists")
+                  return True
+              except iam.exceptions.NoSuchEntityException:
+                  print("VpcOpenSearchAccess policy does not exist")
+                  return False
+
+          def model_passrole_policy_exists(iam, role_name, os_invoke_model_role_arn, bedrock_batch_job_role_arn):
+              try:
+                  existing_inline_policy = iam.get_role_policy(RoleName=role_name, PolicyName='ModelPassRole')
+                  print("PassRole policy exists")
+                  return True
+              except iam.exceptions.NoSuchEntityException:
+                  print("PassRole policy does not exist")
+                  return False
+
+          def manage_iam_role(iam, role_name, os_invoke_model_role_arn, bedrock_batch_job_role_arn):
+              if not iam_role_exists(iam, role_name):
+                  create_iam_role_with_basic_policy(iam, role_name, os_invoke_model_role_arn)
+                  print("Created LambdaInvokeOpenSearchMLCommonsRole")
+
+              if not vpc_policy_exists(iam, role_name):
+                  vpc_policy = create_vpc_policy()
+                  put_role_policy(iam, role_name, 'VpcOpenSearchAccess', vpc_policy)
+                  print("Created VpcOpenSearchAccess policy")
+
+              if not model_passrole_policy_exists(iam, role_name, os_invoke_model_role_arn, bedrock_batch_job_role_arn):
+                  model_passrole_policy = create_empty_passrole_policy_statement(os_invoke_model_role_arn)
+                  passrole_statement_line = create_passrole_statement_line(os_invoke_model_role_arn, bedrock_batch_job_role_arn)
+                  model_passrole_policy['Statement'].append(passrole_statement_line)
+                  put_role_policy(iam, role_name, 'ModelPassRole', model_passrole_policy)
+                  print("Created PassRole policy")
+              else:
+                  existing_inline_policy = iam.get_role_policy(RoleName=role_name, PolicyName='ModelPassRole')
+                  new_policy = create_passrole_statement(os_invoke_model_role_arn, bedrock_batch_job_role_arn)
+                  inline_policy = existing_inline_policy['PolicyDocument']
+                  inline_policy['Statement'].extend(new_policy['Statement'])
+                  put_role_policy(iam, role_name, 'ModelPassRole', inline_policy)
+                  print("Updated PassRole policy")
+
+              print("LambdaInvokeOpenSearchMLCommonsRole is ready")
+              return iam.get_role(RoleName=role_name)['Role']['Arn']
+
+          def create_iam_role_with_basic_policy(iam, role_name, os_invoke_model_role_arn):
+              trust_relationship = create_trust_relationship()
+              basic_policy = create_basic_policy()
+              role = iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(trust_relationship), Description='Role for Lambda to invoke OpenSearch')
+              time.sleep(5)
+              policy_name = 'OpenSearchAccess'
+              put_role_policy(iam, role_name, policy_name, basic_policy)
+              return role['Role']['Arn']
+
+          def put_role_policy(iam, role_name, policy_name, policy_document):
+              try:
+                  iam.put_role_policy(RoleName=role_name, PolicyName=policy_name, PolicyDocument=json.dumps(policy_document))
+                  time.sleep(5)
+              except botocore.exceptions.ClientError as e:
+                  print(e)
+                  raise e
+          
+          def create_trust_relationship():
+              return {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Principal": {"Service": "lambda.amazonaws.com"},
+                          "Action": "sts:AssumeRole"
+                      }
+                  ]
+              }
+
+          def create_basic_policy():
+              return {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {"Effect": "Allow", "Action": [
+                        "logs:CreateLogGroup", 
+                        "logs:CreateLogStream", 
+                        "logs:PutLogEvents"
+                        ], 
+                        "Resource": "*"
+                      },
+                      {"Effect": "Allow", "Action": ["es:*"], "Resource": "*"},
+                      {"Effect": "Allow", "Action": ["es:ESHttpPost"], "Resource": "arn:aws:es:*:*:*/*/*"}
+                  ]
+              }
+
+          def create_vpc_policy():
+            return {
+              "Version": "2012-10-17",
+              "Statement": [
+                {"Effect": "Allow", "Action": [
+                  "ec2:DescribeVpcEndpoints",
+                  "ec2:DescribeDhcpOptions",
+                  "ec2:DescribeVpcs",
+                  "ec2:DescribeSubnets",
+                  "ec2:DescribeSecurityGroups",
+                  "ec2:DescribeNetworkInterfaces",
+                  "ec2:DeleteNetworkInterfacePermission",
+                  "ec2:DeleteNetworkInterface",
+                  "ec2:CreateNetworkInterfacePermission",
+                  "ec2:CreateNetworkInterface"],
+                  "Resource": "*"
+                }
+              ]
+            }
+
+          def create_passrole_statement_line(os_invoke_model_role_arn, bedrock_batch_job_role_arn):
+            return {"Effect": "Allow", "Action": ["iam:PassRole"], "Resource": [os_invoke_model_role_arn, bedrock_batch_job_role_arn]}
+          
+          def create_passrole_statement(os_invoke_model_role_arn, bedrock_batch_job_role_arn):
+            return {
+              "Version": "2012-10-17",
+              "Statement": [
+                create_passrole_statement_line(os_invoke_model_role_arn, bedrock_batch_job_role_arn)
+              ]
+            }
+          
+          def create_empty_passrole_policy_statement(os_invoke_model_role_arn):
+            return {
+              "Version": "2012-10-17",
+              "Statement": []
+            }
+
+          def download_and_upload_lambda(event, role_arn, context):
+              response_data = {'ContinuedInvoke': True, 'LambdaInvokeAOSRoleArn': role_arn}
+              try:
+                 
+                  url = event['ResourceProperties']['LambdaZipUrl']
+                  s3_key = event['ResourceProperties']['S3Key']
+                  tmp_file_path = f"/tmp/{s3_key}"
+
+                  download_file(url, tmp_file_path)
+                  bucket_name = event['ResourceProperties']['S3Bucket']
+                  create_s3_bucket(bucket_name)
+                  upload_file_to_s3(bucket_name, s3_key, tmp_file_path)
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, context.log_stream_name)
+                  return {"statusCode": 200}
+              except Exception as e:
+                  print(e)
+                  response_data['ContinuedInvoke'] = False
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response_data, context.log_stream_name)
+                  return {"statusCode": 500}
+
+          def download_file(url, file_path):
+              urllib.request.urlretrieve(url, file_path)
+              print(f"Downloaded file from {url} to {file_path}")
+
+          def create_s3_bucket(bucket_name):
+              s3 = boto3.client('s3')
+              region = boto3.session.Session().region_name
+              if region == 'us-east-1':
+                  s3.create_bucket(Bucket=bucket_name)
+              else:
+                  s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
+              print(f"S3 bucket {bucket_name} created successfully")
+
+          def upload_file_to_s3(bucket_name, s3_key, file_path):
+              s3 = boto3.resource('s3')
+              s3.Bucket(bucket_name).upload_file(file_path, s3_key)
+              print(f"Uploaded file to s3://{bucket_name}/{s3_key}")
+
+          def respond_success(event, context):
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, context.log_stream_name)
+              return {"statusCode": 200}
+          
+          def respond_failure(event, context, reason):
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, context.log_stream_name, reason)
+              return {"statusCode": 500, "body": reason}
+
+          def clean_s3_bucket(bucket_name):
+              try:
+                  s3 = boto3.resource('s3')
+                  bucket = s3.Bucket(bucket_name)
+                  bucket.objects.all().delete()
+                  bucket.delete()
+                  print(f"S3 bucket {bucket_name} deleted successfully")
+              except Exception as e:
+                  print(f"An error occurred in the S3 bucket cleanup: {e}")
+                  pass
+
+      Handler: index.lambda_handler
+      Role: !GetAtt HelperLambdaInvokeRole.Arn
+      Runtime: python3.12
+      Timeout: 120
+
+  InvokeHelperLambda:
+    Type: Custom::InvokeLambda
+    DependsOn: [HelperLambdaFunction, OpenSearchInvokeModelRole]
+    Properties:
+      ServiceToken: !GetAtt HelperLambdaFunction.Arn
+      LambdaZipUrl: "https://d2wvpdb2jzk602.cloudfront.net/opensearch-bedrock-connector-select-model-lambda.zip"
+      LambdaInvokeAOSRole: !Ref LambdaInvokeOpenSearchMLCommonsRoleName
+      OpenSearchInvokeModelRole: !GetAtt OpenSearchInvokeModelRole.Arn
+      BedrockBatchJobRole: !GetAtt BedrockBatchJobRole.Arn
+      S3Bucket: !Join ['-', ["opensearch-ml-models-lambda-function", "stack", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+      S3Key: opensearch-connector-lambda-function.zip
+      CleanupS3Bucket: false
+
+  ConnectorLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: [InvokeHelperLambda]
+    Properties:
+      FunctionName: !Join ['-', ["ConnectorLambdaFunction", !Ref ModelName]]
+      Code:
+        S3Bucket: !Join ['-', ["opensearch-ml-models-lambda-function", "stack", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        S3Key: opensearch-connector-lambda-function.zip
+      PackageType: Zip
+      Handler: lambda_function.lambda_handler
+      Role:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/${LambdaInvokeOpenSearchMLCommonsRoleName}
+      Runtime: python3.12
+      Timeout: 120
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+
+  InvokeConnectorLambda:
+    Type: Custom::InvokeLambda
+    DependsOn: [ConnectorLambdaFunction]
+    Properties:
+      ServiceToken: !GetAtt ConnectorLambdaFunction.Arn
+      AOSEndpoint: !Ref AmazonOpenSearchEndpoint
+      AOSRoleArn: !GetAtt OpenSearchInvokeModelRole.Arn
+      ModelName: !Ref ModelName
+      ModelRegion: !Ref BedrockModelRegion
+      Model: !Ref Model
+      BedrockBatchJobRole: !GetAtt BedrockBatchJobRole.Arn
+      DefaultProcessFunction: !Ref AddProcessFunction
+      EnableOfflineBatchInference: !Ref AddOfflineBatchInference
+
+  InvokeHelperLambdaToCleanS3:
+    Type: Custom::InvokeLambda
+    DependsOn: [InvokeConnectorLambda]
+    Properties:
+      ServiceToken: !GetAtt HelperLambdaFunction.Arn
+      CleanupS3Bucket: true
+      S3Bucket: !Join ['-', ["opensearch-ml-models-lambda-function", "stack", !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+
+Outputs:
+  ConnectorId:
+    Value: !GetAtt InvokeConnectorLambda.connector_id
+    Description: The connector id that is created in Amazon OpenSearch Service ML-Commons.
+  ModelId:
+    Value: !GetAtt InvokeConnectorLambda.model_id
+    Description: The model id in ML-Commons that is associated with the connector id.
+  BedrockEndpoint:
+    Value: !GetAtt InvokeConnectorLambda.model_endpoint
+    Description: The endpoint of the Bedrock model that is connected to Amazon OpenSearch Service.
+

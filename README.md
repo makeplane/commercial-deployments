@@ -40,6 +40,12 @@ module "plane_infra" {
   enable_aws_lb_controller = true # to use aws ALB
   cluster_version          = "1.34"
 
+  # Optional: create the OpenSearch ↔ Bedrock connector/model integration
+  create_opensearch_bedrock_connector = true
+  # bedrock_model_region = "us-west-2"                 # defaults to `region`
+  # bedrock_model        = "amazon.titan-embed-text-v1" # default
+  # bedrock_model_name   = "plane-eks-cluster-bedrock"  # defaults to "${cluster_name}-bedrock"
+
   tags = {
     Environment = "plane"
   }
