@@ -120,6 +120,74 @@ variable "opensearch" {
   }
 }
 
+variable "create_opensearch_bedrock_connector" {
+  description = "When true, create the OpenSearch ↔ Bedrock connector/model integration (via CloudFormation stack)."
+  type        = bool
+  default     = false
+
+  validation {
+    condition = (
+      var.create_opensearch_bedrock_connector == false ||
+      (length(trimspace(coalesce(var.bedrock_model_region, contains(["us-east-1", "us-west-2", "eu-central-1", "ap-northeast-1", "ap-southeast-1"], var.region) ? var.region : "us-east-1"))) > 0 &&
+        length(trimspace(coalesce(var.bedrock_model, "amazon.titan-embed-text-v1"))) > 0 &&
+        length(trimspace(coalesce(var.bedrock_model_name, "${var.cluster_name}-bedrock"))) > 0
+      )
+    )
+    error_message = "When create_opensearch_bedrock_connector is true, effective bedrock_model_region, bedrock_model, and bedrock_model_name must be non-empty."
+  }
+}
+
+variable "bedrock_model_region" {
+  description = "Bedrock model region. Defaults to `region` when null."
+  type        = string
+  default     = null
+}
+
+variable "bedrock_model" {
+  description = "Bedrock model ID. Defaults to amazon.titan-embed-text-v1 when null."
+  type        = string
+  default     = null
+}
+
+variable "bedrock_model_name" {
+  description = "A name used to tag/namescope created connector resources. Defaults to \"<cluster_name>-bedrock\" when null."
+  type        = string
+  default     = null
+}
+
+variable "add_process_function" {
+  description = "Enable the default pre/post processing functions in the connector."
+  type        = bool
+  default     = true
+}
+
+variable "add_offline_batch_inference" {
+  description = "Enable offline batch inference in the connector."
+  type        = bool
+  default     = false
+}
+
+variable "lambda_invoke_mlcommons_role_name" {
+  description = "IAM role name used by the connector Lambda to invoke OpenSearch."
+  type        = string
+  default     = "LambdaInvokeOpenSearchMLCommonsRole"
+}
+
+variable "opensearch_bedrock" {
+  description = "OpenSearch ↔ Bedrock connector integration (deployed via CloudFormation stack)."
+  type = object({
+    create_connector                  = bool
+    bedrock_model_region              = string
+    bedrock_model                     = string
+    bedrock_model_name                = string
+    add_process_function              = bool
+    add_offline_batch_inference       = bool
+    lambda_invoke_mlcommons_role_name = string
+  })
+  default  = null
+  nullable = true
+}
+
 variable "object_store" {
   description = "S3 object store configuration"
   type = object({

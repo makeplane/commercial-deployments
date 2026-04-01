@@ -16,6 +16,23 @@ locals {
   private_subnet_cidrs = [
     for i in range(local.subnet_count) : cidrsubnet(var.vpc_cidr, 6, local.subnet_count + i)
   ]
+
+  bedrock_allowed_regions = toset(["us-east-1", "us-west-2", "eu-central-1", "ap-northeast-1", "ap-southeast-1"])
+
+  effective_bedrock_model_region = coalesce(
+    var.bedrock_model_region,
+    contains(local.bedrock_allowed_regions, var.region) ? var.region : "us-east-1"
+  )
+
+  opensearch_bedrock_effective = var.opensearch_bedrock != null ? var.opensearch_bedrock : {
+    create_connector                  = var.create_opensearch_bedrock_connector
+    bedrock_model_region              = local.effective_bedrock_model_region
+    bedrock_model                     = coalesce(var.bedrock_model, "amazon.titan-embed-text-v1")
+    bedrock_model_name                = coalesce(var.bedrock_model_name, "${var.cluster_name}-bedrock")
+    add_process_function              = var.add_process_function
+    add_offline_batch_inference       = var.add_offline_batch_inference
+    lambda_invoke_mlcommons_role_name = var.lambda_invoke_mlcommons_role_name
+  }
 }
 
 module "vpc" {
@@ -144,7 +161,21 @@ module "opensearch" {
   instance_type   = var.opensearch.instance_type
   instance_count  = var.opensearch.instance_count
   ebs_volume_size = var.opensearch.ebs_volume_size
-  tags            = var.tags
+
+  enable_vpc = true
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = [module.vpc.private_subnet_ids[0]]
+
+  allowed_ingress_security_group_ids = [module.eks.node_security_group_id]
+
+  create_connector                             = local.opensearch_bedrock_effective.create_connector
+  bedrock_model_region                         = local.opensearch_bedrock_effective.bedrock_model_region
+  bedrock_model                                = local.opensearch_bedrock_effective.bedrock_model
+  bedrock_model_name                           = local.opensearch_bedrock_effective.bedrock_model_name
+  add_process_function                         = local.opensearch_bedrock_effective.add_process_function
+  add_offline_batch_inference                  = local.opensearch_bedrock_effective.add_offline_batch_inference
+  lambda_invoke_opensearch_mlcommons_role_name = local.opensearch_bedrock_effective.lambda_invoke_mlcommons_role_name
+  tags                                         = var.tags
 
   depends_on = [aws_secretsmanager_secret_version.plane_password]
 }
