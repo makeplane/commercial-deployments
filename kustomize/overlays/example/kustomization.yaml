@@ -286,18 +286,6 @@ replacements:
         fieldPaths:
           - data.PLANE_OAUTH_REDIRECT_URI
 
-  # Pi service: custom LLM API key placeholder (from vars.yaml)
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.MODEL_CUSTOM_LLM_API_KEY
-    targets:
-      - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
-        fieldPaths:
-          - data.MODEL_CUSTOM_LLM_API_KEY
-
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -568,9 +556,9 @@ replacements:
 
   # AWS Secrets Manager ARNs in plane-app-secrets and plane-live-secrets
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.AMAZONMQ_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMAZONMQ_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -579,9 +567,9 @@ replacements:
           - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.ELASTICACHE_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ELASTICACHE_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -595,9 +583,9 @@ replacements:
           - stringData.ELASTICACHE_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.RDS_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.RDS_SECRET_ARN
     targets:
       - select:
           kind: Secret

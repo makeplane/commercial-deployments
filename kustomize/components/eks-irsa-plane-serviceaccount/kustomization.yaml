@@ -9,9 +9,9 @@ patches:
 
 replacements:
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PLANE_SERVICE_ACCOUNT_ROLE_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PLANE_SERVICE_ACCOUNT_ROLE_ARN
     targets:
       - select:
           kind: ServiceAccount
