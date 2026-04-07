@@ -667,7 +667,16 @@ replacements:
         fieldPaths:
           - stringData.OPENSEARCH_URL
   # OPENSEARCH_USERNAME/PASSWORD: use component opensearch-external-auth when needed
-
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.BEDROCK_INFERENCE_PROFILE_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.BEDROCK_INFERENCE_PROFILE_ARN
   # MinIO/S3 configuration in plane-doc-store-secrets (AWS_ACCESS_KEY_ID/SECRET: use component s3-static-credentials when needed)
   - source:
       kind: Secret
