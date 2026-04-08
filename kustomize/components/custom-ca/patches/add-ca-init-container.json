@@ -8,7 +8,7 @@
         "image": "makeplane/backend-commercial",
         "command": ["sh", "-c"],
         "args": [
-          "cat /etc/ssl/certs/ca-certificates.crt /custom-ca/customCA.crt > /combined-ca/ca-bundle.crt"
+          "set -eu\nSYSTEM_CA_PRIMARY=/etc/ssl/certs/ca-certificates.crt\nSYSTEM_CA_FALLBACK=/etc/ssl/cert.pem\nCUSTOM_CA=/custom-ca/customCA.crt\nOUTPUT=/combined-ca/ca-bundle.crt\nif [ -f \"$SYSTEM_CA_PRIMARY\" ]; then\n  cat \"$SYSTEM_CA_PRIMARY\" \"$CUSTOM_CA\" > \"$OUTPUT\";\nelif [ -f \"$SYSTEM_CA_FALLBACK\" ]; then\n  cat \"$SYSTEM_CA_FALLBACK\" \"$CUSTOM_CA\" > \"$OUTPUT\";\nelif [ -f \"$CUSTOM_CA\" ]; then\n  # Fall back to custom CA only when system CA bundle path differs.\n  cat \"$CUSTOM_CA\" > \"$OUTPUT\";\nelse\n  echo \"custom CA file not found at $CUSTOM_CA\" >&2;\n  exit 1;\nfi\n"
         ],
         "volumeMounts": [
           {

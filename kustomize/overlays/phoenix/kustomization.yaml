@@ -42,29 +42,29 @@ components:
 # ============================================================
 # APPLICATION VERSION - CUSTOMIZE THIS FOR UPGRADES
 # ============================================================
-# Current Version: v2.3.4 (also defined in vars.yaml for ConfigMap replacements)
+# Current Version: v2.5.0 (also defined in vars.yaml for ConfigMap replacements)
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/web-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/space-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/admin-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/live-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/monitor-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/silo-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/email-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/plane-pi-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/node-runner-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: v2.5.0-phoenix-422b9fc
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
@@ -285,18 +285,6 @@ replacements:
           name: plane-pi-api-vars
         fieldPaths:
           - data.PLANE_OAUTH_REDIRECT_URI
-
-  # Pi service: custom LLM API key placeholder (from vars.yaml)
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.MODEL_CUSTOM_LLM_API_KEY
-    targets:
-      - select:
-          kind: ConfigMap
-          name: plane-pi-api-vars
-        fieldPaths:
-          - data.MODEL_CUSTOM_LLM_API_KEY
 
   - source:
       kind: Secret
@@ -568,9 +556,9 @@ replacements:
 
   # AWS Secrets Manager ARNs in plane-app-secrets and plane-live-secrets
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.AMAZONMQ_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMAZONMQ_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -579,9 +567,9 @@ replacements:
           - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.ELASTICACHE_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ELASTICACHE_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -595,9 +583,9 @@ replacements:
           - stringData.ELASTICACHE_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.RDS_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.RDS_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -667,7 +655,16 @@ replacements:
         fieldPaths:
           - stringData.OPENSEARCH_URL
   # OPENSEARCH_USERNAME/PASSWORD: use component opensearch-external-auth when needed
-
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.BEDROCK_INFERENCE_PROFILE_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.BEDROCK_INFERENCE_PROFILE_ARN
   # MinIO/S3 configuration in plane-doc-store-secrets (AWS_ACCESS_KEY_ID/SECRET: use component s3-static-credentials when needed)
   - source:
       kind: Secret

@@ -52,16 +52,7 @@ data:
   RDS_DB_PORT_KEY: "port"
   RDS_DB_USERNAME_KEY: "username"
 
-  # Optional: AWS Secrets Manager ARNs (non-sensitive, used to fetch credentials)
-  AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-mq-secret"
-  ELASTICACHE_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-redis-secret"
-  RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-rds-secret"
-
-  # Pi service - AWS Secrets Manager ARNs (distinct from main plane ARNs)
-  PI_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-rds-secret" #PI db ARN
-  PI_FOLLOWER_RDS_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-follower-rds-secret" #plane-application db arn
-  PI_AMAZONMQ_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-mq-secret"
-  PI_MODEL_SECRET_ARN: "arn:aws:secretsmanager:us-east-1:123456789012:secret:your-pi-model-secret"
+  # AWS Secrets Manager ARNs moved to secrets-vars.yaml (contain account ID)
 
   # AWS Secrets Manager key mappings (PI-specific)
   PI_RABBITMQ_USER_KEY: "username"
@@ -85,13 +76,12 @@ data:
   PI_CUSTOM_LLM_MODEL_KEY: "<provider-model-key>"
   PI_CUSTOM_LLM_NAME: "<friendly-model-name>"
   PI_CUSTOM_LLM_AWS_REGION: "us-east-2"
-  MODEL_CUSTOM_LLM_API_KEY: "<api-key-or-placeholder>"
 
   # Secrets Manager credential cache TTL in seconds (applies to api, silo, live, pi)
   AWS_SECRET_CACHE_TTL: "300"
 
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
-  PLANE_SERVICE_ACCOUNT_ROLE_ARN: "arn:aws:iam::123456789012:role/PlaneS3Role"
+  # PLANE_SERVICE_ACCOUNT_ROLE_ARN moved to secrets-vars.yaml (contains account ID)
 
   # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3)
   MONITOR_STORAGE_CLASS: "gp2"
