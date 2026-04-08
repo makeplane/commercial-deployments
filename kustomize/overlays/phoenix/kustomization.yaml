@@ -42,7 +42,7 @@ components:
 # ============================================================
 # APPLICATION VERSION - CUSTOMIZE THIS FOR UPGRADES
 # ============================================================
-# Current Version: v2.3.4 (also defined in vars.yaml for ConfigMap replacements)
+# Current Version: v2.5.0 (also defined in vars.yaml for ConfigMap replacements)
 # ============================================================
 images:
   - name: makeplane/backend-commercial
