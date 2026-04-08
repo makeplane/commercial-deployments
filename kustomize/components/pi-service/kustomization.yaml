@@ -12,9 +12,9 @@ resources:
 
 replacements:
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PI_RDS_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_RDS_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -23,9 +23,9 @@ replacements:
           - stringData.RDS_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PI_AMAZONMQ_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_AMAZONMQ_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -34,9 +34,9 @@ replacements:
           - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PI_FOLLOWER_RDS_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_FOLLOWER_RDS_SECRET_ARN
     targets:
       - select:
           kind: Secret
@@ -45,9 +45,9 @@ replacements:
           - stringData.FOLLOWER_RDS_SECRET_ARN
 
   - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.PI_MODEL_SECRET_ARN
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.PI_MODEL_SECRET_ARN
     targets:
       - select:
           kind: Secret

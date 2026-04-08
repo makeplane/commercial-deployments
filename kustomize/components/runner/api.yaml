@@ -23,9 +23,6 @@ spec:
         - name: node-runner
           image: makeplane/node-runner-commercial:v2.3.4
           imagePullPolicy: Always
-          command:
-            - node
-            - apps/runners/node-runner/dist/index.js
           envFrom:
             - configMapRef:
                 name: plane-node-runner-vars

@@ -24,6 +24,7 @@ A new optional Kustomize **component** was added at `kustomize/components/custom
 
 - Creates a `plane-custom-ca` ConfigMap from your `customCA.crt` file and mounts it into every container at `/etc/ssl/certs/customCA.crt`.
 - Adds an **init container** to every pod that concatenates the system CA bundle with your custom CA into `/combined-ca/ca-bundle.crt`. This ensures standard TLS endpoints (e.g. AWS APIs) remain trusted alongside your internal services.
+- The init container prefers the system CA bundle from `/etc/ssl/certs/ca-certificates.crt`; if it is not present, it tries `/etc/ssl/cert.pem`. If neither system path exists, it falls back to using only the mounted custom CA at `/custom-ca/customCA.crt`.
 - Creates a `plane-custom-ca-env` ConfigMap and injects the following env vars into every container:
   - `REQUESTS_CA_BUNDLE=/combined-ca/ca-bundle.crt` — used by Python / `requests`
   - `AWS_CA_BUNDLE=/combined-ca/ca-bundle.crt` — used by Python `boto3` / `botocore`
