@@ -30,9 +30,13 @@ spec:
             - apps/flux/dist/consumer.mjs
           envFrom:
             - configMapRef:
+                name: plane-app-vars
+            - configMapRef:
                 name: plane-flux-consumer-vars
             - configMapRef:
                 name: plane-flux-vars
+            - secretRef:
+                name: plane-app-secrets
             - secretRef:
                 name: plane-flux-secrets
           resources:
