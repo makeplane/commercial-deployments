@@ -68,6 +68,9 @@ images:
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
+# All configuration is now handled by replacements from vars.yaml and secrets-vars.yaml
+# No manual patches needed!
+
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
 # ============================================================
