@@ -68,20 +68,6 @@ images:
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
 
-# Fix: monitor StatefulSet PVC is mounted at /data but the Go binary (WORKDIR /app)
-# writes monitor.db relative to its working directory (/app/monitor.db).
-# Patch the mountPath to /app so the PVC covers where SQLite actually writes.
-# fsGroup: 1000 (set by nonroot-security-context) ensures the non-root plane user
-# (uid/gid 1000) can write to the mounted volume.
-patches:
-  - patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/volumeMounts/0/mountPath
-        value: /app
-    target:
-      kind: StatefulSet
-      name: plane-monitor
-
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
 # ============================================================
