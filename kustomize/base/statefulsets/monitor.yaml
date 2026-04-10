@@ -32,7 +32,7 @@ spec:
                 name: plane-monitor-vars
           volumeMounts:
             - name: monitor-data
-              mountPath: /data
+              mountPath: /app
           resources:
             requests:
               memory: 50Mi
