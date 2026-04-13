@@ -25,3 +25,4 @@ spec:
     port: 587
     targetPort: 10587
     protocol: TCP
+
