@@ -7,12 +7,6 @@ resources:
   - deployment.yaml
   - service.yaml
 
-patches:
-  - path: patches/ingress-mcp-path.yaml
-    target:
-      kind: Ingress
-      name: plane-ingress
-
 replacements:
   # PLANE_BASE_URL and PLANE_OAUTH_PROVIDER_BASE_URL both come from WEB_URL
   - source:

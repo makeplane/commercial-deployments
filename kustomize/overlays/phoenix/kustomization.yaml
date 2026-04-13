@@ -133,6 +133,18 @@ replacements:
         fieldPaths:
           - spec.rules.0.host
 
+  # Replace APP_DOMAIN in MCP ingress TLS host
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: Ingress
+          name: plane-mcp-ingress
+        fieldPaths:
+          - spec.tls.0.hosts.0
+
   # Replace INGRESS_CLASS in Ingress
   - source:
       kind: ConfigMap
