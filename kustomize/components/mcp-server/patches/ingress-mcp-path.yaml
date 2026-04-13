@@ -1,0 +1,10 @@
+- op: add
+  path: /spec/rules/0/http/paths/-
+  value:
+    path: /mcp/
+    pathType: Prefix
+    backend:
+      service:
+        name: plane-mcp-server
+        port:
+          number: 8211

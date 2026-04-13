@@ -1,0 +1,63 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+
+patches:
+  - path: patches/ingress-mcp-path.yaml
+    target:
+      kind: Ingress
+      name: plane-ingress
+
+replacements:
+  # PLANE_BASE_URL and PLANE_OAUTH_PROVIDER_BASE_URL both come from WEB_URL
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.PLANE_BASE_URL
+          - data.PLANE_OAUTH_PROVIDER_BASE_URL
+
+  # Internal K8s service URL for server-to-server API calls
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MCP_PLANE_INTERNAL_BASE_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.PLANE_INTERNAL_BASE_URL
+
+  # OAuth application credentials
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.MCP_OAUTH_CLIENT_ID
+    targets:
+      - select:
+          kind: Secret
+          name: plane-mcp-server-secrets
+        fieldPaths:
+          - stringData.PLANE_OAUTH_PROVIDER_CLIENT_ID
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.MCP_OAUTH_CLIENT_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-mcp-server-secrets
+        fieldPaths:
+          - stringData.PLANE_OAUTH_PROVIDER_CLIENT_SECRET

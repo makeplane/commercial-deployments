@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-mcp-server-vars
+  namespace: plane
+data:
+  FASTMCP_PORT: "8211"
+  PLANE_BASE_URL: ""               # replaced from overlay-vars WEB_URL
+  PLANE_INTERNAL_BASE_URL: ""      # replaced from overlay-vars MCP_PLANE_INTERNAL_BASE_URL
+  PLANE_OAUTH_PROVIDER_BASE_URL: "" # replaced from overlay-vars WEB_URL
