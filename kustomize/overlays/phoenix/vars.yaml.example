@@ -91,3 +91,10 @@ data:
 
   # Prime / preview host (optional)
   PRIME_HOST: "https://prime.plane.so"
+
+  # SMTP domain for the inbound email service TLS certificate
+  SMTP_DOMAIN: "smtp.gmail.com"
+
+  # MCP server: internal K8s service URL used for server-to-server Plane API calls
+  # Follows the pattern: http://<api-service-name>.<namespace>.svc.cluster.local:<port>
+  MCP_PLANE_INTERNAL_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
