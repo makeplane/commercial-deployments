@@ -54,7 +54,6 @@ resources:
 
   # Ingress
   - ingress.yaml
-  - ingress-mcp.yaml
 
 # Default image tags
 images:
