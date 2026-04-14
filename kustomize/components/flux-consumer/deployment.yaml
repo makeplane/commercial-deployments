@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-flux-consumer-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: flux-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: flux-consumer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: flux-consumer
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: flux-consumer
+          image: makeplane/flux-commercial:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          command:
+            - node
+            - apps/flux/dist/consumer.mjs
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - configMapRef:
+                name: plane-flux-consumer-vars
+            - configMapRef:
+                name: plane-flux-vars
+            - secretRef:
+                name: plane-app-secrets
+            - secretRef:
+                name: plane-flux-secrets
+          resources:
+            requests:
+              memory: 500Mi
+              cpu: 250m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
