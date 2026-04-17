@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-flux-vars
+  namespace: plane
+data:
+  EVENT_STREAM_EXCHANGE: "plane.event_stream"
+  PREFETCH_COUNT: "10"
+  CHANNEL_PREFIX: "flux"
+  FLUX_BASE_PATH: ""
+  CORS_ALLOWED_ORIGINS: ""
+  API_BASE_URL: ""
+  APP_BASE_URL: ""
+  SENTRY_DSN: ""
+  SENTRY_ENVIRONMENT: "development"
+  SENTRY_TRACES_SAMPLE_RATE: "0.5"
