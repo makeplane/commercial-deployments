@@ -32,7 +32,7 @@ components:
   - ../../components/mcp-server
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
-  # - ../../components/nonroot-security-context
+  - ../../components/nonroot-security-context
   # Optional: mount a custom CA certificate into all containers.
   # Paste your CA cert (PEM) into ../../components/custom-ca/customCA.crt, then uncomment:
   - ../../components/custom-ca
