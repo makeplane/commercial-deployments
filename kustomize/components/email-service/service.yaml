@@ -7,8 +7,7 @@ metadata:
     app.kubernetes.io/name: plane-enterprise
     app.kubernetes.io/component: email-service
 spec:
-  type: LoadBalancer
-  externalTrafficPolicy: Local  # Important for email servers
+  type: NodePort
   selector:
     app.kubernetes.io/name: plane-enterprise
     app.kubernetes.io/component: email-service
@@ -16,12 +15,15 @@ spec:
   - name: smtp
     port: 25
     targetPort: 10025
+    nodePort: 30025
     protocol: TCP
   - name: smtps
     port: 465
     targetPort: 10465
+    nodePort: 30465
     protocol: TCP
   - name: submission
     port: 587
     targetPort: 10587
+    nodePort: 30587
     protocol: TCP

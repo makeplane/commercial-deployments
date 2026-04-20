@@ -120,3 +120,8 @@ output "rds_password_secret_arn" {
   value       = module.rds.master_user_secret[0].secret_arn
   sensitive   = true
 }
+
+output "email_nlb_dns_name" {
+  description = "DNS name of the email NLB — add as MX record in Route53 (e.g. 10 <value>.). Null when enable_email_nlb = false."
+  value       = var.enable_email_nlb ? module.email_nlb[0].nlb_dns_name : null
+}

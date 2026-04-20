@@ -46,6 +46,63 @@ module "plane_infra" {
 }
 ```
 
+### Email Service NLB (optional)
+
+Plane includes a built-in email service for receiving inbound email. To expose it externally via a dedicated AWS Network Load Balancer, set `enable_email_nlb = true`.
+
+> **Important:** Deploy in two stages. The NLB targets EKS worker nodes via fixed NodePorts, so the EKS cluster and the email service must exist before the NLB is created.
+
+**Stage 1 — Deploy infrastructure and the Plane application:**
+
+```hcl
+module "plane_infra" {
+  source = "git::https://github.com/makeplane/commercial-deployments.git//terraform?ref=main"
+
+  cluster_name             = "plane-eks-cluster"
+  region                   = "us-west-2"
+  enable_aws_lb_controller = true
+  # enable_email_nlb = false  # default — omit until Stage 2
+}
+```
+
+```bash
+terraform apply
+aws eks update-kubeconfig --region us-west-2 --name plane-eks-cluster
+kubectl apply -k kustomize/overlays/example   # deploys email-service with fixed NodePorts
+```
+
+**Stage 2 — Create the NLB once the email service is running:**
+
+```hcl
+module "plane_infra" {
+  source = "git::https://github.com/makeplane/commercial-deployments.git//terraform?ref=main"
+
+  cluster_name             = "plane-eks-cluster"
+  region                   = "us-west-2"
+  enable_aws_lb_controller = true
+  enable_email_nlb         = true  # creates NLB + registers EKS nodes in target groups
+}
+```
+
+```bash
+terraform apply
+terraform output email_nlb_dns_name   # use this value for your MX record
+```
+
+**Route53 MX record:**
+
+After apply, create the following records in Route53 for your domain:
+
+| Type | Name | TTL | Value |
+|------|------|-----|-------|
+| MX | `yourdomain.com` | 300 | `10 <email_nlb_dns_name>.` |
+| TXT | `yourdomain.com` | 300 | `"v=spf1 include:<email_nlb_dns_name> ~all"` |
+
+The NLB listens on:
+- Port **25** — SMTP (inbound email from other mail servers)
+- Port **465** — SMTPS
+- Port **587** — Submission
+
 Override defaults by passing `eks`, `cache`, `mq`, `opensearch`, `object_store`, or `db` objects. See [terraform/README.md](terraform/README.md) for all options.
 
 ### Outputs
