@@ -32,7 +32,7 @@ components:
   - ../../components/mcp-server
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
-  - ../../components/nonroot-security-context
+  # - ../../components/nonroot-security-context
   # Optional: mount a custom CA certificate into all containers.
   # Paste your CA cert (PEM) into ../../components/custom-ca/customCA.crt, then uncomment:
   - ../../components/custom-ca
@@ -50,31 +50,31 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/flux-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
   - name: makeplane/plane-mcp-server
-    newTag: v2.5.0-phoenix-a508900
+    newTag: v2.5.0-phoenix-85335e7
 
 # All configuration is now handled by replacements from vars.yaml and secrets-vars.yaml
 # No manual patches needed!
