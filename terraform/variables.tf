@@ -72,12 +72,6 @@ variable "enable_aws_lb_controller" {
   default     = false
 }
 
-variable "enable_email_nlb" {
-  description = "Create an internet-facing NLB for the email service (ports 25/465/587) and add NodePort ingress rules to EKS nodes"
-  type        = bool
-  default     = false
-}
-
 variable "cache" {
   description = "ElastiCache Redis configuration"
   type = object({

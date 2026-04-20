@@ -61,19 +61,6 @@ module "aws_lb_controller" {
   depends_on = [module.eks]
 }
 
-module "email_nlb" {
-  count  = var.enable_email_nlb ? 1 : 0
-  source = "./modules/email-nlb"
-
-  cluster_name           = var.cluster_name
-  vpc_id                 = module.vpc.vpc_id
-  subnet_ids             = module.vpc.public_subnet_ids
-  node_security_group_id = module.eks.node_security_group_id
-  tags                   = var.tags
-
-  depends_on = [module.vpc, module.eks]
-}
-
 resource "random_password" "opensearch" {
   length           = 32
   special          = true
