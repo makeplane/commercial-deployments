@@ -40,6 +40,12 @@ module "plane_infra" {
   enable_aws_lb_controller = true # to use aws ALB
   cluster_version          = "1.34"
 
+  # Optional: create the OpenSearch ↔ Bedrock connector/model integration
+  create_opensearch_bedrock_connector = true
+  # bedrock_model_region = "us-east-1"                 # defaults to `region`
+  # bedrock_model        = "amazon.titan-embed-text-v1" # default
+  # bedrock_model_name   = "plane-eks-cluster-bedrock"  # defaults to "${cluster_name}-bedrock"
+
   tags = {
     Environment = "plane"
   }
@@ -47,6 +53,80 @@ module "plane_infra" {
 ```
 
 Override defaults by passing `eks`, `cache`, `mq`, `opensearch`, `object_store`, or `db` objects. See [terraform/README.md](terraform/README.md) for all options.
+
+### OpenSearch ↔ Bedrock connector integration (optional)
+
+The connector is deployed via a CloudFormation stack and registers a Bedrock embedding model in OpenSearch ML Commons. Because the IAM role used by the connector Lambda must be mapped inside OpenSearch **before** the connector is registered, the setup requires two `terraform apply` passes.
+
+#### Step 1 — Deploy infrastructure without the connector
+
+Set `create_opensearch_bedrock_connector = false` (or omit the flag) on the first apply. This provisions the OpenSearch domain and all other infrastructure, but skips the connector CloudFormation stack.
+
+```hcl
+module "plane_infra" {
+  # ...
+  create_opensearch_bedrock_connector = false
+}
+```
+
+```bash
+terraform apply
+```
+
+#### Step 2 — Map the IAM role inside OpenSearch
+
+The connector Lambda runs under an IAM role (`LambdaInvokeOpenSearchMLCommonsRole` by default). You must map this role to the OpenSearch `ml_full_access` and `all_access` built-in roles before registering the connector, otherwise the registration will fail.
+
+Verify the cluster is reachable:
+
+```bash
+curl -u 'admin:<admin-password>' https://<opensearch-endpoint>
+```
+
+Map to `ml_full_access`:
+
+```bash
+curl -X PUT \
+  'https://<opensearch-endpoint>/_plugins/_security/api/rolesmapping/ml_full_access' \
+  -H 'Content-Type: application/json' \
+  -u 'admin:<admin-password>' \
+  -d '{
+    "backend_roles": [
+      "arn:aws:iam::<account-id>:role/LambdaInvokeOpenSearchMLCommonsRole"
+    ]
+  }'
+# {"status":"CREATED","message":"'ml_full_access' created."}
+```
+
+Map to `all_access` (required for model registration):
+
+```bash
+curl -X PUT \
+  'https://<opensearch-endpoint>/_plugins/_security/api/rolesmapping/all_access' \
+  -H 'Content-Type: application/json' \
+  -u 'admin:<admin-password>' \
+  -d '{
+    "backend_roles": [
+      "arn:aws:iam::<account-id>:role/LambdaInvokeOpenSearchMLCommonsRole"
+    ]
+  }'
+# {"status":"OK","message":"'all_access' updated."}
+```
+
+#### Step 3 — Deploy the connector
+
+Set `create_opensearch_bedrock_connector = true` and apply again. Terraform will deploy the CloudFormation stack, which invokes the Lambda to register the Bedrock connector and model in OpenSearch ML Commons.
+
+```hcl
+module "plane_infra" {
+  # ...
+  create_opensearch_bedrock_connector = true
+}
+```
+
+```bash
+terraform apply
+```
 
 ### Outputs
 
