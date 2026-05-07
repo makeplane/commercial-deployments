@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Adds a Traefik IngressRoute and supporting Middleware alongside the base nginx Ingress.
+# Install the Traefik controller yourself, then set INGRESS_CLASS: "traefik-external"
+# (or your Traefik IngressClass) in vars.yaml. The base nginx Ingress is still rendered;
+# disable the `ingress-nginx` component in the overlay if you don't want both.
+resources:
+  - ingress-route.yaml
+  - middleware.yaml

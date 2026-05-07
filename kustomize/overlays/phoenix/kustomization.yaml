@@ -15,8 +15,12 @@ components:
   - ../../components/flux-consumer
   # Optional: enable EKS IRSA role annotation on plane-srv-account
   - ../../components/eks-irsa-plane-serviceaccount
-  # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
-  - ../../components/ingress-nginx
+  # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.
+  # Rule: if INGRESS_CLASS starts with "traefik" → enable ingress-traefik.
+  #       otherwise → enable ingress-nginx (the default).
+  # Install the matching controller separately.
+  # - ../../components/ingress-nginx
+  - ../../components/ingress-traefik
   # - ../../components/aws-load-balancer-controller
   # Optional: enable when providing static DATABASE_URL; omit when using IRSA/EKS Pod Identity with RDS_SECRET_ARN
   # - ../../components/static-db-url
@@ -50,34 +54,70 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/flux-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-eba86a7
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
   - name: makeplane/plane-mcp-server
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-b5ad5360
 
-# All configuration is now handled by replacements from vars.yaml and secrets-vars.yaml
-# No manual patches needed!
+# Most configuration flows through replacements (below). The IngressRoute host
+# can't be reached by a Kustomize replacement (it lives inside a Traefik `match`
+# expression string), so we patch each route's match here.
+patches:
+  - target:
+      kind: IngressRoute
+      name: plane-ingress-route
+    patch: |-
+      - op: replace
+        path: /spec/routes/0/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/spaces/`)
+      - op: replace
+        path: /spec/routes/1/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/god-mode/`)
+      - op: replace
+        path: /spec/routes/2/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/api/`)
+      - op: replace
+        path: /spec/routes/3/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/auth/`)
+      - op: replace
+        path: /spec/routes/4/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/graphql/`)
+      - op: replace
+        path: /spec/routes/5/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/marketplace/`)
+      - op: replace
+        path: /spec/routes/6/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/live/`)
+      - op: replace
+        path: /spec/routes/7/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/silo/`)
+      - op: replace
+        path: /spec/routes/8/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/pi/`)
+      - op: replace
+        path: /spec/routes/9/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth

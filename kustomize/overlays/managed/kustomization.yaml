@@ -16,8 +16,12 @@ components:
   # Email service (transactional email)
   - ../../components/email-service
 
-  # Ingress controller: pick ONE — install the controller separately
+  # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.
+  # Rule: if INGRESS_CLASS starts with "traefik" → enable ingress-traefik.
+  #       otherwise → enable ingress-nginx (the default).
+  # Install the matching controller separately.
   - ../../components/ingress-nginx
+  # - ../../components/ingress-traefik
   # - ../../components/aws-load-balancer-controller
 
   # Static DATABASE_URL injection — required when not using AWS IRSA/Pod Identity
