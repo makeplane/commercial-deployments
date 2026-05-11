@@ -64,8 +64,6 @@ spec:
           port: 3000
     - kind: Rule
       match: Host(`plane.example.com`) && PathPrefix(`/pi/`)
-      middlewares:
-        - name: plane-body-limit
       services:
         - name: plane-pi-api
           port: 8000

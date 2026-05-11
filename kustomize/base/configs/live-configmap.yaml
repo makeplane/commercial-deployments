@@ -6,6 +6,8 @@ metadata:
 data:
   API_BASE_URL: "http://plane-api:8000/"
   LIVE_BASE_PATH: "/live"
+  PI_BASE_URL: ""
+  PI_BASE_PATH: "/pi"
   LIVE_SENTRY_DSN: ""
   LIVE_SENTRY_ENVIRONMENT: ""
   LIVE_SENTRY_TRACES_SAMPLE_RATE: ""

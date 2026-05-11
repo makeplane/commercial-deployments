@@ -54,27 +54,27 @@ components:
 # ============================================================
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/flux-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-eba86a7
+    newTag: v2.5.0-phoenix-ec08e02
   - name: makeplane/iframely
     newTag: v1.2.0  # iframely uses separate versioning
   - name: makeplane/plane-mcp-server
@@ -310,7 +310,7 @@ replacements:
         fieldPaths:
           - data.PRIME_HOST
 
-  # PI_BASE_URL in plane-app-vars (from vars.yaml)
+  # PI_BASE_URL in plane-app-vars and plane-live-vars (from vars.yaml)
   - source:
       kind: ConfigMap
       name: overlay-vars
@@ -321,6 +321,23 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.PI_BASE_URL
+      - select:
+          kind: ConfigMap
+          name: plane-live-vars
+        fieldPaths:
+          - data.PI_BASE_URL
+
+  # LIVE_BASE_URI in plane-pi-api-vars (internal cluster URL, from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.LIVE_BASE_URI
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.LIVE_BASE_URI
 
   # Pi service: PI_BASE_URL from vars -> plane-pi-api-vars.PLANE_API_HOST only
   - source:
@@ -681,6 +698,7 @@ replacements:
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
+  # LIVE_SERVER_SECRET_KEY must match across app, live, and pi-service for HMAC signatures to validate
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -689,6 +707,16 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
 

@@ -302,6 +302,8 @@ replacements:
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
+  # LIVE_SERVER_SECRET_KEY must match across app and live for HMAC signatures to validate.
+  # (Add a plane-pi-api-secrets target if the pi-service component is enabled in this overlay.)
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -310,6 +312,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-live-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
 
