@@ -211,6 +211,7 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.WEB_URL
+          - data.APP_BASE_URL
       - select:
           kind: ConfigMap
           name: plane-silo-vars
