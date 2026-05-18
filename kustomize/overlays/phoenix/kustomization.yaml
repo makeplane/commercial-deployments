@@ -52,31 +52,38 @@ components:
 # ============================================================
 # Current Version: v2.5.0 (also defined in vars.yaml for ConfigMap replacements)
 # ============================================================
+# Image tags for all makeplane/*-commercial workloads are driven from
+# APP_VERSION in vars.yaml at build time (see the APP_VERSION replacement
+# below). The `newTag` values here exist ONLY so the `images:` transformer
+# tags bare image references injected by patches (e.g. custom-ca's init
+# container) — they are ALWAYS overridden by the replacement.
+# To bump versions, edit APP_VERSION in vars.yaml. Do not edit these tags.
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/flux-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-ec08e02
+    newTag: app-version-driven
+  # Independent versioning — not driven by APP_VERSION:
   - name: makeplane/iframely
-    newTag: v1.2.0  # iframely uses separate versioning
+    newTag: v1.2.0
   - name: makeplane/plane-mcp-server
     newTag: v2.5.0-phoenix-b5ad5360
 
@@ -148,6 +155,54 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
+
+  # Drive every workload's image tag from APP_VERSION (single source of truth).
+  # plane-iframely-wl and plane-mcp-server have independent versioning for their MAIN
+  # container, so both are rejected from the containers.*.image target. Their INIT
+  # containers (added by custom-ca) tell a different story:
+  #   - iframely-wl's init container uses the iframely image → keep on v1.2.0 → reject
+  #   - mcp-server's init container uses backend-commercial (custom-ca default) → follows APP_VERSION
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+          - name: plane-mcp-server
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+        fieldPaths:
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Job
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
 
   # Replace APP_DOMAIN in ConfigMaps
   - source:

@@ -66,25 +66,32 @@ components:
 # ============================================================
 # Pin ALL images to the same release tag. Update this for upgrades.
 # ============================================================
+# Image tags for all makeplane/*-commercial workloads are driven from
+# APP_VERSION in vars.yaml at build time (see the APP_VERSION replacement
+# in the replacements: block below). The `newTag` values here exist ONLY
+# so the `images:` transformer tags bare image references injected by
+# patches (e.g. custom-ca's init container) — they are ALWAYS overridden
+# by the replacement. To bump versions, edit APP_VERSION in vars.yaml.
 images:
   - name: makeplane/backend-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/web-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/space-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/admin-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/live-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/monitor-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/silo-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/email-commercial
-    newTag: latest
+    newTag: app-version-driven
   - name: makeplane/node-runner-commercial
-    newTag: latest
+    newTag: app-version-driven
+  # Independent versioning — not driven by APP_VERSION:
   - name: makeplane/iframely
     newTag: latest
 
@@ -109,6 +116,40 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
+
+  # Drive every workload's image tag from APP_VERSION (single source of truth).
+  # plane-iframely-wl has independent versioning — rejected.
+  # If custom-ca is enabled in this overlay, add an initContainers.*.image target
+  # block (mirroring the phoenix overlay) to tag the CA-cert init containers.
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Job
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
 
   - source:
       kind: ConfigMap
