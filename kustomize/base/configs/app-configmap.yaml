@@ -30,6 +30,8 @@ data:
   
   # Web URL (will be overridden by overlay for production domain)
   WEB_URL: "http://plane.example.com"
+  # App base URL (mirrors WEB_URL — overridden by overlay for production domain)
+  APP_BASE_URL: "http://plane.example.com"
   # Pi (overridden by overlay when Pi is enabled)
   PI_BASE_URL: ""
   PI_BASE_PATH: "/pi"

@@ -15,8 +15,12 @@ components:
   - ../../components/flux-consumer
   # Optional: enable EKS IRSA role annotation on plane-srv-account
   - ../../components/eks-irsa-plane-serviceaccount
-  # Ingress controller: pick ONE to patch plane Ingress (install the controller yourself)
-  - ../../components/ingress-nginx
+  # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.
+  # Rule: if INGRESS_CLASS starts with "traefik" → enable ingress-traefik.
+  #       otherwise → enable ingress-nginx (the default).
+  # Install the matching controller separately.
+  # - ../../components/ingress-nginx
+  - ../../components/ingress-traefik
   # - ../../components/aws-load-balancer-controller
   # Optional: enable when providing static DATABASE_URL; omit when using IRSA/EKS Pod Identity with RDS_SECRET_ARN
   # - ../../components/static-db-url
@@ -48,36 +52,79 @@ components:
 # ============================================================
 # Current Version: v2.5.0 (also defined in vars.yaml for ConfigMap replacements)
 # ============================================================
+# Image tags for all makeplane/*-commercial workloads are driven from
+# APP_VERSION in vars.yaml at build time (see the APP_VERSION replacement
+# below). The `newTag` values here exist ONLY so the `images:` transformer
+# tags bare image references injected by patches (e.g. custom-ca's init
+# container) — they are ALWAYS overridden by the replacement.
+# To bump versions, edit APP_VERSION in vars.yaml. Do not edit these tags.
 images:
   - name: makeplane/backend-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/web-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/space-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/admin-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/live-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/monitor-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/silo-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/email-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/flux-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/plane-pi-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
   - name: makeplane/node-runner-commercial
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: app-version-driven
+  # Independent versioning — not driven by APP_VERSION:
   - name: makeplane/iframely
-    newTag: v1.2.0  # iframely uses separate versioning
+    newTag: v1.2.0
   - name: makeplane/plane-mcp-server
-    newTag: v2.5.0-phoenix-85335e7
+    newTag: v2.5.0-phoenix-b5ad5360
 
-# All configuration is now handled by replacements from vars.yaml and secrets-vars.yaml
-# No manual patches needed!
+# Most configuration flows through replacements (below). The IngressRoute host
+# can't be reached by a Kustomize replacement (it lives inside a Traefik `match`
+# expression string), so we patch each route's match here.
+patches:
+  - target:
+      kind: IngressRoute
+      name: plane-ingress-route
+    patch: |-
+      - op: replace
+        path: /spec/routes/0/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/spaces/`)
+      - op: replace
+        path: /spec/routes/1/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/god-mode/`)
+      - op: replace
+        path: /spec/routes/2/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/api/`)
+      - op: replace
+        path: /spec/routes/3/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/auth/`)
+      - op: replace
+        path: /spec/routes/4/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/graphql/`)
+      - op: replace
+        path: /spec/routes/5/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/marketplace/`)
+      - op: replace
+        path: /spec/routes/6/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/live/`)
+      - op: replace
+        path: /spec/routes/7/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/silo/`)
+      - op: replace
+        path: /spec/routes/8/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/pi/`)
+      - op: replace
+        path: /spec/routes/9/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
@@ -108,6 +155,54 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
+
+  # Drive every workload's image tag from APP_VERSION (single source of truth).
+  # plane-iframely-wl and plane-mcp-server have independent versioning for their MAIN
+  # container, so both are rejected from the containers.*.image target. Their INIT
+  # containers (added by custom-ca) tell a different story:
+  #   - iframely-wl's init container uses the iframely image → keep on v1.2.0 → reject
+  #   - mcp-server's init container uses backend-commercial (custom-ca default) → follows APP_VERSION
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+          - name: plane-mcp-server
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+        fieldPaths:
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Job
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+          - spec.template.spec.initContainers.*.image
+        options:
+          delimiter: ":"
+          index: 1
 
   # Replace APP_DOMAIN in ConfigMaps
   - source:
@@ -171,6 +266,7 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.WEB_URL
+          - data.APP_BASE_URL
       - select:
           kind: ConfigMap
           name: plane-silo-vars
@@ -270,7 +366,7 @@ replacements:
         fieldPaths:
           - data.PRIME_HOST
 
-  # PI_BASE_URL in plane-app-vars (from vars.yaml)
+  # PI_BASE_URL in plane-app-vars and plane-live-vars (from vars.yaml)
   - source:
       kind: ConfigMap
       name: overlay-vars
@@ -281,6 +377,23 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.PI_BASE_URL
+      - select:
+          kind: ConfigMap
+          name: plane-live-vars
+        fieldPaths:
+          - data.PI_BASE_URL
+
+  # LIVE_BASE_URI in plane-pi-api-vars (internal cluster URL, from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.LIVE_BASE_URI
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.LIVE_BASE_URI
 
   # Pi service: PI_BASE_URL from vars -> plane-pi-api-vars.PLANE_API_HOST only
   - source:
@@ -641,6 +754,7 @@ replacements:
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
+  # LIVE_SERVER_SECRET_KEY must match across app, live, and pi-service for HMAC signatures to validate
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -649,6 +763,16 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
 

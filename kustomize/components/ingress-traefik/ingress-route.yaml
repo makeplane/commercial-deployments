@@ -1,0 +1,78 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: plane-ingress-route
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/spaces/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-space
+          port: 3000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/god-mode/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-admin
+          port: 3000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/api/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-api
+          port: 8000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/auth/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-api
+          port: 8000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/graphql/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-api
+          port: 8000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/marketplace/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-api
+          port: 8000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/live/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-live
+          port: 3000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/silo/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-silo
+          port: 3000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/pi/`)
+      services:
+        - name: plane-pi-api
+          port: 8000
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-web
+          port: 3000
+  tls:
+    secretName: plane-ssl-cert
