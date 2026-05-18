@@ -16,8 +16,12 @@ components:
   # Email service (transactional email)
   - ../../components/email-service
 
-  # Ingress controller: pick ONE — install the controller separately
+  # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.
+  # Rule: if INGRESS_CLASS starts with "traefik" → enable ingress-traefik.
+  #       otherwise → enable ingress-nginx (the default).
+  # Install the matching controller separately.
   - ../../components/ingress-nginx
+  # - ../../components/ingress-traefik
   # - ../../components/aws-load-balancer-controller
 
   # Static DATABASE_URL injection — uses in-cluster postgres
@@ -103,25 +107,32 @@ patches:
 # APPLICATION VERSION
 # ============================================================
 # Pin ALL images to the same release tag. Update this for upgrades.
+# Image tags for all artifacts.plane.so/makeplane/*-commercial workloads are
+# driven from APP_VERSION in vars.yaml at build time (see the APP_VERSION
+# replacement in the replacements: block below). The `newTag` values here
+# exist ONLY so the `images:` transformer tags bare image references injected
+# by patches (e.g. custom-ca's init container) — they are ALWAYS overridden
+# by the replacement. To bump versions, edit APP_VERSION in vars.yaml.
 images:
   - name: artifacts.plane.so/makeplane/backend-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/web-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/space-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/admin-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/live-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/monitor-commercial
-    newTag: v2.3.8-phoenix-a2c313e
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/silo-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/email-commercial
-    newTag: stable
+    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/node-runner-commercial
-    newTag: stable
+    newTag: app-version-driven
+  # Independent versioning — not driven by APP_VERSION:
   - name: artifacts.plane.so/makeplane/iframely
     newTag: v1.2.0
 
@@ -146,6 +157,45 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
+
+  # Drive every workload's image tag from APP_VERSION (single source of truth).
+  # plane-iframely-wl has independent versioning — rejected.
+  # In-cluster infra StatefulSets (postgres/redis/rabbitmq/minio/opensearch) and
+  # the minio bucket-create Job use unrelated images — only the matching
+  # workloads (plane-monitor StatefulSet, plane-migrator Job) are explicitly
+  # selected so infra is never retagged.
+  # If custom-ca is enabled in this overlay, add an initContainers.*.image target
+  # block (mirroring the phoenix overlay) to tag the CA-cert init containers.
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Job
+          name: plane-migrator
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
 
   - source:
       kind: ConfigMap
@@ -193,6 +243,7 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.WEB_URL
+          - data.APP_BASE_URL
       - select:
           kind: ConfigMap
           name: plane-silo-vars
@@ -351,6 +402,8 @@ replacements:
         fieldPaths:
           - stringData.AES_SECRET_KEY
 
+  # LIVE_SERVER_SECRET_KEY must match across app and live for HMAC signatures to validate.
+  # (Add a plane-pi-api-secrets target if the pi-service component is enabled in this overlay.)
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -359,6 +412,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-live-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
 

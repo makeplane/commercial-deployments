@@ -6,6 +6,8 @@ metadata:
 data:
   API_BASE_URL: "http://plane-api:8000/"
   LIVE_BASE_PATH: "/live"
+  PI_BASE_URL: ""
+  PI_BASE_PATH: "/pi"
   LIVE_SENTRY_DSN: ""
   LIVE_SENTRY_ENVIRONMENT: ""
   LIVE_SENTRY_TRACES_SAMPLE_RATE: ""
@@ -13,3 +15,8 @@ data:
   EXTERNAL_IFRAMELY_URL: ""
 
   AWS_SECRET_CACHE_TTL: "300"
+
+  PI_BASE_URL: "http://plane-pi-api:8000"
+  PI_BASE_PATH: "/pi"
+
+  WEB_BASE_URL: "http://plane.example.com"
