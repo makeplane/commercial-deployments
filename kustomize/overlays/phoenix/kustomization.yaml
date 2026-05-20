@@ -698,6 +698,11 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.AMAZONMQ_SECRET_ARN
+      - select:
+          kind: Secret
+          name: plane-flux-secrets
+        fieldPaths:
+          - stringData.AMAZONMQ_SECRET_ARN
 
   - source:
       kind: Secret
@@ -712,6 +717,11 @@ replacements:
       - select:
           kind: Secret
           name: plane-live-secrets
+        fieldPaths:
+          - stringData.ELASTICACHE_SECRET_ARN
+      - select:
+          kind: Secret
+          name: plane-flux-secrets
         fieldPaths:
           - stringData.ELASTICACHE_SECRET_ARN
 

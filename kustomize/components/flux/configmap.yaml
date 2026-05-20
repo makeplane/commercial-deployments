@@ -7,7 +7,7 @@ data:
   EVENT_STREAM_EXCHANGE: "plane.event_stream"
   PREFETCH_COUNT: "10"
   CHANNEL_PREFIX: "flux"
-  FLUX_BASE_PATH: ""
+  FLUX_BASE_PATH: "/flux"
   CORS_ALLOWED_ORIGINS: ""
   API_BASE_URL: ""
   APP_BASE_URL: ""
