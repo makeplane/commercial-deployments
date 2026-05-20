@@ -16,7 +16,4 @@ data:
 
   AWS_SECRET_CACHE_TTL: "300"
 
-  PI_BASE_URL: "http://plane-pi-api:8000"
-  PI_BASE_PATH: "/pi"
-
   WEB_BASE_URL: "http://plane.example.com"
