@@ -39,6 +39,9 @@ components:
   # Worker importers (celery.importer queue)
   - ../../components/worker-importers
 
+  # Webhook consumer (RabbitMQ consumer for webhook delivery)
+  - ../../components/webhook-consumer
+
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
 
