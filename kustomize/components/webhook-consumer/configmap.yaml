@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-webhook-consumer-vars
+  namespace: plane
+data:
+  WEBHOOK_QUEUE_NAME: "plane.webhook"
+  WEBHOOK_PREFETCH_COUNT: "10"

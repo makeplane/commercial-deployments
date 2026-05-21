@@ -13,6 +13,8 @@ components:
   - ../../components/email-service
   - ../../components/flux
   - ../../components/flux-consumer
+  # Webhook consumer (RabbitMQ consumer for webhook delivery)
+  - ../../components/webhook-consumer
   # Optional: enable EKS IRSA role annotation on plane-srv-account
   - ../../components/eks-irsa-plane-serviceaccount
   # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.

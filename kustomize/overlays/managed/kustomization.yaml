@@ -33,6 +33,9 @@ components:
   # Node runner service (automation script execution)
   - ../../components/runner
 
+  # Webhook consumer (RabbitMQ consumer for webhook delivery)
+  - ../../components/webhook-consumer
+
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
 
