@@ -33,6 +33,12 @@ components:
   # Node runner service (automation script execution)
   - ../../components/runner
 
+  # External API (cloud-entrypoint API workload)
+  - ../../components/external-api
+
+  # Worker importers (celery.importer queue)
+  - ../../components/worker-importers
+
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
 
