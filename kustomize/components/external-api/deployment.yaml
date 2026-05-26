@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-external-api-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: external-api
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 50%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: external-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: external-api
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: external-api
+          image: makeplane/backend-commercial:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          command:
+            - ./bin/docker-entrypoint-api-cloud.sh
+          env:
+            - name: GUNICORN_WORKERS
+              value: "1"
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - secretRef:
+                name: plane-app-secrets
+            - secretRef:
+                name: plane-doc-store-secrets
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              memory: 350Mi
+              cpu: 500m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
