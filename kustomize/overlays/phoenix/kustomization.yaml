@@ -36,6 +36,10 @@ components:
   - ../../components/runner
   # MCP server (Model Context Protocol — AI tool access to Plane)
   - ../../components/mcp-server
+  # External API (cloud-entrypoint API workload)
+  - ../../components/external-api
+  # Worker importers (celery.importer queue)
+  - ../../components/worker-importers
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
   - ../../components/nonroot-security-context

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-worker-importers-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: worker-importers
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 50%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: worker-importers
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: worker-importers
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: worker-importers
+          image: makeplane/backend-commercial:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          command:
+            - ./bin/docker-entrypoint-worker.sh
+            - celery.importer
+          env:
+            - name: GUNICORN_WORKERS
+              value: "1"
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - secretRef:
+                name: plane-app-secrets
+            - secretRef:
+                name: plane-doc-store-secrets
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pgrep -f "celery.*worker" > /dev/null
+            initialDelaySeconds: 10
+            failureThreshold: 3
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: 1000Mi
+              cpu: 500m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
