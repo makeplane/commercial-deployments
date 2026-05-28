@@ -31,7 +31,7 @@ spec:
           stdin: true
           tty: true
           command:
-            - ./bin/docker-entrypoint-api-cloud.sh
+            - ./bin/docker-entrypoint-api-ee.sh
           env:
             - name: GUNICORN_WORKERS
               value: "1"
