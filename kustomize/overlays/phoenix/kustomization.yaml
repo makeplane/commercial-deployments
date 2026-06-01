@@ -342,6 +342,11 @@ replacements:
           name: plane-live-vars
         fieldPaths:
           - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
 
   # Monitor StatefulSet storage class (from vars.yaml)
   - source:
@@ -585,6 +590,23 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.REDIS_AUTH_TOKEN_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.REDIS_AUTH_TOKEN_KEY
+
+  # MCP server ElastiCache port (from vars.yaml)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.REDIS_PORT
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.REDIS_PORT
 
   - source:
       kind: ConfigMap
@@ -730,6 +752,23 @@ replacements:
           name: plane-flux-secrets
         fieldPaths:
           - stringData.ELASTICACHE_SECRET_ARN
+      - select:
+          kind: Secret
+          name: plane-mcp-server-secrets
+        fieldPaths:
+          - stringData.ELASTICACHE_SECRET_ARN
+
+  # MCP server ElastiCache host (from secrets-vars.yaml)
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_HOST
+    targets:
+      - select:
+          kind: Secret
+          name: plane-mcp-server-secrets
+        fieldPaths:
+          - stringData.REDIS_HOST
 
   - source:
       kind: Secret
@@ -858,6 +897,11 @@ replacements:
           name: plane-doc-store-secrets
         fieldPaths:
           - stringData.AWS_REGION
+      - select:
+          kind: ConfigMap
+          name: plane-mcp-server-vars
+        fieldPaths:
+          - data.AWS_REGION
 
   # Live service REDIS_URL in plane-live-secrets
   - source:
