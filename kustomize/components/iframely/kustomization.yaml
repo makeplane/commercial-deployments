@@ -1,0 +1,117 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# ============================================================
+# IFRAMELY ELASTICACHE / REDIS
+# ============================================================
+# Wires the base iframely deployment (plane-iframely-wl) to a redis/Valkey
+# cache backed by AWS ElastiCache, with the auth token fetched from AWS
+# Secrets Manager (ELASTICACHE_SECRET_ARN).
+#
+# Values are sourced from the overlay's vars.yaml (overlay-vars) and
+# secrets-vars.yaml (overlay-secret-vars) via the replacements below.
+#
+# ORDERING: include this component AFTER custom-ca in the overlay. iframely has
+# no envFrom in base; custom-ca creates containers[0].envFrom, and the patch
+# below appends to it. If custom-ca is not enabled, change the patch to create
+# the envFrom array instead of appending.
+# ============================================================
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: plane-iframely-wl
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom/-
+        value:
+          configMapRef:
+            name: plane-iframely-vars
+      - op: add
+        path: /spec/template/spec/containers/0/envFrom/-
+        value:
+          secretRef:
+            name: plane-iframely-secrets
+      # Higher limits for the redis-backed cache + workers (IFRAMELY_WORKER_MAX_MEMORY_MB)
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 500m
+            memory: 500Mi
+          limits:
+            cpu: 1000m
+            memory: 2000Mi
+
+replacements:
+  # ── From vars.yaml (overlay-vars ConfigMap) ──────────────────────────────────
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.IFRAMELY_REDIS_HOST
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-iframely-vars
+        fieldPaths:
+          - data.IFRAMELY_REDIS_HOST
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.REDIS_PORT
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-iframely-vars
+        fieldPaths:
+          - data.IFRAMELY_REDIS_PORT
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.REDIS_AUTH_TOKEN_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-iframely-vars
+        fieldPaths:
+          - data.REDIS_AUTH_TOKEN_KEY
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AWS_SECRET_CACHE_TTL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-iframely-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
+
+  # ── From secrets-vars.yaml (overlay-secret-vars Secret) ──────────────────────
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_REGION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-iframely-vars
+        fieldPaths:
+          - data.AWS_REGION
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ELASTICACHE_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-iframely-secrets
+        fieldPaths:
+          - stringData.ELASTICACHE_SECRET_ARN
