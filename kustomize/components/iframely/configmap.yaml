@@ -14,5 +14,6 @@ data:
   IFRAMELY_REDIS_TLS: "true"          # ElastiCache auth-token clusters require TLS
   REDIS_AUTH_TOKEN_KEY: "authToken"   # replaced from overlay-vars REDIS_AUTH_TOKEN_KEY (JSON key inside the secret)
   IFRAMELY_WORKER_MAX_MEMORY_MB: "400"
+  IFRAMELY_WORKERS_COUNT: "4"
   AWS_REGION: "us-east-1"             # replaced from overlay-secret-vars AWS_REGION
   AWS_SECRET_CACHE_TTL: "300"         # replaced from overlay-vars AWS_SECRET_CACHE_TTL

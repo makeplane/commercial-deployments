@@ -92,7 +92,7 @@ images:
     newTag: app-version-driven
   # Independent versioning — not driven by APP_VERSION:
   - name: makeplane/iframely
-    newTag: v2.5.2
+    newTag: v2.5.3
   - name: makeplane/plane-mcp-server
     newTag: v2.5.0-phoenix-b5ad5360
 
