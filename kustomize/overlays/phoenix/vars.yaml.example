@@ -44,6 +44,10 @@ data:
 
   # AWS Secrets Manager key mappings (environment-specific)
   REDIS_AUTH_TOKEN_KEY: "authToken"
+  # MCP server ElastiCache port (host + auth token come from secrets-vars/Secrets Manager)
+  REDIS_PORT: "6379"
+  # iframely ElastiCache/Valkey host (auth token comes from ELASTICACHE_SECRET_ARN)
+  IFRAMELY_REDIS_HOST: "your-redis-host.cache.amazonaws.com"
   RABBITMQ_USER_KEY: "username"
   RABBITMQ_PASSWORD_KEY: "password"
   RDS_DB_NAME_KEY: "dbname"

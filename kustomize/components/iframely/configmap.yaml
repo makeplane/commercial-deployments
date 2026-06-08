@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-iframely-vars
+  namespace: plane
+data:
+  # iframely redis cache backed by ElastiCache/Valkey.
+  # Host + port are set explicitly (overriding the REDIS_HOST / REDIS_PORT keys
+  # inside the ELASTICACHE_SECRET_ARN secret); only the auth token is read from
+  # that secret, keyed by REDIS_AUTH_TOKEN_KEY.
+  IFRAMELY_CACHE_ENGINE: "redis"
+  IFRAMELY_REDIS_HOST: ""             # replaced from overlay-vars IFRAMELY_REDIS_HOST
+  IFRAMELY_REDIS_PORT: "6379"         # replaced from overlay-vars REDIS_PORT
+  IFRAMELY_REDIS_TLS: "true"          # ElastiCache auth-token clusters require TLS
+  REDIS_AUTH_TOKEN_KEY: "authToken"   # replaced from overlay-vars REDIS_AUTH_TOKEN_KEY (JSON key inside the secret)
+  IFRAMELY_WORKER_MAX_MEMORY_MB: "400"
+  IFRAMELY_WORKERS_COUNT: "4"
+  AWS_REGION: "us-east-1"             # replaced from overlay-secret-vars AWS_REGION
+  AWS_SECRET_CACHE_TTL: "300"         # replaced from overlay-vars AWS_SECRET_CACHE_TTL
