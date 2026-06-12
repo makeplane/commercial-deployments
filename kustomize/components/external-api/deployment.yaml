@@ -42,6 +42,10 @@ spec:
                 name: plane-app-secrets
             - secretRef:
                 name: plane-doc-store-secrets
+            - secretRef:
+                name: plane-opensearch-secrets
+            - secretRef:
+                name: plane-silo-secrets
           readinessProbe:
             httpGet:
               path: /
