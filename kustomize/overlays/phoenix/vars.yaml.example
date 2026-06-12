@@ -15,6 +15,8 @@ metadata:
 data:
   # Application version used across all images and config
   APP_VERSION: "v2.3.4"
+  # draw.io image tag (third-party, independently versioned) — used by the draw-io component
+  DRAWIO_VERSION: "30.0.4"
   
   # Domain configuration (without protocol)
   APP_DOMAIN: "plane.mycompany.com"

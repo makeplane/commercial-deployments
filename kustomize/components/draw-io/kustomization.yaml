@@ -9,11 +9,29 @@ kind: Component
 # ingress is added here — wire it up at the overlay/infra layer if a
 # public route is needed.
 #
-# IMAGE PINNING: the Deployment uses jgraph/drawio:30.0.4 (third-party,
-# NOT driven by APP_VERSION). The overlay's APP_VERSION → image-tag
-# replacement must reject plane-draw-io-wl, otherwise the tag is clobbered.
+# IMAGE VERSIONING: third-party image, independently versioned (NOT driven
+# by APP_VERSION). The tag is sourced from overlay-vars.DRAWIO_VERSION via the
+# replacement below — bump the version in each overlay's vars.yaml, not in
+# deployment.yaml (the tag there is only a placeholder default). The overlay's
+# APP_VERSION → image-tag replacement must still reject plane-draw-io-wl.
 # ============================================================
 
 resources:
   - deployment.yaml
   - service.yaml
+
+replacements:
+  # Drive the draw.io image tag from overlay-vars.DRAWIO_VERSION (vars.yaml).
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.DRAWIO_VERSION
+    targets:
+      - select:
+          kind: Deployment
+          name: plane-draw-io-wl
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
