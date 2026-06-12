@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# ============================================================
+# DRAW.IO (diagram editor)
+# ============================================================
+# Cluster-internal self-hosted draw.io. Ships a Deployment + ClusterIP
+# Service only; reachable in-cluster at plane-draw-io:8080. No public
+# ingress is added here — wire it up at the overlay/infra layer if a
+# public route is needed.
+#
+# IMAGE PINNING: the Deployment uses jgraph/drawio:30.0.4 (third-party,
+# NOT driven by APP_VERSION). The overlay's APP_VERSION → image-tag
+# replacement must reject plane-draw-io-wl, otherwise the tag is clobbered.
+# ============================================================
+
+resources:
+  - deployment.yaml
+  - service.yaml
