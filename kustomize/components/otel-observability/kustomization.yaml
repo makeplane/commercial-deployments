@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# ============================================================
+# OTEL OBSERVABILITY (backend-api)
+# ============================================================
+# Injects OpenTelemetry environment variables into the backend-api workload
+# (plane-api-wl) by appending the plane-otel-vars ConfigMap to the api
+# container's envFrom.
+#
+# VALUES LIVE IN vars.yaml: the keys in configmap.yaml are placeholders; the
+# actual values are supplied per-overlay from overlay-vars (vars.yaml) via the
+# OTEL replacements added in the overlay's kustomization.yaml.
+#
+# OPTIONAL / OPT-IN: the env vars are added ONLY when this component is enabled
+# in the overlay. To leave OTEL off entirely, do not enable this component — no
+# OTEL env vars are then set on the api container. To drop a single variable,
+# remove its key from configmap.yaml and its replacement from the overlay.
+#
+# ORDERING: this envFrom entry is appended LAST. Enable this component AFTER
+# custom-ca so the OTEL ConfigMap lands after the CA env ConfigMap.
+#
+# Usage — enable in your overlay's kustomization.yaml and add the OTEL
+# replacements + vars (see overlays/phoenix for a worked example):
+#   components:
+#     - ../../components/otel-observability
+# ============================================================
+
+resources:
+  - configmap.yaml
+
+patches:
+  - path: patches/append-otel-envfrom.json
+    target:
+      kind: Deployment
+      name: plane-api-wl

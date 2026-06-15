@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-otel-vars
+  namespace: plane
+data:
+  # OpenTelemetry instrumentation for the backend-api workload.
+  #
+  # These keys are PLACEHOLDERS — their real values are sourced from the overlay's
+  # vars.yaml (overlay-vars ConfigMap) via the OTEL replacements in the overlay
+  # kustomization.yaml. Leave a key empty here; set its value in vars.yaml.
+  #
+  # Optionality: the whole block is opt-in (enable this component in the overlay).
+  # To leave an individual variable unset, delete its line here AND the matching
+  # replacement in the overlay kustomization.yaml.
+  OTEL_ENABLED: ""
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_EXPORTER_OTLP_PROTOCOL: ""
+  OTEL_SERVICE_NAME: ""
+  OTEL_RESOURCE_ATTRIBUTES: ""
+  OTEL_DEBUG_CONSOLE: ""
