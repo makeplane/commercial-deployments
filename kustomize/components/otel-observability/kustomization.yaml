@@ -4,13 +4,18 @@ kind: Component
 # ============================================================
 # OTEL OBSERVABILITY (backend-api)
 # ============================================================
-# Injects OpenTelemetry environment variables into the backend-api workload
-# (plane-api-wl) by appending the plane-otel-vars ConfigMap to the api
-# container's envFrom.
+# Injects OpenTelemetry environment variables into the backend workloads
+# (plane-api-wl, plane-silo-wl) by appending the plane-otel-vars ConfigMap to
+# each container's envFrom.
 #
 # VALUES LIVE IN vars.yaml: the keys in configmap.yaml are placeholders; the
 # actual values are supplied per-overlay from overlay-vars (vars.yaml) via the
 # OTEL replacements added in the overlay's kustomization.yaml.
+#
+# PER-SERVICE service.name: the shared plane-otel-vars ConfigMap carries
+# OTEL_SERVICE_NAME for the api (from vars.yaml). silo gets the SAME ConfigMap
+# but an inline env OTEL_SERVICE_NAME=silo that overrides it (inline env wins
+# over envFrom), so each workload reports its own service.name in traces.
 #
 # OPTIONAL / OPT-IN: the env vars are added ONLY when this component is enabled
 # in the overlay. To leave OTEL off entirely, do not enable this component — no
@@ -34,3 +39,7 @@ patches:
     target:
       kind: Deployment
       name: plane-api-wl
+  - path: patches/append-otel-silo.json
+    target:
+      kind: Deployment
+      name: plane-silo-wl
