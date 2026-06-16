@@ -104,3 +104,21 @@ data:
   # MCP server: internal K8s service URL used for server-to-server Plane API calls
   # Follows the pattern: http://<api-service-name>.<namespace>.svc.cluster.local:<port>
   MCP_PLANE_INTERNAL_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
+
+  # ============================================================
+  # OpenTelemetry (backend-api) — used by the otel-observability component.
+  # Optional: only applied when ../../components/otel-observability is enabled.
+  # Delete a line here AND its replacement to leave that env var unset.
+  # ============================================================
+  OTEL_ENABLED: "1"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://telemetry.plane.town"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_SERVICE_NAME: "api"   # per-service: api, silo, live, etc.
+  # developer=.. is a placeholder — set it before applying.
+  # k8s.namespace.name lets Grafana's trace->logs map the span to this namespace's
+  # logs (must match the overlay's deploy namespace). Add k8s.pod.name via the
+  # downward API if you want pod-exact correlation.
+  OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=loadtest,developer=<your-name>,k8s.namespace.name=plane-ns"
+  # Debug: print spans to stdout to confirm the app is emitting/exporting them.
+  # Set to "" (or remove this line + its replacement) once tracing is confirmed.
+  OTEL_DEBUG_CONSOLE: "1"
