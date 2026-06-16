@@ -138,6 +138,9 @@ patches:
       - op: replace
         path: /spec/routes/9/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+      - op: replace
+        path: /spec/routes/10/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth

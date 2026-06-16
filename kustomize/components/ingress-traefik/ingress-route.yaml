@@ -74,5 +74,18 @@ spec:
       services:
         - name: plane-web
           port: 3000
+    # draw.io diagram editor (subpath /drawio). Only functional when the draw-io
+    # component is also enabled in the overlay. Traefik prioritises by rule
+    # length, so this longer rule wins over the catch-all `/` route above.
+    # Route index 10 — overlays patch the Host in this match by index.
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/drawio`)
+      middlewares:
+        - name: drawio-redirect-slash
+        - name: drawio-stripprefix
+        - name: plane-body-limit
+      services:
+        - name: plane-draw-io
+          port: 8080
   tls:
     secretName: plane-ssl-cert
