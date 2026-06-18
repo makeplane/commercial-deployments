@@ -131,5 +131,9 @@ data:
   # /v1/traces). MUST be internet-reachable AND CORS-enabled for the Plane web
   # origin. NOT the backend gRPC path; needs an HTTP+CORS collector route.
   FRONTEND_OTLP_ENDPOINT: ""
-  # Optional extra headers for the browser exporter, e.g. "x-api-key=...".
-  FRONTEND_OTLP_HEADERS: ""
+  # A non-empty header is REQUIRED for cross-origin browser tracing: it forces
+  # the OTLP web exporter to use XHR instead of navigator.sendBeacon. sendBeacon
+  # always sends credentials (mode 'include'), which CORS rejects against the
+  # collector's wildcard 'Access-Control-Allow-Origin: *'; XHR sends none, so the
+  # wildcard is accepted. Value is arbitrary; format "key=value,key2=value2".
+  FRONTEND_OTLP_HEADERS: "x-otlp-browser=1"
