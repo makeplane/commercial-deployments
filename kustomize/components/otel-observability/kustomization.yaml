@@ -5,17 +5,28 @@ kind: Component
 # OTEL OBSERVABILITY (backend-api)
 # ============================================================
 # Injects OpenTelemetry environment variables into the backend workloads
-# (plane-api-wl, plane-silo-wl) by appending the plane-otel-vars ConfigMap to
-# each container's envFrom.
+# (plane-api-wl, plane-silo-wl, plane-live-wl, plane-space-wl) by appending the
+# plane-otel-vars ConfigMap to each container's envFrom.
+#
+# SCOPE — only env-driven OTel consumers are wired here:
+#   - api   (Django, OTEL_* env)
+#   - silo  (Node startOtel, OTEL_* env)
+#   - live  (Node startOtel, OTEL_* env)
+#   - space (React Router SSR initServerTelemetry, OTEL_ENABLED /
+#            OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_SERVICE_NAME env)
+# web and admin are NOT wired: their only OTel is BROWSER/client tracing, which
+# is configured from the Plane instance config (is_otel_enabled, otlp_endpoint)
+# served by the API — not from deployment env vars — so OTEL_* env on them is a
+# no-op. Enable those via instance settings, not this component.
 #
 # VALUES LIVE IN vars.yaml: the keys in configmap.yaml are placeholders; the
 # actual values are supplied per-overlay from overlay-vars (vars.yaml) via the
 # OTEL replacements added in the overlay's kustomization.yaml.
 #
 # PER-SERVICE service.name: the shared plane-otel-vars ConfigMap carries
-# OTEL_SERVICE_NAME for the api (from vars.yaml). silo gets the SAME ConfigMap
-# but an inline env OTEL_SERVICE_NAME=silo that overrides it (inline env wins
-# over envFrom), so each workload reports its own service.name in traces.
+# OTEL_SERVICE_NAME for the api (from vars.yaml). silo/live/space get the SAME
+# ConfigMap but an inline env OTEL_SERVICE_NAME=<name> that overrides it (inline
+# env wins over envFrom), so each workload reports its own service.name.
 #
 # OPTIONAL / OPT-IN: the env vars are added ONLY when this component is enabled
 # in the overlay. To leave OTEL off entirely, do not enable this component — no
@@ -43,3 +54,11 @@ patches:
     target:
       kind: Deployment
       name: plane-silo-wl
+  - path: patches/append-otel-live.json
+    target:
+      kind: Deployment
+      name: plane-live-wl
+  - path: patches/append-otel-space.json
+    target:
+      kind: Deployment
+      name: plane-space-wl
