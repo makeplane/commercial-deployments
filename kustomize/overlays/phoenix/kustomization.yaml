@@ -1052,3 +1052,37 @@ replacements:
           name: plane-otel-vars
         fieldPaths:
           - data.OTEL_DEBUG_CONSOLE
+
+  # Browser/client tracing (served by the API to web/admin/space browsers).
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTEL_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTEL_ENABLED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTLP_ENDPOINT
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTLP_ENDPOINT
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTLP_HEADERS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTLP_HEADERS

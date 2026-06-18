@@ -19,3 +19,10 @@ data:
   OTEL_SERVICE_NAME: ""
   OTEL_RESOURCE_ATTRIBUTES: ""
   OTEL_DEBUG_CONSOLE: ""
+  # Browser/client tracing for web/admin/space. The API serves these to browsers
+  # via its public instance endpoint (is_otel_enabled/otlp_endpoint/otlp_headers),
+  # so they only need to be set on the API — which already consumes this ConfigMap.
+  # Read ONLY by the API; a no-op env on silo/live/space.
+  FRONTEND_OTEL_ENABLED: ""
+  FRONTEND_OTLP_ENDPOINT: ""
+  FRONTEND_OTLP_HEADERS: ""
