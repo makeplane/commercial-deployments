@@ -4,29 +4,36 @@ kind: Component
 # ============================================================
 # OTEL OBSERVABILITY (backend-api)
 # ============================================================
-# Injects OpenTelemetry environment variables into the backend workloads
-# (plane-api-wl, plane-silo-wl, plane-live-wl, plane-space-wl) by appending the
-# plane-otel-vars ConfigMap to each container's envFrom.
+# Injects OpenTelemetry environment variables into the Plane workloads by
+# appending the plane-otel-vars ConfigMap to each container's envFrom.
 #
 # SCOPE — only env-driven OTel consumers are wired here:
-#   - api   (Django, OTEL_* env)
-#   - silo  (Node startOtel, OTEL_* env)
-#   - live  (Node startOtel, OTEL_* env)
-#   - space (React Router SSR initServerTelemetry, OTEL_ENABLED /
-#            OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_SERVICE_NAME env)
+#   - api                 (Django wsgi/asgi, OTEL_* env)
+#   - worker              (Celery worker — Celery task spans + DB/Redis/HTTP)
+#   - beat-worker         (Celery beat)
+#   - automation-consumer (Django mgmt cmd; OTel bootstraps via plane.celery import)
+#   - outbox-poller       (Django mgmt cmd; same)
+#   - silo                (Node startOtel, OTEL_* env)
+#   - live                (Node startOtel, OTEL_* env)
+#   - space               (React Router SSR initServerTelemetry, OTEL_ENABLED /
+#                          OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_SERVICE_NAME env)
+# All five Django processes bootstrap OTel because plane/__init__.py imports the
+# Celery app, which calls configure_otel() at import.
 # web and admin are NOT wired: their only OTel is BROWSER/client tracing, which
 # is configured from the Plane instance config (is_otel_enabled, otlp_endpoint)
-# served by the API — not from deployment env vars — so OTEL_* env on them is a
-# no-op. Enable those via instance settings, not this component.
+# served by the API via the FRONTEND_OTEL_* keys — not from per-workload env — so
+# OTEL_* env on them is a no-op.
 #
 # VALUES LIVE IN vars.yaml: the keys in configmap.yaml are placeholders; the
 # actual values are supplied per-overlay from overlay-vars (vars.yaml) via the
 # OTEL replacements added in the overlay's kustomization.yaml.
 #
 # PER-SERVICE service.name: the shared plane-otel-vars ConfigMap carries
-# OTEL_SERVICE_NAME for the api (from vars.yaml). silo/live/space get the SAME
-# ConfigMap but an inline env OTEL_SERVICE_NAME=<name> that overrides it (inline
-# env wins over envFrom), so each workload reports its own service.name.
+# OTEL_SERVICE_NAME for the api (from vars.yaml). Every other workload gets the
+# SAME ConfigMap but an inline env OTEL_SERVICE_NAME=<name> that overrides it
+# (inline env wins over envFrom), so each reports its own service.name. The name
+# matches the container name so it lines up with the promtail service_name label
+# for trace->logs correlation.
 #
 # OPTIONAL / OPT-IN: the env vars are added ONLY when this component is enabled
 # in the overlay. To leave OTEL off entirely, do not enable this component — no
@@ -62,3 +69,45 @@ patches:
     target:
       kind: Deployment
       name: plane-space-wl
+  - path: patches/append-otel-worker.json
+    target:
+      kind: Deployment
+      name: plane-worker-wl
+  - path: patches/append-otel-beat-worker.json
+    target:
+      kind: Deployment
+      name: plane-beat-worker-wl
+  - path: patches/append-otel-automation-consumer.json
+    target:
+      kind: Deployment
+      name: plane-automation-consumer-wl
+  - path: patches/append-otel-outbox-poller.json
+    target:
+      kind: Deployment
+      name: plane-outbox-poller-wl
+  - path: patches/append-otel-external-api.json
+    target:
+      kind: Deployment
+      name: plane-external-api-wl
+  - path: patches/append-otel-webhook-consumer.json
+    target:
+      kind: Deployment
+      name: plane-webhook-consumer-wl
+  - path: patches/append-otel-worker-importers.json
+    target:
+      kind: Deployment
+      name: plane-worker-importers-wl
+  # Plane Intelligence (pi) — logs-only OTel (configure_otel in pi.celery_app;
+  # reads the standard OTEL_* env, exports logs over OTLP/HTTP to /v1/logs).
+  - path: patches/append-otel-pi-api.json
+    target:
+      kind: Deployment
+      name: plane-pi-api-wl
+  - path: patches/append-otel-pi-beat.json
+    target:
+      kind: Deployment
+      name: plane-pi-beat-wl
+  - path: patches/append-otel-pi-worker.json
+    target:
+      kind: Deployment
+      name: plane-pi-worker-wl
