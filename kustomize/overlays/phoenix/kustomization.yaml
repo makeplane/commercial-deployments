@@ -1053,6 +1053,28 @@ replacements:
         fieldPaths:
           - data.OTEL_DEBUG_CONSOLE
 
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_TRACES_SAMPLER
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_TRACES_SAMPLER
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_TRACES_SAMPLER_ARG
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_TRACES_SAMPLER_ARG
+
   # Browser/client tracing (served by the API to web/admin/space browsers).
   - source:
       kind: ConfigMap

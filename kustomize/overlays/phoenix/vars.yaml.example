@@ -122,6 +122,10 @@ data:
   # Debug: print spans to stdout to confirm the app is emitting/exporting them.
   # Set to "" (or remove this line + its replacement) once tracing is confirmed.
   OTEL_DEBUG_CONSOLE: "1"
+  # Trace sampling — app default is 10% (0.1), so most requests aren't exported to
+  # Tempo (logs show trace_flags=0). 1.0 = every trace; lower for high-traffic prod.
+  OTEL_TRACES_SAMPLER: "parentbased_traceidratio"
+  OTEL_TRACES_SAMPLER_ARG: "1.0"
   # ---- Browser/client tracing (web/admin/space) ----
   # Set on the API ONLY; the API serves these to browsers via its public instance
   # endpoint. Browser tracing turns on when FRONTEND_OTEL_ENABLED=1 AND

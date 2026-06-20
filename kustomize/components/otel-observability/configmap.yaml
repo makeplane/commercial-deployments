@@ -19,6 +19,12 @@ data:
   OTEL_SERVICE_NAME: ""
   OTEL_RESOURCE_ATTRIBUTES: ""
   OTEL_DEBUG_CONSOLE: ""
+  # Trace sampling. The app defaults to parentbased_traceidratio @ 0.1 (10%), so
+  # 90% of requests are NOT exported to Tempo (their logs show trace_flags=0 and
+  # the trace_id is not findable). Set ARG=1.0 to export every trace; lower it for
+  # high-traffic prod. Overrides the app default via the SDK's standard env vars.
+  OTEL_TRACES_SAMPLER: ""
+  OTEL_TRACES_SAMPLER_ARG: ""
   # Browser/client tracing for web/admin/space. The API serves these to browsers
   # via its public instance endpoint (is_otel_enabled/otlp_endpoint/otlp_headers),
   # so they only need to be set on the API — which already consumes this ConfigMap.
