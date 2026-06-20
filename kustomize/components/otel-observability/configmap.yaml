@@ -17,12 +17,22 @@ data:
   OTEL_EXPORTER_OTLP_ENDPOINT: ""
   OTEL_EXPORTER_OTLP_PROTOCOL: ""
   OTEL_SERVICE_NAME: ""
+  # Set deployment.environment.name (the CURRENT semconv key — NOT the legacy
+  # deployment.environment) so the API's environment tag matches the node/pi/
+  # browser services and cross-service "environment=" filtering works in Tempo.
   OTEL_RESOURCE_ATTRIBUTES: ""
   OTEL_DEBUG_CONSOLE: ""
-  # Trace sampling. The app defaults to parentbased_traceidratio @ 0.1 (10%), so
-  # 90% of requests are NOT exported to Tempo (their logs show trace_flags=0 and
-  # the trace_id is not findable). Set ARG=1.0 to export every trace; lower it for
-  # high-traffic prod. Overrides the app default via the SDK's standard env vars.
+  # Trace sampling. Two independent gotchas:
+  #   1. Ratio: the app defaults to parentbased_traceidratio @ 0.1 (10%), so 90%
+  #      of root requests are NOT exported (their logs show trace_flags=0).
+  #   2. Parent-based: ANY parentbased_* sampler DEFERS to an incoming traceparent's
+  #      sampled flag and IGNORES the ARG ratio. With FRONTEND_OTEL_ENABLED=1 the
+  #      browser/proxy sends a traceparent; if it didn't sample (flag=0), the API
+  #      span is DROPPED regardless of ARG=1.0 — the classic "only GET traffic
+  #      (rootspans) shows up, no POST/user-action traces" symptom.
+  # => For a test/load/debug env, use always_on (captures every span the service
+  #    sees, ignores upstream decisions). For prod, use parentbased_traceidratio
+  #    with a sane ARG AND make sure browser tracing samples consistently.
   OTEL_TRACES_SAMPLER: ""
   OTEL_TRACES_SAMPLER_ARG: ""
   # Browser/client tracing for web/admin/space. The API serves these to browsers
