@@ -142,6 +142,9 @@ patches:
       - op: replace
         path: /spec/routes/9/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+      - op: replace
+        path: /spec/routes/10/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
@@ -189,7 +192,7 @@ replacements:
         reject:
           - name: plane-iframely-wl
           - name: plane-mcp-server
-          - name: plane-draw-io-wl   # pinned jgraph/drawio tag — not APP_VERSION-driven
+          - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:

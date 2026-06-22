@@ -17,7 +17,7 @@ data:
   APP_VERSION: "latest"
 
   # draw.io image tag (third-party, independently versioned) — used by the draw-io component
-  DRAWIO_VERSION: "30.0.4"
+  DRAWIO_VERSION: "v2.5.0"
 
   # Domain configuration — set to your actual domain (without protocol)
   APP_DOMAIN: "plane.example.com"
