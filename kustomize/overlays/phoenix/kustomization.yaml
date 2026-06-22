@@ -188,7 +188,7 @@ replacements:
         reject:
           - name: plane-iframely-wl
           - name: plane-mcp-server
-          - name: plane-draw-io-wl   # pinned jgraph/drawio tag — not APP_VERSION-driven
+          - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:

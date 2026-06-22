@@ -21,7 +21,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: draw-io
-          image: jgraph/drawio:30.0.4   # tag overridden by overlay-vars.DRAWIO_VERSION (vars.yaml)
+          image: makeplane/drawio:v2.5.0   # tag overridden by overlay-vars.DRAWIO_VERSION (vars.yaml)
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

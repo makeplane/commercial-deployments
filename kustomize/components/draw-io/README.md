@@ -7,13 +7,13 @@ in-cluster at `plane-draw-io:8080`. It deliberately adds **no public ingress**,
 because the route depends on which ingress controller the overlay uses. Wire it
 up at the overlay/infra layer using one of the recipes below.
 
-> **Image versioning:** `jgraph/drawio` is a third-party image, versioned
-> independently of `APP_VERSION`. The tag is driven by `DRAWIO_VERSION` in each
-> overlay's `vars.yaml` — bump it there, not in `deployment.yaml`.
+> **Image versioning:** `makeplane/drawio` is versioned independently of
+> `APP_VERSION`. The tag is driven by `DRAWIO_VERSION` in each overlay's
+> `vars.yaml` — bump it there, not in `deployment.yaml`.
 
 ## Hosting draw.io on a `/drawio` subpath
 
-The `jgraph/drawio` image serves its webapp at `/` and references **all assets
+The `makeplane/drawio` image serves its webapp at `/` and references **all assets
 relatively** (`js/`, `styles/`, `images/`, `mxBasePath`). Exposing it on a
 subpath therefore needs exactly two things from the ingress layer:
 
