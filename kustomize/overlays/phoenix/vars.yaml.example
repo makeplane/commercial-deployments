@@ -121,7 +121,11 @@ data:
   # Use deployment.environment.name (current semconv key, matches node/pi/browser
   # services) — NOT the legacy deployment.environment, which breaks cross-service
   # environment filtering in Tempo.
-  OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=loadtest,developer=<your-name>,k8s.namespace.name=plane-ns"
+  # k8s.cluster.name tags every span with the source cluster so traces are
+  # filterable per cluster in Tempo (e.g. {resource.k8s.cluster.name="plane-eks-dev"}),
+  # consistent with the metrics/logs cluster label. Set it to the cluster this
+  # overlay deploys to.
+  OTEL_RESOURCE_ATTRIBUTES: "k8s.cluster.name=<your-cluster>,deployment.environment.name=loadtest,developer=<your-name>,k8s.namespace.name=plane-ns"
   # Debug: print spans to stdout to confirm the app is emitting/exporting them.
   # Set to "" (or remove this line + its replacement) once tracing is confirmed.
   OTEL_DEBUG_CONSOLE: "1"
