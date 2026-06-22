@@ -55,6 +55,13 @@ resources:
   # Ingress
   - ingress.yaml
 
+# Replica overrides
+replicas:
+  - name: plane-api-wl
+    count: 5
+  - name: plane-worker-wl
+    count: 5
+
 # Default image tags
 images:
   - name: makeplane/backend-commercial
