@@ -49,6 +49,10 @@ components:
   # iframely ElastiCache/redis cache. MUST come after custom-ca: it appends to the
   # envFrom array that custom-ca creates on the base iframely deployment.
   - ../../components/iframely
+  # draw.io diagram editor (cluster-internal). MUST come after nonroot-security-context
+  # and custom-ca: it has no envFrom (like iframely) and its third-party image should
+  # not be patched by those components, which target all plane-enterprise Deployments.
+  - ../../components/draw-io
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -134,6 +138,9 @@ patches:
       - op: replace
         path: /spec/routes/9/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+      - op: replace
+        path: /spec/routes/10/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
@@ -181,6 +188,7 @@ replacements:
         reject:
           - name: plane-iframely-wl
           - name: plane-mcp-server
+          - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:
@@ -190,6 +198,7 @@ replacements:
           kind: Deployment
         reject:
           - name: plane-iframely-wl
+          - name: plane-draw-io-wl   # no init container (added after custom-ca)
         fieldPaths:
           - spec.template.spec.initContainers.*.image
         options:

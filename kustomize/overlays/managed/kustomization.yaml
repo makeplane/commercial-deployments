@@ -42,6 +42,9 @@ components:
   # Webhook consumer (RabbitMQ consumer for webhook delivery)
   - ../../components/webhook-consumer
 
+  # draw.io diagram editor (cluster-internal)
+  - ../../components/draw-io
+
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
 
@@ -139,6 +142,7 @@ replacements:
           kind: Deployment
         reject:
           - name: plane-iframely-wl
+          - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:
