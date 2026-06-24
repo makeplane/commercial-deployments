@@ -1,1 +1,0 @@
-python manage.py seed_project_at_scale --workspace_slug seedws1 --users 5000 --num_projects 1 --skip_phase workspace_feature,workspace_types,workspace_properties,type_property_bindings,project_features,project_types,memberships,states,labels,cycles,modules,milestones,issues,assignees,label_issues,cycle_issues,module_issues,milestone_issues,property_values,dependencies,relations
