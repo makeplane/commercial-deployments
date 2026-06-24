@@ -27,7 +27,7 @@ from django.db import transaction
 
 from plane.db.models import Project, ProjectMember, Role, User, Workspace
 
-WORKSPACE_SLUG = "seedws1"
+WORKSPACE_SLUG = "scale"
 EMAIL_DOMAIN = "seed.plane.so"
 PROJ_ROLE_NUM, PROJ_ROLE_SLUG = 20, "admin"  # project max; use 15/"contributor" for normal
 BATCH = 2000
