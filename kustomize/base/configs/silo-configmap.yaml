@@ -9,12 +9,12 @@ data:
   MQ_PREFETCH_COUNT: "1"
   REQUEST_INTERVAL: "400"
   SILO_BASE_PATH: "/silo"
-  IMPORTERS_QUEUE_NAME: "celery"
+  IMPORTERS_QUEUE_NAME: "celery.importer"
 
   CORS_ALLOWED_ORIGINS: "*"
 
   APP_BASE_URL: "https://plane.example.com"
-  API_BASE_URL: "http://plane-api:8000/"
+  API_BASE_URL: "http://plane-external-api:8000/"
   SILO_API_BASE_URL: "https://plane.example.com"
 
   PAYMENT_SERVER_BASE_URL: "http://plane-monitor:8080/"

@@ -33,14 +33,14 @@ components:
   # Node runner service (automation script execution)
   - ../../components/runner
 
-  # Webhook consumer (RabbitMQ consumer for webhook delivery)
-  - ../../components/webhook-consumer
-
   # External API (cloud-entrypoint API workload)
   - ../../components/external-api
 
   # Worker importers (celery.importer queue)
   - ../../components/worker-importers
+
+  # Webhook consumer (RabbitMQ consumer for webhook delivery)
+  - ../../components/webhook-consumer
 
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
