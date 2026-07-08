@@ -40,6 +40,14 @@ components:
   - ../../components/external-api
   # Worker importers (celery.importer queue)
   - ../../components/worker-importers
+  # One-off Job: rebuild the OpenSearch document index
+  # (manage_search_index document index --force --parallel) on the API image.
+  # Enabled to run a reindex; bump the Job's run-timestamp to re-trigger, and
+  # re-comment (or remove) once the reindex has completed so it does not re-fire
+  # on the next bundle deploy. MUST stay before nonroot-security-context and
+  # custom-ca so those components patch the Job (security context + CA init
+  # container) like every other workload.
+  - ../../components/opensearch-index-job
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
   - ../../components/nonroot-security-context
