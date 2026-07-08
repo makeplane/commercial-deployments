@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: plane-opensearch-index
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: opensearch-index
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 7200  # Auto-cleanup after 2 hours
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: opensearch-index
+      annotations:
+        # Update this timestamp to force a new job creation
+        # Use: date +%Y%m%d-%H%M%S
+        run-timestamp: "20250209-000000"
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: opensearch-index
+          image: makeplane/backend-commercial:v2.3.4
+          imagePullPolicy: Always
+          command:
+            - python
+            - manage.py
+            - manage_search_index
+            - document
+            - index
+            - --force
+            - --parallel
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - secretRef:
+                name: plane-app-secrets
+            - secretRef:
+                name: plane-doc-store-secrets
+            - secretRef:
+                name: plane-opensearch-secrets
+            - secretRef:
+                name: plane-silo-secrets
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: "2"
+            limits:
+              memory: 8Gi
+              cpu: "4"

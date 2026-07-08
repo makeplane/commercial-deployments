@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Optional one-off Job that (re)builds the OpenSearch document index by running
+#   python manage.py manage_search_index document index --force --parallel
+# on the API (backend-commercial) image. Uses the same ConfigMap/Secrets as the
+# API deployment (incl. OpenSearch). Disabled by default — enable it from the
+# overlay's `components:` list when a reindex is needed.
+resources:
+  - job.yaml
