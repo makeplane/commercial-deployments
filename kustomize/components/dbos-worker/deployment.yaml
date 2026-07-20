@@ -34,6 +34,8 @@ spec:
                 name: plane-dbos-worker-vars
             - secretRef:
                 name: plane-app-secrets
+            - secretRef:
+                name: plane-dbos-worker-secrets
           readinessProbe:
             exec:
               command:
