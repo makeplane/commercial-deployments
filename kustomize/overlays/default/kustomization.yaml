@@ -42,6 +42,9 @@ components:
   # Webhook consumer (RabbitMQ consumer for webhook delivery)
   - ../../components/webhook-consumer
 
+  # Agent consumer (RabbitMQ consumer for agent events)
+  - ../../components/agent-consumer
+
   # draw.io diagram editor (cluster-internal)
   - ../../components/draw-io
 
