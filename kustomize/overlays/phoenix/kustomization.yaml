@@ -57,6 +57,10 @@ components:
   # and custom-ca: it has no envFrom (like iframely) and its third-party image should
   # not be patched by those components, which target all plane-enterprise Deployments.
   - ../../components/draw-io
+  # OpenTelemetry env vars for the backend-api. Comes after custom-ca so its
+  # ConfigMap is appended last to the api envFrom. Values are sourced from
+  # vars.yaml via the OTEL replacements below.
+  - ../../components/otel-observability
   # Uncomment these if you want to deploy the infrastructure components locally
   # - ../../components/postgres
   # - ../../components/redis
@@ -987,3 +991,127 @@ replacements:
           name: plane-opensearch-secrets
         fieldPaths:
           - stringData.OPENSEARCH_INDEX_PREFIX
+
+  # ====== OpenTelemetry (backend-api) ======
+  # Drive plane-otel-vars (otel-observability component) from vars.yaml.
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_ENABLED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_EXPORTER_OTLP_ENDPOINT
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_EXPORTER_OTLP_ENDPOINT
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_EXPORTER_OTLP_PROTOCOL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_EXPORTER_OTLP_PROTOCOL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_SERVICE_NAME
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_SERVICE_NAME
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_RESOURCE_ATTRIBUTES
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_RESOURCE_ATTRIBUTES
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_DEBUG_CONSOLE
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_DEBUG_CONSOLE
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_TRACES_SAMPLER
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_TRACES_SAMPLER
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OTEL_TRACES_SAMPLER_ARG
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.OTEL_TRACES_SAMPLER_ARG
+
+  # Browser/client tracing (served by the API to web/admin/space browsers).
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTEL_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTEL_ENABLED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTLP_ENDPOINT
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTLP_ENDPOINT
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.FRONTEND_OTLP_HEADERS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-otel-vars
+        fieldPaths:
+          - data.FRONTEND_OTLP_HEADERS
