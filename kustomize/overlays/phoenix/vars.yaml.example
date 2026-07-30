@@ -74,6 +74,10 @@ data:
   PI_FOLLOWER_RDS_DB_PORT_KEY: "port"
   PI_FOLLOWER_RDS_DB_USERNAME_KEY: "username"
 
+  # AI usage limits
+  AI_USAGE_AGENT_MAX_TOKENS_BUDGET: ""
+  AI_USAGE_ENFORCEMENT_ENABLED: "1"
+
   # Pi service - AI provider config
   PI_OPENSEARCH_ML_MODEL_ID: "<opensearch-ml-model-id>"
   PI_EMBEDDING_MODEL: "bedrock/amazon.titan-embed-text-v1"
