@@ -992,6 +992,46 @@ replacements:
         fieldPaths:
           - stringData.OPENSEARCH_INDEX_PREFIX
 
+  # AI usage limits: agent max tokens budget (api + pi containers)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AI_USAGE_AGENT_MAX_TOKENS_BUDGET
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.AI_USAGE_AGENT_MAX_TOKENS_BUDGET
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AI_USAGE_AGENT_MAX_TOKENS_BUDGET
+
+  # AI usage enforcement (pi containers only)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.AI_USAGE_ENFORCEMENT_ENABLED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.AI_USAGE_ENFORCEMENT_ENABLED
+
+  # Custom LLM provider and AWS region (pi containers)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_PROVIDER
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_PROVIDER
   # ====== OpenTelemetry (backend-api) ======
   # Drive plane-otel-vars (otel-observability component) from vars.yaml.
   - source:
@@ -1108,6 +1148,13 @@ replacements:
   - source:
       kind: ConfigMap
       name: overlay-vars
+      fieldPath: data.PI_CUSTOM_LLM_AWS_REGION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-pi-api-vars
+        fieldPaths:
+          - data.CUSTOM_LLM_AWS_REGION
       fieldPath: data.FRONTEND_OTLP_HEADERS
     targets:
       - select:

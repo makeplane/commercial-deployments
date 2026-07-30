@@ -22,7 +22,8 @@ data:
   USE_STORAGE_PROXY: "0"
   INTAKE_EMAIL_DOMAIN: ""
   IS_AIRGAPPED: "0"
-  
+  AI_USAGE_AGENT_MAX_TOKENS_BUDGET: ""
+
   # Application Mode
   DEBUG: "0"
   DOCKERIZED: "1"
