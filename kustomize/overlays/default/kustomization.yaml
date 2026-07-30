@@ -42,8 +42,16 @@ components:
   # Webhook consumer (RabbitMQ consumer for webhook delivery)
   - ../../components/webhook-consumer
 
+  # Agent consumer (RabbitMQ consumer for agent events)
+  - ../../components/agent-consumer
+
   # draw.io diagram editor (cluster-internal)
   - ../../components/draw-io
+
+  # Optional: OpenTelemetry env vars for the backend-api. Enable AFTER custom-ca,
+  # add the OTEL_* vars to vars.yaml and the OTEL replacements to this file
+  # (see overlays/phoenix for a worked example).
+  # - ../../components/otel-observability
 
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context

@@ -108,3 +108,50 @@ data:
   # MCP server: internal K8s service URL used for server-to-server Plane API calls
   # Follows the pattern: http://<api-service-name>.<namespace>.svc.cluster.local:<port>
   MCP_PLANE_INTERNAL_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
+
+  # ============================================================
+  # OpenTelemetry (backend-api) — used by the otel-observability component.
+  # Optional: only applied when ../../components/otel-observability is enabled.
+  # Delete a line here AND its replacement to leave that env var unset.
+  # ============================================================
+  OTEL_ENABLED: "1"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://telemetry.plane.town"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_SERVICE_NAME: "api"   # per-service: api, silo, live, etc.
+  # developer=.. is a placeholder — set it before applying.
+  # k8s.namespace.name lets Grafana's trace->logs map the span to this namespace's
+  # logs (must match the overlay's deploy namespace). Add k8s.pod.name via the
+  # downward API if you want pod-exact correlation.
+  # Use deployment.environment.name (current semconv key, matches node/pi/browser
+  # services) — NOT the legacy deployment.environment, which breaks cross-service
+  # environment filtering in Tempo.
+  # k8s.cluster.name tags every span with the source cluster so traces are
+  # filterable per cluster in Tempo (e.g. {resource.k8s.cluster.name="plane-eks-dev"}),
+  # consistent with the metrics/logs cluster label. Set it to the cluster this
+  # overlay deploys to.
+  OTEL_RESOURCE_ATTRIBUTES: "k8s.cluster.name=<your-cluster>,deployment.environment.name=kustomize,developer=<your-name>,k8s.namespace.name=plane-ns"
+  # Debug: print spans to stdout to confirm the app is emitting/exporting them.
+  # Set to "" (or remove this line + its replacement) once tracing is confirmed.
+  OTEL_DEBUG_CONSOLE: "1"
+  # Trace sampling — always_on for a test/load/debug env: captures every span and
+  # does NOT defer to an upstream traceparent's sampled flag (parentbased_* does,
+  # which silently drops browser-initiated POST traces — the "only GET shows up"
+  # symptom). For prod use parentbased_traceidratio + an ARG (e.g. 0.1). ARG is
+  # ignored by always_on; kept for an easy prod switch-back.
+  OTEL_TRACES_SAMPLER: "always_on"
+  OTEL_TRACES_SAMPLER_ARG: "1.0"
+  # ---- Browser/client tracing (web/admin/space) ----
+  # Set on the API ONLY; the API serves these to browsers via its public instance
+  # endpoint. Browser tracing turns on when FRONTEND_OTEL_ENABLED=1 AND
+  # FRONTEND_OTLP_ENDPOINT is non-empty.
+  FRONTEND_OTEL_ENABLED: "0"
+  # PUBLIC endpoint the BROWSER posts to (OTLP/HTTP — the client appends
+  # /v1/traces). MUST be internet-reachable AND CORS-enabled for the Plane web
+  # origin. NOT the backend gRPC path; needs an HTTP+CORS collector route.
+  FRONTEND_OTLP_ENDPOINT: ""
+  # A non-empty header is REQUIRED for cross-origin browser tracing: it forces
+  # the OTLP web exporter to use XHR instead of navigator.sendBeacon. sendBeacon
+  # always sends credentials (mode 'include'), which CORS rejects against the
+  # collector's wildcard 'Access-Control-Allow-Origin: *'; XHR sends none, so the
+  # wildcard is accepted. Value is arbitrary; format "key=value,key2=value2".
+  FRONTEND_OTLP_HEADERS: "x-otlp-browser=1"

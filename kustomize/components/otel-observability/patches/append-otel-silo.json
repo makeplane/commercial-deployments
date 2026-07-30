@@ -1,0 +1,21 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/envFrom/-",
+    "value": {
+      "configMapRef": {
+        "name": "plane-otel-vars"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env",
+    "value": [
+      {
+        "name": "OTEL_SERVICE_NAME",
+        "value": "silo"
+      }
+    ]
+  }
+]
