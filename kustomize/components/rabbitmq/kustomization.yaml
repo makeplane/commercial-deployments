@@ -8,3 +8,4 @@ resources:
 
 patches:
   - path: patches/app-rabbitmq-url.yaml
+  - path: patches/live-rabbitmq-url.yaml
