@@ -734,6 +734,11 @@ replacements:
           name: plane-pi-api-secrets
         fieldPaths:
           - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
 
   # AWS Secrets Manager ARNs in plane-app-secrets and plane-live-secrets
   - source:
