@@ -32,6 +32,7 @@ resources:
   - deployments/space.yaml
   - deployments/admin.yaml
   - deployments/live.yaml
+  - deployments/live-exporter.yaml
   - deployments/worker.yaml
   - deployments/beat-worker.yaml
   - deployments/iframely.yaml
