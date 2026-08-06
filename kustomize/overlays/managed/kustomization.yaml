@@ -342,6 +342,11 @@ replacements:
           name: plane-silo-secrets
         fieldPaths:
           - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
 
   - source:
       kind: Secret
