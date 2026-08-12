@@ -65,6 +65,13 @@ spec:
                 name: plane-api
                 port:
                   number: 8000
+          - path: /dav/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-api
+                port:
+                  number: 8000
           - path: /silo/
             pathType: Prefix
             backend:

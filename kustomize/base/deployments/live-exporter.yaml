@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-live-exporter-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: live-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: live-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: live-exporter
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: live-exporter
+          image: makeplane/live-commercial:v2.3.4
+          imagePullPolicy: Always
+          env:
+            - name: LIVE_MODE
+              value: "exporter"
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - configMapRef:
+                name: plane-live-vars
+            - secretRef:
+                name: plane-live-secrets
+          resources:
+            requests:
+              memory: 350Mi
+              cpu: 100m
+            limits:
+              memory: 2000Mi
+              cpu: 1000m

@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-dbos-worker-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: dbos-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: dbos-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: dbos-worker
+    spec:
+      serviceAccountName: plane-srv-account
+      containers:
+        - name: dbos-worker
+          image: makeplane/backend-commercial:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          command:
+            - ./bin/docker-entrypoint-dbos-worker.sh
+          envFrom:
+            - configMapRef:
+                name: plane-app-vars
+            - configMapRef:
+                name: plane-dbos-worker-vars
+            - secretRef:
+                name: plane-app-secrets
+            - secretRef:
+                name: plane-dbos-worker-secrets
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pgrep -f "python" > /dev/null
+            initialDelaySeconds: 10
+            failureThreshold: 3
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          resources:
+            requests:
+              memory: 500Mi
+              cpu: 250m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: plane-dbos-worker-hpa
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: dbos-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: plane-dbos-worker-wl
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 180
+    scaleUp:
+      stabilizationWindowSeconds: 120

@@ -17,3 +17,6 @@ data:
   AWS_SECRET_CACHE_TTL: "300"
 
   WEB_BASE_URL: "http://plane.example.com"
+
+  EXPORT_QUEUE_NAME: "plane-exports"
+  EXPORT_DOWNLOAD_BASE_URL: ""

@@ -32,6 +32,7 @@ resources:
   - deployments/space.yaml
   - deployments/admin.yaml
   - deployments/live.yaml
+  - deployments/live-exporter.yaml
   - deployments/worker.yaml
   - deployments/beat-worker.yaml
   - deployments/iframely.yaml
@@ -54,6 +55,13 @@ resources:
 
   # Ingress
   - ingress.yaml
+
+# Replica overrides
+replicas:
+  - name: plane-api-wl
+    count: 5
+  - name: plane-worker-wl
+    count: 5
 
 # Default image tags
 images:
