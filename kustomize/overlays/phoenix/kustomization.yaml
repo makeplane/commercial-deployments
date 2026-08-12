@@ -136,18 +136,21 @@ patches:
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/marketplace/`)
       - op: replace
         path: /spec/routes/6/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/live/`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/dav/`)
       - op: replace
         path: /spec/routes/7/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/silo/`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/live/`)
       - op: replace
         path: /spec/routes/8/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/pi/`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/silo/`)
       - op: replace
         path: /spec/routes/9/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/pi/`)
       - op: replace
         path: /spec/routes/10/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+      - op: replace
+        path: /spec/routes/11/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
 
 # ============================================================
@@ -1160,6 +1163,10 @@ replacements:
           name: plane-pi-api-vars
         fieldPaths:
           - data.CUSTOM_LLM_AWS_REGION
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
       fieldPath: data.FRONTEND_OTLP_HEADERS
     targets:
       - select:
