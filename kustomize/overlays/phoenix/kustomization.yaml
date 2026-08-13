@@ -111,6 +111,23 @@ images:
 # Most configuration flows through replacements (below). The IngressRoute host
 # can't be reached by a Kustomize replacement (it lives inside a Traefik `match`
 # expression string), so we patch each route's match here.
+#
+# !! INDEX-COUPLED !! These paths are POSITIONAL. The list must mirror the route
+# order in components/ingress-traefik/ingress-route.yaml EXACTLY, one entry per
+# route. If a route is inserted or reordered there, every index after it shifts
+# and this block rewrites the wrong routes' `match` while leaving their
+# `services` untouched — i.e. paths silently get wired to the wrong backend,
+# with no error from kustomize.
+#
+# That has already happened once: ad131a8 inserted /dav/ at index 6 without
+# extending this list, which left /live/ -> plane-api, /silo/ -> plane-live,
+# /pi/ -> plane-silo, / -> plane-pi-api (the entire web app), /drawio ->
+# plane-web, and dropped /dav/ altogether. Repaired in #47.
+#
+# Index 12 (/uploads) is added here alongside the route itself, in the same
+# change — which is the rule: when you touch the component's route list, update
+# this block in the same commit and re-render to confirm each match still lands
+# on its intended service.
 patches:
   - target:
       kind: IngressRoute
@@ -152,6 +169,9 @@ patches:
       - op: replace
         path: /spec/routes/11/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
+      - op: replace
+        path: /spec/routes/12/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/uploads`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth
@@ -302,6 +322,16 @@ replacements:
         fieldPaths:
           - data.APP_BASE_URL
           - data.SILO_API_BASE_URL
+      # base/configs/live-configmap.yaml defaults WEB_BASE_URL to
+      # plane.example.com and EXPORT_DOWNLOAD_BASE_URL to empty. Nothing drove
+      # either, so a rendered overlay was left advertising the placeholder domain
+      # and handing out export download links against it.
+      - select:
+          kind: ConfigMap
+          name: plane-live-vars
+        fieldPaths:
+          - data.WEB_BASE_URL
+          - data.EXPORT_DOWNLOAD_BASE_URL
 
 
   # Replace CORS_ALLOWED_ORIGINS in plane-app-vars

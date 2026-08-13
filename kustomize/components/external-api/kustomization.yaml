@@ -4,3 +4,8 @@ kind: Component
 resources:
   - deployment.yaml
   - service.yaml
+
+patches:
+  # Redirect silo at plane-external-api. base defaults it to plane-api so that
+  # base works without this component.
+  - path: patches/silo-api-base-url.yaml

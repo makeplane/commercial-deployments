@@ -12,8 +12,11 @@ data:
   INIT_TIMEOUT_MS: "5000"
   ISOLATE_MEMORY_MB: "128"
 
-  # Internal Kubernetes service URL for the Plane API
-  API_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
+  # Internal Kubernetes service URL for the Plane API.
+  # Short service name on purpose: it resolves within whatever namespace the
+  # overlay deploys into. A fully-qualified *.plane-ns.svc.cluster.local name
+  # silently breaks every overlay whose namespace is not literally "plane-ns".
+  API_BASE_URL: "http://plane-api:8000"
 
   # Control service base URL (set per environment)
   CONTROL_SERVICE_BASE_URL: ""

@@ -107,7 +107,14 @@ data:
 
   # MCP server: internal K8s service URL used for server-to-server Plane API calls
   # Follows the pattern: http://<api-service-name>.<namespace>.svc.cluster.local:<port>
+  # (a short name like http://plane-api:8000 also works and is namespace-agnostic)
   MCP_PLANE_INTERNAL_BASE_URL: "http://plane-api.plane-ns.svc.cluster.local:8000"
+
+  # Pi service: internal K8s service URL for server-to-server calls to live.
+  # REQUIRED -- this overlay's replacements source it, so the overlay does not
+  # build without it. Short service name resolves in whatever namespace you deploy
+  # into.
+  LIVE_BASE_URI: "http://plane-live:3000"
 
   # ============================================================
   # OpenTelemetry (backend-api) — used by the otel-observability component.

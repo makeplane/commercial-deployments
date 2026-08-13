@@ -20,10 +20,23 @@ spec:
         app.kubernetes.io/component: opensearch
     spec:
       serviceAccountName: plane-srv-account
+      # The opensearchproject/opensearch image runs as uid 1000, but a freshly
+      # provisioned PersistentVolume is mounted root-owned on most CSI drivers
+      # (EBS included). Without fsGroup, OpenSearch cannot create its data
+      # directory and dies during bootstrap with:
+      #   OpenSearchException[failed to bind service];
+      #   nested: AccessDeniedException[/usr/share/opensearch/data/nodes]
+      # fsGroup makes the kubelet chown the mount to gid 1000, which also repairs
+      # volumes created before this was set.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: opensearch
           image: opensearchproject/opensearch:3.3.2
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
           ports:
             - containerPort: 9200
               name: http
@@ -46,6 +59,20 @@ spec:
               mountPath: /usr/share/opensearch/data
             - mountPath: /docker-entrypoint-init.d
               name: plane-opensearch-init
+          # Without a probe the container stays "Running" even when OpenSearch
+          # failed to bootstrap, so the pod reports 1/1 Ready and the failure is
+          # invisible -- it only surfaces two services away, as connection-refused
+          # errors in the API and Pi. Gate readiness on the HTTP port actually
+          # answering. Generous failureThreshold: a cold start on a small node can
+          # take a couple of minutes.
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
           resources:
             requests:
               memory: 2Gi

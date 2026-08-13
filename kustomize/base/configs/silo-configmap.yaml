@@ -9,12 +9,18 @@ data:
   MQ_PREFETCH_COUNT: "1"
   REQUEST_INTERVAL: "400"
   SILO_BASE_PATH: "/silo"
-  IMPORTERS_QUEUE_NAME: "celery.importer"
+  # Default queue, consumed by the base worker. The worker-importers component
+  # overrides this to "celery.importer" when it adds its dedicated consumer --
+  # base must not name a queue that nothing is listening on.
+  IMPORTERS_QUEUE_NAME: "celery"
 
   CORS_ALLOWED_ORIGINS: "*"
 
   APP_BASE_URL: "https://plane.example.com"
-  API_BASE_URL: "http://plane-external-api:8000/"
+  # Points at the API that base always ships. The external-api component
+  # overrides this to plane-external-api when it is enabled -- base must not
+  # depend on a Service that only an optional component creates.
+  API_BASE_URL: "http://plane-api:8000/"
   SILO_API_BASE_URL: "https://plane.example.com"
 
   PAYMENT_SERVER_BASE_URL: "http://plane-monitor:8080/"
