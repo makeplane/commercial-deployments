@@ -37,6 +37,26 @@ spec:
           securityContext:
             runAsUser: 1000
             runAsNonRoot: true
+          # Run the init script as the entrypoint so the `plane` user in
+          # plane-opensearch-secrets is actually created. It hashes
+          # OPENSEARCH_PASSWORD, appends the user to internal_users.yml, then
+          # execs the image's real entrypoint -- so this replaces nothing else.
+          #
+          # Previously this script was mounted at /docker-entrypoint-init.d but
+          # never executed (the image's default entrypoint ignores that
+          # directory), and DISABLE_SECURITY_PLUGIN=true was set alongside it.
+          # The component was therefore half-wired: it shipped the credentials
+          # and the user-creation script, but ran a cluster with plain HTTP, no
+          # auth and no `plane` user.
+          #
+          # That silently breaks Pi, whose OpenSearch client dials HTTPS
+          # unconditionally (it ignores the scheme in OPENSEARCH_URL). Against an
+          # HTTP-only cluster it gets connection-refused and falls back to
+          # text-only BM25 search, reporting only a warning. The
+          # plane-enterprise Helm chart runs the plugin ENABLED for this reason.
+          command:
+            - /bin/bash
+            - /docker-entrypoint-init.d/create-user.sh
           ports:
             - containerPort: 9200
               name: http
@@ -50,8 +70,6 @@ spec:
               value: single-node
             - name: OPENSEARCH_JAVA_OPTS
               value: "-Xms512m -Xmx512m"
-            - name: DISABLE_SECURITY_PLUGIN
-              value: "true"
             - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
               value: "Secure@Pass#123!%^&*"
           volumeMounts:
@@ -62,12 +80,18 @@ spec:
           # Without a probe the container stays "Running" even when OpenSearch
           # failed to bootstrap, so the pod reports 1/1 Ready and the failure is
           # invisible -- it only surfaces two services away, as connection-refused
-          # errors in the API and Pi. Gate readiness on the HTTP port actually
-          # answering. Generous failureThreshold: a cold start on a small node can
-          # take a couple of minutes.
+          # errors in the API and Pi. Gate readiness on the port actually
+          # accepting connections. Generous failureThreshold: a cold start on a
+          # small node can take a couple of minutes.
+          #
+          # tcpSocket rather than httpGet on purpose. With the security plugin
+          # enabled (see the command above) /_cluster/health is TLS-only and
+          # requires basic auth, so an httpGet probe gets a TLS error or a 401 and
+          # the pod would never become Ready. A TCP check is scheme- and
+          # auth-agnostic, and still catches the failure mode that motivated this:
+          # a bootstrap crash means nothing is listening at all.
           readinessProbe:
-            httpGet:
-              path: /_cluster/health
+            tcpSocket:
               port: 9200
             initialDelaySeconds: 20
             periodSeconds: 10
