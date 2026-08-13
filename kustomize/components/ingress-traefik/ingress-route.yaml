@@ -94,5 +94,25 @@ spec:
       services:
         - name: plane-draw-io
           port: 8080
+    # In-cluster MinIO object storage (subpath /uploads). Only functional when the
+    # minio component is also enabled in the overlay; with external S3 this route
+    # is unused and harmless (Traefik degrades just this router).
+    #
+    # REQUIRED whenever minio is enabled: the backend runs with USE_MINIO=1 and
+    # hands browsers URLs under this path, so without it every attachment and
+    # uploaded file 404s.
+    #
+    # Traefik prioritises by rule length, so position does not affect routing.
+    # Deliberately appended LAST so the existing route indices 0-11 do not shift
+    # — overlays patch each route's Host by index, and inserting anywhere earlier
+    # silently rewires those overlays' paths to the wrong backends.
+    # Route index 12 — overlays patch the Host in this match by index.
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/uploads`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-minio
+          port: 9000
   tls:
     secretName: plane-ssl-cert

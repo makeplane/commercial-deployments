@@ -3,3 +3,8 @@ kind: Component
 
 resources:
   - deployment.yaml
+
+patches:
+  # Point silo at the dedicated importer queue. base defaults it to "celery" so
+  # that base works without this component.
+  - path: patches/silo-importers-queue.yaml
