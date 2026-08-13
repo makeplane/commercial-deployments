@@ -786,6 +786,11 @@ replacements:
           - stringData.AMAZONMQ_SECRET_ARN
       - select:
           kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.AMAZONMQ_SECRET_ARN
+      - select:
+          kind: Secret
           name: plane-flux-secrets
         fieldPaths:
           - stringData.AMAZONMQ_SECRET_ARN
