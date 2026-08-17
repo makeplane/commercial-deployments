@@ -624,13 +624,25 @@ No extra configuration is required. The component patches all base Deployments (
 
 OpenShift is the inverse case: it refuses to let you pick the UID at all. The default `restricted-v2` SCC ignores the image's `USER`, assigns an arbitrary UID from the namespace's range, and places the process in group 0. It also validates the pod's own request with `MustRunAsRange`, so a manifest asking for a *specific* `runAsUser`/`runAsGroup`/`fsGroup` outside that range is **rejected at admission** — meaning `nonroot-security-context`, which pins 1000, stops every pod from scheduling.
 
-Use these two components instead:
+**Start from [`overlays/openshift/`](overlays/openshift/README.md)**, which wires this up and ships its own `vars.yaml.example` / `secrets-vars.yaml.example`:
+
+```bash
+cd overlays/openshift
+cp vars.yaml.example vars.yaml
+cp secrets-vars.yaml.example secrets-vars.yaml
+# edit both, then:
+oc new-project plane-openshift
+oc kustomize . | oc apply -f -
+```
+
+Copying `default` and toggling components does not work — it pins `runAsUser: 1000` and ships the in-cluster datastores, and OpenShift rejects both. The overlay differs from `default` in exactly three ways:
 
 ```yaml
-# overlays/my-env/kustomization.yaml
+# overlays/openshift/kustomization.yaml
 components:
   - ../../components/openshift-security-context   # NOT nonroot-security-context
   - ../../components/ingress-openshift            # NOT ingress-nginx / ingress-traefik
+  # postgres / redis / rabbitmq / minio / opensearch omitted — external only
 ```
 
 | Component | What it does |
