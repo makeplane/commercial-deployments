@@ -31,3 +31,8 @@ data:
   SENTRY_TRACES_SAMPLE_RATE: "0.1"
 
   AWS_SECRET_CACHE_TTL: "300"
+
+  # Integration event stream ingest — normalized webhooks Silo forwards to Plane.
+  INTEGRATION_EVENT_INGEST_ENABLED: "0"
+  INTEGRATION_EVENT_PROVIDERS: "github,gitlab,slack"
+  INTEGRATION_EVENT_INGEST_TIMEOUT_MS: "2000"

@@ -45,6 +45,9 @@ components:
   # Agent consumer (RabbitMQ consumer for agent events)
   - ../../components/agent-consumer
 
+  # Integration event consumer (RabbitMQ consumer for the integration event stream)
+  - ../../components/integration-event-consumer
+
   # draw.io diagram editor (cluster-internal)
   - ../../components/draw-io
 

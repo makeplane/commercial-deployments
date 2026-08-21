@@ -17,6 +17,8 @@ components:
   - ../../components/webhook-consumer
   # Agent consumer (RabbitMQ consumer for agent events)
   - ../../components/agent-consumer
+  # Integration event consumer (RabbitMQ consumer for the integration event stream)
+  - ../../components/integration-event-consumer
   # Optional: enable EKS IRSA role annotation on plane-srv-account
   - ../../components/eks-irsa-plane-serviceaccount
   # Ingress controller: pick ONE based on INGRESS_CLASS in vars.yaml.
