@@ -46,6 +46,8 @@ components:
   - ../../components/worker-importers
   # DBOS worker (durable workflow execution)
   - ../../components/dbos-worker
+  # Argus (content security / compliance scanning)
+  - ../../components/argus
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
   - ../../components/nonroot-security-context

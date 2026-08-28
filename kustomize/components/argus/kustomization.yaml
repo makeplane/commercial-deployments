@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - migrator.yaml
+
+replacements:
+  # ARGUS_DATABASE_URL from overlay secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_DATABASE_URL
+
+  # ARGUS_CONTENT_DATABASE_URL from overlay secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_CONTENT_DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_CONTENT_DATABASE_URL
+
+  # ARGUS_FINGERPRINT_SECRET from overlay secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_FINGERPRINT_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_FINGERPRINT_SECRET
+
+  # ARGUS_INTERNAL_SECRET from overlay secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_INTERNAL_SECRET
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_INTERNAL_SECRET
+
+  # FEATURE_FLAG_SERVER_AUTH_TOKEN from overlay secrets
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_FEATURE_FLAG_SERVER_AUTH_TOKEN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.FEATURE_FLAG_SERVER_AUTH_TOKEN
+
+  # CORS_ALLOWED_ORIGINS from overlay vars
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
