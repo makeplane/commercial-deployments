@@ -39,3 +39,11 @@ data:
   PRIME_HOST: "https://prime.plane.so"
   # SMTP domain for the inbound email service TLS certificate
   SMTP_DOMAIN: "smtp.gmail.com"
+
+  # --- Argus (required when the argus component is enabled) ---
+  # Comma-separated ingress/proxy CIDRs or IPs to trust for X-Forwarded-For.
+  # Empty = X-Forwarded-For ignored; audit events record the proxy IP instead of the client IP.
+  ARGUS_TRUSTED_PROXIES: ""
+  # Metrics listener. 127.0.0.1:9100 keeps it container-local (inert); set 0.0.0.0:9100
+  # and expose the port if you wire up a scraper.
+  ARGUS_METRICS_ADDR: "127.0.0.1:9100"

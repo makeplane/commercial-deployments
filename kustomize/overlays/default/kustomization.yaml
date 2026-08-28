@@ -56,7 +56,10 @@ components:
   # (see overlays/phoenix for a worked example).
   # - ../../components/otel-observability
 
-  # Argus (content security / compliance scanning)
+  # Optional: Argus (content security / compliance scanning). NOT enabled by default.
+  # NOTE: image makeplane/argus-cloud is private (no public/commercial build yet) —
+  # requires registry credentials or it will ImagePullBackOff.
+  # Requires ARGUS_* keys in secrets-vars.yaml and vars.yaml (see .example files).
   # - ../../components/argus
 
   # Optional: harden all workloads with non-root security context
@@ -186,10 +189,11 @@ replacements:
 
   # Drive every workload's image tag from APP_VERSION (single source of truth).
   # plane-iframely-wl has independent versioning — rejected.
-  # In-cluster infra StatefulSets (postgres/redis/rabbitmq/minio/opensearch) and
-  # the minio bucket-create Job use unrelated images — only the matching
-  # workloads (plane-monitor StatefulSet, plane-migrator Job) are explicitly
-  # selected so infra is never retagged.
+  # In-cluster infra StatefulSets (postgres/redis/rabbitmq/minio/opensearch) use
+  # unrelated images — only plane-monitor is explicitly selected so infra is
+  # never retagged. The Job target below is unscoped (matches any Job, e.g.
+  # plane-migrator, plane-argus-migrator) EXCEPT plane-minio-bucket-create,
+  # which uses minio/mc — an unrelated image rejected so it is never retagged.
   # If custom-ca is enabled in this overlay, add an initContainers.*.image target
   # block (mirroring the phoenix overlay) to tag the CA-cert init containers.
   - source:
@@ -217,7 +221,8 @@ replacements:
           index: 1
       - select:
           kind: Job
-          name: plane-migrator
+        reject:
+          - name: plane-minio-bucket-create   # uses minio/mc — not APP_VERSION-driven
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:

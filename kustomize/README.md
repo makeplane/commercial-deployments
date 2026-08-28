@@ -606,6 +606,58 @@ images:
     newTag: v2.3.4
 ```
 
+## Argus (Content Security / Compliance Scanning)
+
+Argus is deployed as a Kustomize component. It adds:
+- 1 Deployment: `plane-argus-wl` (serves on port 8100, base path `/argus`)
+- 1 Service: `plane-argus` (port 8100)
+- 1 Job: `plane-argus-migrator` (runs `argus migrate` — see the timestamp-bump note in `components/argus/migrator.yaml` to re-run it)
+- 1 ConfigMap + 1 Secret: `plane-argus-vars`, `plane-argus-secrets`
+
+**Note:** The `makeplane/argus-cloud` image is **private** — there is no public/commercial build available yet. Enabling this component without registry credentials results in `ImagePullBackOff`.
+
+### Enable it
+
+In your overlay `kustomization.yaml` add:
+
+```yaml
+components:
+  - ../../components/argus
+```
+
+### Configure it
+
+Add these keys to your overlay `secrets-vars.yaml` (all required):
+
+```yaml
+stringData:
+  # Must target the SAME Plane database as DATABASE_URL — argus creates its own
+  # "argus" schema there and reads Plane content tables. No Secrets Manager
+  # support; static DSN only.
+  ARGUS_DATABASE_URL: "postgresql://<db-user>:<db-password>@<db-host>:5432/plane"
+  # Optional read replica for content scans (empty falls back to ARGUS_DATABASE_URL)
+  ARGUS_CONTENT_DATABASE_URL: ""
+  # HKDF master key for fingerprinting (min 32 chars). Generate: openssl rand -hex 32
+  # Empty fails closed at startup. Rotating invalidates every stored fingerprint/triage decision.
+  ARGUS_FINGERPRINT_SECRET: ""
+  ARGUS_INTERNAL_SECRET: ""
+  ARGUS_FEATURE_FLAG_SERVER_AUTH_TOKEN: ""
+```
+
+And these keys to your overlay `vars.yaml`:
+
+```yaml
+data:
+  # Comma-separated ingress/proxy CIDRs or IPs to trust for X-Forwarded-For
+  ARGUS_TRUSTED_PROXIES: ""
+  # Metrics listener — keep container-local (127.0.0.1:9100) unless you wire up a scraper
+  ARGUS_METRICS_ADDR: "127.0.0.1:9100"
+```
+
+### Routing
+
+The base `Ingress` and the `ingress-traefik` component both route `/argus/` to the `plane-argus` service on port 8100. If you use `ingress-traefik` in an overlay with index-coupled route patches (see `overlays/phoenix/kustomization.yaml`), remember to update those indices when the route list shifts.
+
 ## Running workloads as non-root
 
 To run all Plane workload containers as a non-root user (recommended for hardened environments), enable the **non-root security context** component. It sets pod- and container-level `securityContext` on every Deployment (e.g. `runAsNonRoot: true`, `runAsUser: 1000`, dropped capabilities, `seccompProfile: RuntimeDefault`).

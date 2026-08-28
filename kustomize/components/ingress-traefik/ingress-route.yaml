@@ -75,6 +75,11 @@ spec:
         - name: plane-pi-api
           port: 8000
     - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/argus/`)
+      services:
+        - name: plane-argus
+          port: 8100
+    - kind: Rule
       match: Host(`plane.example.com`) && PathPrefix(`/`)
       middlewares:
         - name: plane-body-limit
