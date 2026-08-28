@@ -80,3 +80,32 @@ replacements:
           name: plane-argus-vars
         fieldPaths:
           - data.CORS_ALLOWED_ORIGINS
+
+  # ARGUS_TRUSTED_PROXIES from overlay vars.
+  # Without this the shared component's empty default is baked into every
+  # environment, so X-Forwarded-For is ignored and the audit trail records the
+  # ingress IP for every action. Overlays never patch ConfigMap data directly,
+  # so a replacement is the only way to make this tunable per environment
+  # (same approach pi-service uses for its PI_* knobs).
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_TRUSTED_PROXIES
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_TRUSTED_PROXIES
+
+  # ARGUS_METRICS_ADDR from overlay vars (loopback default is unscrapable)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_METRICS_ADDR
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_METRICS_ADDR

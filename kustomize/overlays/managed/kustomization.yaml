@@ -51,7 +51,17 @@ components:
   # draw.io diagram editor (cluster-internal)
   - ../../components/draw-io
 
-  # Argus (content security / compliance scanning)
+  # Argus (content security / compliance scanning) — DISABLED by default.
+  # Before uncommenting:
+  #   1. Confirm you can pull makeplane/argus-cloud. It is NOT part of the public
+  #      -commercial image set, so without registry access for it both argus
+  #      workloads land in ImagePullBackOff.
+  #   2. Add the 5 ARGUS_* keys to secrets-vars.yaml and the 2 ARGUS_* keys to
+  #      vars.yaml (copy from the .example files). They are replacement sources,
+  #      so a missing key fails the WHOLE overlay render, not just argus.
+  #   3. Argus has no AWS Secrets Manager support, so ARGUS_DATABASE_URL is a
+  #      static credential that RDS_SECRET_ARN rotation will NOT update.
+  #   4. Keep this line BEFORE nonroot-security-context and custom-ca below.
   # - ../../components/argus
 
   # Optional: harden all workloads with non-root security context

@@ -56,7 +56,15 @@ components:
   # (see overlays/phoenix for a worked example).
   # - ../../components/otel-observability
 
-  # Argus (content security / compliance scanning)
+  # Argus (content security / compliance scanning) — DISABLED by default.
+  # Before uncommenting:
+  #   1. Confirm you can pull makeplane/argus-cloud. It is NOT part of the public
+  #      -commercial image set, so without registry access for it both argus
+  #      workloads land in ImagePullBackOff.
+  #   2. Add the 5 ARGUS_* keys to secrets-vars.yaml and the 2 ARGUS_* keys to
+  #      vars.yaml (copy from the .example files). They are replacement sources,
+  #      so a missing key fails the WHOLE overlay render, not just argus.
+  #   3. Keep this line BEFORE nonroot-security-context and custom-ca below.
   # - ../../components/argus
 
   # Optional: harden all workloads with non-root security context
@@ -215,9 +223,23 @@ replacements:
         options:
           delimiter: ":"
           index: 1
+      # Jobs are selected by name so the minio bucket-create Job (unrelated
+      # image) is never retagged. Every migrator Job MUST be listed here: a
+      # migrator left on a stale tag runs an older binary against a schema the
+      # rest of the stack expects to be current.
       - select:
           kind: Job
           name: plane-migrator
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      # Only rendered when the argus component is enabled below; the replacement
+      # simply no-ops otherwise.
+      - select:
+          kind: Job
+          name: plane-argus-migrator
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:

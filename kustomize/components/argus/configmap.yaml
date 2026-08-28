@@ -5,11 +5,23 @@ metadata:
   namespace: plane
 data:
   ARGUS_SCHEMA: "argus"
+  # Must match the ingress path that routes to plane-argus:8100
+  # (base/ingress.yaml and components/ingress-traefik/ingress-route.yaml).
   ARGUS_BASE_PATH: "/argus"
   ARGUS_PORT: "8100"
   API_INTERNAL_URL: "http://plane-api:8000"
+  # Prometheus metrics listener. Driven from ARGUS_METRICS_ADDR in the overlay's
+  # vars.yaml. Defaults to loopback, which means nothing outside the container
+  # can scrape it; set it to "0.0.0.0:9100" in vars.yaml (and add a matching
+  # containerPort/ServiceMonitor) if you actually collect these metrics.
   ARGUS_METRICS_ADDR: "127.0.0.1:9100"
   CORS_ALLOWED_ORIGINS: ""
+  # Driven from ARGUS_TRUSTED_PROXIES in the overlay's vars.yaml.
+  # Argus fails closed: while this is empty it ignores X-Forwarded-For, so every
+  # audit_event (scan trigger, triage, allow-list change, export, download)
+  # records the ingress pod's IP instead of the end user's. Every overlay here
+  # fronts services with an ingress, so set this to your ingress/pod CIDR (or the
+  # proxy IPs) in vars.yaml if the audit trail needs real client IPs.
   ARGUS_TRUSTED_PROXIES: ""
   ARGUS_WORKER_POOL: ""
   ARGUS_DEFAULT_RATE_RPS: "500"
