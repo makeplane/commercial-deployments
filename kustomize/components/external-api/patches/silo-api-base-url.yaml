@@ -1,0 +1,12 @@
+# Silo talks to the cloud-entrypoint API when this component is enabled.
+#
+# base/configs/silo-configmap.yaml defaults API_BASE_URL to the always-present
+# plane-api, because base must stand on its own. This component creates the
+# plane-external-api Service, so it is the thing that gets to redirect silo at it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-silo-vars
+  namespace: plane
+data:
+  API_BASE_URL: "http://plane-external-api:8000/"

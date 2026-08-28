@@ -4,4 +4,7 @@ metadata:
   name: plane-app-vars
   namespace: plane
 data:
-  RUNNER_BASE_URL: "http://plane-node-runner.plane-ns.svc.cluster.local:3000"
+  # Short service name on purpose: it resolves within whatever namespace the
+  # overlay deploys into. A fully-qualified *.plane-ns.svc.cluster.local name
+  # silently breaks every overlay whose namespace is not literally "plane-ns".
+  RUNNER_BASE_URL: "http://plane-node-runner:3000"

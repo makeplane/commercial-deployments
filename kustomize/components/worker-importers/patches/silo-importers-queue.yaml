@@ -1,0 +1,13 @@
+# Silo enqueues onto the dedicated importer queue when this component is enabled.
+#
+# base/configs/silo-configmap.yaml defaults IMPORTERS_QUEUE_NAME to "celery",
+# which the base worker consumes, because base must stand on its own. This
+# component adds the dedicated celery.importer consumer, so it is the thing that
+# gets to point silo at that queue.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-silo-vars
+  namespace: plane
+data:
+  IMPORTERS_QUEUE_NAME: "celery.importer"
