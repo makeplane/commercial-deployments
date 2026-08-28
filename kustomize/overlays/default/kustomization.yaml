@@ -53,6 +53,9 @@ components:
   # (see overlays/phoenix for a worked example).
   # - ../../components/otel-observability
 
+  # Argus (content security / compliance scanning)
+  # - ../../components/argus
+
   # Optional: harden all workloads with non-root security context
   # - ../../components/nonroot-security-context
 
