@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-argus-vars
+  namespace: plane
+data:
+  ARGUS_SCHEMA: "argus"
+  ARGUS_BASE_PATH: "/argus"
+  ARGUS_PORT: "8100"
+  API_INTERNAL_URL: "http://plane-api:8000"
+  ARGUS_METRICS_ADDR: "127.0.0.1:9100"
+  CORS_ALLOWED_ORIGINS: ""
+  ARGUS_TRUSTED_PROXIES: ""
+  ARGUS_WORKER_POOL: ""
+  ARGUS_DEFAULT_RATE_RPS: "500"
+  ARGUS_MAX_RATE_RPS: "10000"
+  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-monitor:8080"

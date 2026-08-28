@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-argus-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: argus
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: argus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: argus
+    spec:
+      serviceAccountName: plane-srv-account
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: argus
+          image: makeplane/argus-cloud:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          ports:
+            - containerPort: 8100
+          envFrom:
+            - configMapRef:
+                name: plane-argus-vars
+            - secretRef:
+                name: plane-argus-secrets
+          livenessProbe:
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 500Mi
+              cpu: 250m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
