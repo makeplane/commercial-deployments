@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-integration-event-consumer-vars
+  namespace: plane
+data:
+  INTEGRATION_EVENT_CONSUMER_QUEUE_NAME: "plane.integration_stream.reference"
+  INTEGRATION_EVENT_CONSUMER_PREFETCH: "10"
