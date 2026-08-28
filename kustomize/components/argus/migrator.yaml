@@ -15,9 +15,10 @@ spec:
         app.kubernetes.io/name: plane-enterprise
         app.kubernetes.io/component: argus-migrator
       annotations:
-        # Update this timestamp to force a new job creation
-        # Use: date +%Y%m%d-%H%M%S
-        run-timestamp: "20250828-000000"
+        # Job spec.template is immutable: delete the completed Job first
+        # (kubectl -n plane delete job plane-argus-migrator), then bump this
+        # timestamp and re-apply. Use: date +%Y%m%d-%H%M%S
+        run-timestamp: "20260828-000000"
     spec:
       restartPolicy: OnFailure
       serviceAccountName: plane-srv-account

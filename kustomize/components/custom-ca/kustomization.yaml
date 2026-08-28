@@ -45,11 +45,11 @@ configMapGenerator:
 
 patches:
   # ── Add volume to pod specs WITHOUT existing volumes ─────────────────────────
-  # (all base deployments, pi-service, runner, jobs, monitor — but NOT email-service)
+  # (all base deployments, pi-service, runner, jobs, monitor — but NOT email-service or argus)
   - path: patches/add-ca-volume.json
     target:
       kind: Deployment
-      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service,app.kubernetes.io/component!=argus"
   - path: patches/add-ca-volume.json
     target:
       kind: Job
@@ -64,13 +64,18 @@ patches:
     target:
       kind: Deployment
       name: plane-email-service-wl
+  # argus already has argus-data volume/mount
+  - path: patches/append-ca-volume.json
+    target:
+      kind: Deployment
+      name: plane-argus-wl
 
   # ── Add volumeMount to containers WITHOUT existing volumeMounts ──────────────
-  # (all base deployments, pi-service, runner, iframely — but NOT email-service)
+  # (all base deployments, pi-service, runner, iframely — but NOT email-service or argus)
   - path: patches/add-ca-volumemount.json
     target:
       kind: Deployment
-      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service,app.kubernetes.io/component!=argus"
   - path: patches/add-ca-volumemount.json
     target:
       kind: Job
@@ -82,6 +87,11 @@ patches:
     target:
       kind: Deployment
       name: plane-email-service-wl
+  # argus already has argus-data volume/mount
+  - path: patches/append-ca-volumemount.json
+    target:
+      kind: Deployment
+      name: plane-argus-wl
   # monitor already has monitor-data mount
   - path: patches/append-ca-volumemount.json
     target:

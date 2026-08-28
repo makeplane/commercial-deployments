@@ -47,6 +47,10 @@ components:
   # DBOS worker (durable workflow execution)
   - ../../components/dbos-worker
   # Argus (content security / compliance scanning)
+  # REQUIRES new keys in secrets-vars.yaml (ARGUS_DATABASE_URL, ARGUS_CONTENT_DATABASE_URL,
+  # ARGUS_FINGERPRINT_SECRET, ARGUS_INTERNAL_SECRET, ARGUS_FEATURE_FLAG_SERVER_AUTH_TOKEN)
+  # and in vars.yaml (ARGUS_TRUSTED_PROXIES, ARGUS_METRICS_ADDR) — see the .example files.
+  # The overlay will not build without them.
   - ../../components/argus
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
@@ -132,6 +136,10 @@ images:
 # change — which is the rule: when you touch the component's route list, update
 # this block in the same commit and re-render to confirm each match still lands
 # on its intended service.
+#
+# Index 10 (/argus/) was inserted here alongside the route itself (between /pi/
+# and the catch-all `/`), shifting the catch-all to 11, /drawio to 12, and
+# /uploads to 13 — same rule as above.
 patches:
   - target:
       kind: IngressRoute
@@ -169,12 +177,15 @@ patches:
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/pi/`)
       - op: replace
         path: /spec/routes/10/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/argus/`)
       - op: replace
         path: /spec/routes/11/match
-        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/`)
       - op: replace
         path: /spec/routes/12/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/drawio`)
+      - op: replace
+        path: /spec/routes/13/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/uploads`)
 
 # ============================================================

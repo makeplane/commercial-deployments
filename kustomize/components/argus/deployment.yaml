@@ -8,8 +8,6 @@ metadata:
     app.kubernetes.io/component: argus
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: plane-enterprise
@@ -35,6 +33,14 @@ spec:
                 name: plane-argus-vars
             - secretRef:
                 name: plane-argus-secrets
+          startupProbe:
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /argus/healthz
@@ -60,3 +66,10 @@ spec:
             limits:
               memory: 1000Mi
               cpu: 500m
+          volumeMounts:
+            - name: argus-data
+              mountPath: /home/nonroot/data
+      # Writable data dir for CSV exports (image is distroless nonroot; fsGroup makes this group-writable)
+      volumes:
+        - name: argus-data
+          emptyDir: {}

@@ -37,6 +37,7 @@ kubectl kustomize . | kubectl apply -f -
 | `runner` | enabled | Node automation runner |
 | `nonroot-security-context` | enabled | Non-root security context on all workloads |
 | `custom-ca` | enabled | Custom CA cert — add PEM to `../../components/custom-ca/customCA.crt` |
+| `argus` | enabled | Content security / compliance scanning. Serves `/argus` on port 8100. Requires 5 new `secrets-vars.yaml` keys and 2 new `vars.yaml` keys (see `.example` files) — image `makeplane/argus-cloud` is private |
 | `static-db-url` | disabled | Not needed with IRSA; enable for static DATABASE_URL |
 | `s3-static-credentials` | disabled | Not needed with IRSA; enable for static AWS keys |
 | `opensearch-external-auth` | disabled | Enable for external OpenSearch with auth |

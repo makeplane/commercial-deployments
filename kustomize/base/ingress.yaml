@@ -86,3 +86,10 @@ spec:
                 name: plane-pi-api
                 port:
                   number: 8000
+          - path: /argus/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-argus
+                port:
+                  number: 8100
