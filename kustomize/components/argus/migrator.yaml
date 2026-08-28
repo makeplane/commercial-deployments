@@ -15,9 +15,22 @@ spec:
         app.kubernetes.io/name: plane-enterprise
         app.kubernetes.io/component: argus-migrator
       annotations:
-        # Update this timestamp to force a new job creation
+        # A Job's spec.template is IMMUTABLE, and this Job has a fixed name, so
+        # bumping this timestamp (or letting the APP_VERSION replacement change
+        # the image tag) does NOT create a new Job — `kubectl apply` is rejected
+        # with `spec.template: field is immutable` while the previous Job object
+        # still exists. ttlSecondsAfterFinished (below) only removes it 2h after
+        # it reached a terminal state.
+        #
+        # To re-run the migration:
+        #   kubectl -n <ns> delete job plane-argus-migrator
+        #   kubectl apply -k <overlay>          # optionally bump the timestamp
+        #                                       # so the change is self-documenting
         # Use: date +%Y%m%d-%H%M%S
-        run-timestamp: "20250828-000000"
+        #
+        # Same constraint applies to base/jobs/migrator.yaml and
+        # components/pi-service/migrator.yaml.
+        run-timestamp: "20260828-000000"
     spec:
       restartPolicy: OnFailure
       serviceAccountName: plane-srv-account

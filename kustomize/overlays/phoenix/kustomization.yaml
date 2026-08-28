@@ -46,7 +46,13 @@ components:
   - ../../components/worker-importers
   # DBOS worker (durable workflow execution)
   - ../../components/dbos-worker
-  # Argus (content security / compliance scanning)
+  # Argus (content security / compliance scanning).
+  # MUST come BEFORE nonroot-security-context so its Deployment/Job are patched
+  # to run non-root, and BEFORE custom-ca, which appends to the volumes array
+  # argus declares (see the argus targets in components/custom-ca).
+  # Requires 7 operator-supplied keys (5 in secrets-vars.yaml, 2 in vars.yaml);
+  # they are replacement sources, so a missing key fails the WHOLE overlay
+  # render. See "Upgrade note: argus config keys" in README.md.
   - ../../components/argus
   # Optional: enable non-root security context on all workload Deployments (recommended for hardened environments)
   # Keep this AFTER pi-service and mcp-server so it patches all workloads.
@@ -128,10 +134,10 @@ images:
 # /pi/ -> plane-silo, / -> plane-pi-api (the entire web app), /drawio ->
 # plane-web, and dropped /dav/ altogether. Repaired in #47.
 #
-# Index 12 (/uploads) is added here alongside the route itself, in the same
-# change — which is the rule: when you touch the component's route list, update
-# this block in the same commit and re-render to confirm each match still lands
-# on its intended service.
+# Index 12 (/uploads) and index 13 (/argus) were each added here alongside the
+# route itself, in the same change — which is the rule: when you touch the
+# component's route list, update this block in the same commit and re-render to
+# confirm each match still lands on its intended service.
 patches:
   - target:
       kind: IngressRoute
@@ -176,6 +182,9 @@ patches:
       - op: replace
         path: /spec/routes/12/match
         value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/uploads`)
+      - op: replace
+        path: /spec/routes/13/match
+        value: Host(`commercial.loadtest.plane.town`) && PathPrefix(`/argus`)
 
 # ============================================================
 # REPLACEMENTS - Using vars.yaml and secrets-vars.yaml as source of truth

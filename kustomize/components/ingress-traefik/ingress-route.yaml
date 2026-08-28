@@ -114,5 +114,27 @@ spec:
       services:
         - name: plane-minio
           port: 9000
+    # Argus content-security service (subpath /argus, matching ARGUS_BASE_PATH
+    # in components/argus/configmap.yaml). Only functional when the argus
+    # component is also enabled in the overlay; otherwise Traefik degrades just
+    # this router and the rest of the IngressRoute is unaffected.
+    #
+    # REQUIRED whenever argus is enabled: the web UI issues same-origin requests
+    # under this path, so without this route they match the catch-all `/` router
+    # and plane-web answers with SPA HTML instead of the Argus API.
+    #
+    # Traefik prioritises by rule length, so this longer rule wins over `/`
+    # regardless of position. Deliberately appended LAST so route indices 0-12
+    # do not shift — overlays patch each route's Host by index, and inserting
+    # anywhere earlier silently rewires those overlays' paths to the wrong
+    # backends (see the history note in overlays/phoenix/kustomization.yaml).
+    # Route index 13 — overlays patch the Host in this match by index.
+    - kind: Rule
+      match: Host(`plane.example.com`) && PathPrefix(`/argus`)
+      middlewares:
+        - name: plane-body-limit
+      services:
+        - name: plane-argus
+          port: 8100
   tls:
     secretName: plane-ssl-cert

@@ -86,3 +86,20 @@ spec:
                 name: plane-pi-api
                 port:
                   number: 8000
+          # Argus content-security service (subpath /argus, matching
+          # ARGUS_BASE_PATH in components/argus/configmap.yaml). Only functional
+          # when the argus component is enabled in the overlay; otherwise the
+          # backend Service does not exist and nginx serves 503 for this path
+          # only — same trade-off as /pi/ and /silo/ above.
+          #
+          # REQUIRED whenever argus is enabled: the web UI builds its Argus API
+          # calls as same-origin requests under this path, so without this rule
+          # every request falls through to the catch-all `/` rule and plane-web
+          # answers with SPA HTML instead of the API.
+          - path: /argus/
+            pathType: Prefix
+            backend:
+              service:
+                name: plane-argus
+                port:
+                  number: 8100

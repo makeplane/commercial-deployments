@@ -138,6 +138,44 @@ Additional features that can be enabled:
 - Adds: Deployment, Service, ConfigMap
 - Provides email sending capabilities
 
+**argus** (Content security / compliance scanning)
+- Adds: Deployment (`plane-argus-wl`), Service (`plane-argus`), ConfigMap, Secret, migration Job
+- Scans Plane content (work items, pages, comments) and records findings in its
+  own `argus` schema inside the Plane database
+- Image: `makeplane/argus-cloud` — **not in the public `-commercial` set**, see
+  [Image Registry Access](#image-registry-access) before enabling
+
+  Enabling it requires operator-supplied config in your overlay. These are
+  Kustomize *replacement sources*, so a missing key fails the **entire overlay
+  render**, not just argus:
+
+  | File | Required keys |
+  |------|---------------|
+  | `secrets-vars.yaml` | `ARGUS_DATABASE_URL`, `ARGUS_CONTENT_DATABASE_URL`, `ARGUS_FINGERPRINT_SECRET`, `ARGUS_INTERNAL_SECRET`, `ARGUS_FEATURE_FLAG_SERVER_AUTH_TOKEN` |
+  | `vars.yaml` | `ARGUS_TRUSTED_PROXIES`, `ARGUS_METRICS_ADDR` |
+
+  ```
+  Error: accumulating components: ... fieldPath `stringData.ARGUS_DATABASE_URL`
+  is missing for replacement source Secret ... /overlay-secret-vars
+  ```
+  ↑ what you see if a key is absent. Copy the missing keys from the matching
+  `.example` file.
+
+  Notes:
+  - `ARGUS_DATABASE_URL` **must** point at the same database as `DATABASE_URL`
+    (argus reads Plane's content tables read-only). Argus has no AWS Secrets
+    Manager support, so this static credential is not rotated for you.
+  - `ARGUS_FINGERPRINT_SECRET` must be a real 32+ char secret
+    (`openssl rand -hex 32`). The examples ship it empty so startup fails
+    closed — argus accepts plausible-looking placeholders, and rotating this key
+    later invalidates every stored fingerprint and triage decision.
+  - Order matters relative to `nonroot-security-context`: list `argus` **before**
+    it so the workload is patched to run non-root.
+  - Reachability requires the `/argus/` ingress rule (already in
+    `base/ingress.yaml`) or, for Traefik, route index 13 in
+    `components/ingress-traefik/ingress-route.yaml` plus the matching Host patch
+    in your overlay.
+
 ## Prerequisites
 
 ### Required
@@ -208,6 +246,14 @@ All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 - `makeplane/silo-commercial:v2.3.4` - Silo service
 - `makeplane/email-commercial:v2.3.4` - Email service (optional)
 - `makeplane/iframely:v1.2.0` - URL preview service
+- `makeplane/argus-cloud:v2.3.4` - Argus content-security service (optional)
+
+> **`argus-cloud` is not part of the public `-commercial` image set.** It is
+> currently built only by the cloud pipeline, has no `-commercial` build, and is
+> not pullable anonymously. Enabling the `argus` component without registry
+> access that includes this image leaves `plane-argus-wl` and
+> `plane-argus-migrator` in `ImagePullBackOff`. Confirm availability with Plane
+> before enabling it in a self-hosted overlay.
 
 **Note**: You need valid Plane Commercial credentials to pull these images. Configure image pull secrets if required:
 
@@ -302,6 +348,7 @@ spec:
 | **minio** | Use local S3 storage | Using AWS S3, Google Cloud Storage |
 | **opensearch** | Use local OpenSearch | Using AWS OpenSearch Service |
 | **email-service** | Need email delivery | Using external email service |
+| **argus** | Need content-security / compliance scanning **and** have registry access to `makeplane/argus-cloud` | Any self-hosted deployment without that image (see [Image Registry Access](#image-registry-access)) |
 
 **Note:** Silo is always deployed from `base/` (not a component). Infrastructure components (postgres, redis, rabbitmq, minio, opensearch) are **required**; if not included as components, you MUST provide external URLs in `secrets-vars.yaml`.
 
