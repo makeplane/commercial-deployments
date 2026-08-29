@@ -198,7 +198,7 @@ Additional features that can be enabled:
 
 ### Optional but Recommended
 
-- **Ingress Controller** – Traefik is the recommended default. Install it yourself (e.g. below or via Helm). Optional overlay components `ingress-nginx` and `aws-load-balancer-controller` only patch the plane Ingress with controller-specific annotations. See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for the ALB controller.
+- **Ingress Controller** – Traefik is the recommended default. Install it yourself (e.g. below or via Helm). Optional overlay components `ingress-nginx` and `aws-load-balancer-controller` only patch the plane Ingress with controller-specific annotations. See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for the ALB controller. On OpenShift use `ingress-openshift` instead, which swaps the Ingress for native Routes — see [Running on OpenShift](#running-on-openshift).
   ```bash
   # Add Traefik Helm repo and install Traefik ingress controller
   helm repo add traefik https://traefik.github.io/charts
@@ -666,6 +666,44 @@ components:
 ```
 
 No extra configuration is required. The component patches all base Deployments (api, web, space, admin, live, worker, etc.) with the same non-root security context. Ensure your container images support running as the configured user (e.g. UID 1000); Plane Commercial images are built to run as non-root.
+
+## Running on OpenShift
+
+OpenShift is the inverse case: it refuses to let you pick the UID at all. The default `restricted-v2` SCC ignores the image's `USER`, assigns an arbitrary UID from the namespace's range, and places the process in group 0. It also validates the pod's own request with `MustRunAsRange`, so a manifest asking for a *specific* `runAsUser`/`runAsGroup`/`fsGroup` outside that range is **rejected at admission** — meaning `nonroot-security-context`, which pins 1000, stops every pod from scheduling.
+
+**Start from [`overlays/openshift/`](overlays/openshift/README.md)**, which wires this up and ships its own `vars.yaml.example` / `secrets-vars.yaml.example`:
+
+```bash
+cd overlays/openshift
+cp vars.yaml.example vars.yaml
+cp secrets-vars.yaml.example secrets-vars.yaml
+# edit both, then:
+oc new-project plane-openshift
+oc kustomize . | oc apply -f -
+```
+
+Copying `default` and toggling components does not work — it pins `runAsUser: 1000` and ships the in-cluster datastores, and OpenShift rejects both. The overlay differs from `default` in exactly three ways:
+
+```yaml
+# overlays/openshift/kustomization.yaml
+components:
+  - ../../components/openshift-security-context   # NOT nonroot-security-context
+  - ../../components/ingress-openshift            # NOT ingress-nginx / ingress-traefik
+  # postgres / redis / rabbitmq / minio / opensearch omitted — external only
+```
+
+| Component | What it does |
+| --------- | ------------ |
+| `openshift-security-context` | Same hardening as `nonroot-security-context` — `runAsNonRoot`, `capabilities.drop: [ALL]`, `seccompProfile: RuntimeDefault` — but names no UID, so the SCC assigns one. |
+| `ingress-openshift` | Removes the base nginx `Ingress` and adds one `route.openshift.io/v1` Route per path, each with `haproxy.router.openshift.io/timeout: 300s`. Carries its own `APP_DOMAIN` replacement, so no extra overlay wiring is needed. |
+
+Three things to know:
+
+- **Image requirement.** The images must grant group 0 write access to the paths they write at runtime. Older images crash under an arbitrary UID — nginx exits with `mkdir() "/var/cache/nginx/client_temp" failed (13: Permission denied)` and celery beat cannot create its schedule DB.
+- **Remove the bundled datastores.** `postgres`, `redis`, `rabbitmq`, `minio` and `opensearch` are third-party images with baked-in UID and data-directory ownership. They cannot run under an arbitrary UID, and (as with `nonroot-security-context`) the security-context component does not patch them — they are listed after it in the overlay. Drop those components, point the overlay at managed services, or grant their ServiceAccounts a relaxed SCC.
+- **Upgrading an existing deployment is safe.** Moving a running install from the pinned-uid-1000 posture to this one needs no data migration: kubelet re-applies `fsGroup` to PVC contents on mount, so data written by the old deployment stays readable and writable by the new UID.
+
+The alternative to `ingress-openshift` is to keep the base `Ingress` and set `INGRESS_CLASS: "openshift-default"` in `vars.yaml`, letting OpenShift's ingress-to-route controller do the conversion. That works, but the controller only converts an `Ingress` whose class maps to `openshift.io/ingress-to-route` (`nginx` is ignored), and whether the per-route HAProxy annotations survive the conversion varies by OCP version. Note that **Routes have no request-body size limit** — Traefik's `plane-body-limit` middleware has no equivalent, so enforce upload limits in the application or at a WAF/CDN.
 
 ## Configuration
 
