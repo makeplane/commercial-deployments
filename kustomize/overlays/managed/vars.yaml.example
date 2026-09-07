@@ -28,6 +28,20 @@ data:
   # CORS allowed origins (comma-separated, both http and https)
   CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
 
+  # ── Argus (content security / compliance scanning) ──────────────────────────
+  # REQUIRED (both keys) whenever the argus component is enabled — they are
+  # replacement sources, so a missing key fails the whole overlay render with
+  # "fieldPath `data.ARGUS_*` is missing for replacement source ConfigMap".
+  #
+  # Trusted reverse-proxy CIDRs/IPs. Argus fails closed: while this is empty it
+  # ignores X-Forwarded-For and the audit trail records the ingress pod IP for
+  # every scan/triage/export instead of the real end user. Set it to your
+  # ingress controller's pod CIDR to get real client IPs.
+  ARGUS_TRUSTED_PROXIES: ""
+  # Prometheus metrics listener. Loopback = not scrapable from outside the
+  # container; use "0.0.0.0:9100" if you actually collect these metrics.
+  ARGUS_METRICS_ADDR: "127.0.0.1:9100"
+
   # Allow all attachment types (leave empty to use default restrictions, set to "1" to allow all)
   ALLOW_ALL_ATTACHMENT_TYPES: "1"
 

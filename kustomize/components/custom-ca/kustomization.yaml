@@ -45,11 +45,14 @@ configMapGenerator:
 
 patches:
   # ── Add volume to pod specs WITHOUT existing volumes ─────────────────────────
-  # (all base deployments, pi-service, runner, jobs, monitor — but NOT email-service)
+  # (all base deployments, pi-service, runner, jobs, monitor — but NOT
+  #  email-service or argus, which ship their own volumes; see the append
+  #  targets below. add-ca-volume.json sets the whole array with `op: add`, so
+  #  applying it to a pod spec that already has volumes REPLACES them.)
   - path: patches/add-ca-volume.json
     target:
       kind: Deployment
-      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component notin (email-service,argus)"
   - path: patches/add-ca-volume.json
     target:
       kind: Job
@@ -59,18 +62,24 @@ patches:
       kind: StatefulSet
       labelSelector: "app.kubernetes.io/name=plane-enterprise"
 
-  # ── Append volume to email-service which already has existing volumes ─────────
+  # ── Append volume to pod specs that already have volumes ──────────────────────
+  # email-service (tls-cert + spam-blacklist) and argus (argus-data emptyDir)
   - path: patches/append-ca-volume.json
     target:
       kind: Deployment
       name: plane-email-service-wl
+  - path: patches/append-ca-volume.json
+    target:
+      kind: Deployment
+      name: plane-argus-wl
 
   # ── Add volumeMount to containers WITHOUT existing volumeMounts ──────────────
-  # (all base deployments, pi-service, runner, iframely — but NOT email-service)
+  # (all base deployments, pi-service, runner, iframely — but NOT email-service
+  #  or argus; same replace-vs-append reasoning as the volumes patches above)
   - path: patches/add-ca-volumemount.json
     target:
       kind: Deployment
-      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component!=email-service"
+      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component notin (email-service,argus)"
   - path: patches/add-ca-volumemount.json
     target:
       kind: Job
@@ -82,6 +91,11 @@ patches:
     target:
       kind: Deployment
       name: plane-email-service-wl
+  # argus already mounts argus-data at /home/nonroot/data
+  - path: patches/append-ca-volumemount.json
+    target:
+      kind: Deployment
+      name: plane-argus-wl
   # monitor already has monitor-data mount
   - path: patches/append-ca-volumemount.json
     target:

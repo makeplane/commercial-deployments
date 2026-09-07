@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plane-argus-wl
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane-enterprise
+    app.kubernetes.io/component: argus
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: plane-enterprise
+      app.kubernetes.io/component: argus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: plane-enterprise
+        app.kubernetes.io/component: argus
+    spec:
+      serviceAccountName: plane-srv-account
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: argus
+          image: makeplane/argus-cloud:v2.3.4
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          ports:
+            - containerPort: 8100
+          envFrom:
+            - configMapRef:
+                name: plane-argus-vars
+            - secretRef:
+                name: plane-argus-secrets
+          volumeMounts:
+            # ARGUS_DATA_DIR (/home/nonroot/data in the image) is where the
+            # exports worker writes findings CSVs. The distroless image stages
+            # it 0755 owned by 65532, so under the nonroot-security-context
+            # component (runAsUser 1000) writes there fail with EACCES and every
+            # export is marked failed. Mounting a volume makes fsGroup apply, so
+            # the directory is group-writable for whichever uid is in force, and
+            # keeps in-flight CSVs off the container's writable layer.
+            - name: argus-data
+              mountPath: /home/nonroot/data
+          startupProbe:
+            # `argus start` pings the DB (no connect_timeout, no deadline) and
+            # runs its two reapers BEFORE it binds :8100. Liveness alone gives
+            # ~120s, so a reachable-but-unresponsive Postgres (SG/NACL misconfig,
+            # RDS mid-failover) is killed mid-startup and the real error never
+            # surfaces. Startup gets 5 minutes; liveness only begins counting
+            # once this succeeds.
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /argus/healthz
+              port: 8100
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 500Mi
+              cpu: 250m
+            limits:
+              memory: 1000Mi
+              cpu: 500m
+      volumes:
+        # Scratch space for findings-export CSVs. emptyDir (not a PVC) because
+        # exports are re-generatable and the pod is single-instance by design;
+        # see the volumeMounts comment above for why a volume is needed at all.
+        #
+        # NOTE: because this Deployment now ships its own volumes/volumeMounts,
+        # components/custom-ca appends to them (like it does for email-service)
+        # instead of creating them — see the argus targets in
+        # components/custom-ca/kustomization.yaml. Adding a volume here without
+        # that wiring would make custom-ca replace this array outright.
+        - name: argus-data
+          emptyDir: {}

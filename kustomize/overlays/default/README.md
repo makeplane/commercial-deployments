@@ -40,6 +40,7 @@ kubectl kustomize . | kubectl apply -f -
 | `nonroot-security-context` | disabled | Uncomment to harden workloads |
 | `custom-ca` | disabled | Uncomment + add PEM to enable custom CA |
 | `opensearch-external-auth` | disabled | Only needed for external OpenSearch with auth |
+| `argus` | disabled | Content security / compliance scanning. Before enabling: confirm you can pull `makeplane/argus-cloud` (not in the public `-commercial` set), then add the 5 `ARGUS_*` keys to `secrets-vars.yaml` and 2 to `vars.yaml` — they are replacement sources, so a missing key fails the whole render. List it **before** `nonroot-security-context`. |
 
 To toggle a component, comment or uncomment its line in `kustomization.yaml`.
 

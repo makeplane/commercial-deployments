@@ -37,6 +37,7 @@ kubectl kustomize . | kubectl apply -f -
 | `custom-ca` | disabled | Uncomment + add PEM to enable custom CA |
 | `opensearch-external-auth` | disabled | Uncomment when Amazon OpenSearch requires username/password auth |
 | `eks-irsa-plane-serviceaccount` | disabled | Enable instead of static-db-url + s3-static-credentials when using EKS IAM roles |
+| `argus` | disabled | Content security / compliance scanning. Before enabling: confirm you can pull `makeplane/argus-cloud` (not in the public `-commercial` set), then add the 5 `ARGUS_*` keys to `secrets-vars.yaml` and 2 to `vars.yaml` — they are replacement sources, so a missing key fails the whole render. Note argus has no Secrets Manager support, so `ARGUS_DATABASE_URL` is a static credential that RDS rotation will not update. List it **before** `nonroot-security-context`. |
 
 To toggle a component, comment or uncomment its line in `kustomization.yaml`.
 
