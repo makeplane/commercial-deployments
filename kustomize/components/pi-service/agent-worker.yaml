@@ -1,35 +1,42 @@
+# Dedicated Celery worker for native agent runs, so an interactive run never queues behind a
+# multi-hour vectorization task. An ADDITION to plane-pi-worker-wl, never a replacement:
+# that worker still drains plane_pi_queue (vector sync, docs sync, plan sync, memory).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: plane-pi-worker-wl
+  name: plane-pi-agent-worker-wl
   namespace: plane
   labels:
     app.kubernetes.io/name: plane-enterprise
-    app.kubernetes.io/component: pi-worker
+    app.kubernetes.io/component: pi-agent-worker
 spec:
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: plane-enterprise
-      app.kubernetes.io/component: pi-worker
+      app.kubernetes.io/component: pi-agent-worker
   template:
     metadata:
       labels:
         app.kubernetes.io/name: plane-enterprise
-        app.kubernetes.io/component: pi-worker
+        app.kubernetes.io/component: pi-agent-worker
     spec:
       serviceAccountName: plane-srv-account
       containers:
-        - name: pi-worker
+        - name: pi-agent-worker
           image: makeplane/plane-pi-commercial:v2.3.4
           imagePullPolicy: Always
           command:
             - ./bin/entrypoint-celery-worker.sh
-          # Narrowed because agent-worker.yaml drains plane_pi_agent_queue. Left unset,
-          # the entrypoint consumes both.
           env:
             - name: CELERY_QUEUE
-              value: plane_pi_queue
+              value: plane_pi_agent_queue
+            # More concurrency than the general worker: agent runs are I/O-bound on
+            # streaming LLM calls. Children recycle sooner as each builds its own DB pools.
+            - name: CELERY_CONCURRENCY
+              value: "4"
+            - name: CELERY_MAX_TASKS_PER_CHILD
+              value: "100"
           envFrom:
             - configMapRef:
                 name: plane-pi-api-vars
