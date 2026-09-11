@@ -88,8 +88,9 @@ Then, before applying:
   schema there). **Prefer leaving it empty**: argus then reads `RDS_SECRET_ARN`
   and rotates with everything else, which needs IRSA or EKS Pod Identity on
   `plane-srv-account`. Keep the key present but empty — it is a replacement
-  source, so deleting it fails the whole render. A non-empty value always wins
-  over the ARN, so a stale DSN here silently disables rotation.
+  source, so deleting it fails the whole render. A value left here is not
+  ignored and does not disable rotation: the secret supplies the credentials
+  and this DSN supplies the endpoint.
 - **`ARGUS_TRUSTED_PROXIES`** — while empty, argus ignores `X-Forwarded-For` and
   every audit event records the ingress pod's IP instead of the end user's. Set
   it to your ingress controller's pod CIDR if the audit trail matters.

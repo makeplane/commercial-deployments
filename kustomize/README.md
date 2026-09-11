@@ -164,11 +164,11 @@ Additional features that can be enabled:
   Notes:
   - `ARGUS_DATABASE_URL` **must** point at the same database as `DATABASE_URL`
     (argus reads Plane's content tables read-only). On AWS, leave it **present
-    but empty** and let argus read `RDS_SECRET_ARN` instead, so its credentials
-    rotate with everything else — see
+    set `RDS_SECRET_ARN` so its credentials rotate with everything else — see
     [Deploying with IRSA or EKS Pod Identity](#deploying-with-irsa-or-eks-pod-identity).
-    A non-empty value always wins over the ARN, so a static DSN left here is not
-    rotated for you.
+    The two combine rather than compete: the secret supplies the credentials and
+    this DSN supplies the endpoint, so you may leave it empty or keep it as the
+    host/database it already names.
   - `ARGUS_FINGERPRINT_SECRET` must be a real 32+ char secret
     (`openssl rand -hex 32`). The examples ship it empty so startup fails
     closed — argus accepts plausible-looking placeholders, and rotating this key
@@ -613,7 +613,7 @@ On EKS you can avoid static credentials by using **IRSA** (IAM Roles for Service
 
 4. **Do not enable** the `static-db-url` or `s3-static-credentials` components when using IRSA; leave `DATABASE_URL` and AWS keys out of `secrets-vars.yaml` (or omit those components) so the app uses the IAM role and the ARNs above.
 
-5. **Argus**, if enabled, reuses the app's `RDS_SECRET_ARN` — it owns a schema inside the Plane database and reads Plane's content from it, so it is the same database and the same credentials. Leave `ARGUS_DATABASE_URL` **present but empty** in `secrets-vars.yaml` (it is a replacement source; deleting it fails the whole render). A non-empty value always wins over the ARN, so a stale DSN silently disables rotation. Set `ARGUS_RDS_SECRET_ARN` instead if argus should use a dedicated database role — note it needs `CREATE` on `ARGUS_SCHEMA` to migrate.
+5. **Argus**, if enabled, reuses the app's `RDS_SECRET_ARN` — it owns a schema inside the Plane database and reads Plane's content from it, so it is the same database and the same credentials. `ARGUS_DATABASE_URL` and the ARN **combine** on one rule: *the secret owns the credentials, the DSN owns the endpoint* (host, port, database, query string). So you can leave the DSN empty and let the secret supply everything, or keep a DSN that names an endpoint the secret cannot know — an RDS Proxy endpoint, say — and still rotate. Either way the key must stay **present** in `secrets-vars.yaml`, because it is a replacement source and deleting it fails the whole render. Set `ARGUS_RDS_SECRET_ARN` if argus should use a dedicated database role — note it needs `CREATE` on `ARGUS_SCHEMA` to migrate.
 
 > The Plane ServiceAccount needs `secretsmanager:GetSecretValue` on every ARN above (plus `kms:Decrypt` on the CMK if it is not the AWS-managed key). Pod Identity binds by ServiceAccount **name** and needs no annotation at all, so the `eks-irsa-plane-serviceaccount` component is only required for IRSA.
 
