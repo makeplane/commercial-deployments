@@ -39,7 +39,8 @@ data:
   # content from public there, so it is the same database and the same
   # credentials. Consequence worth knowing: argus then connects as the app's DB
   # role, and `argus migrate` needs CREATE on ARGUS_SCHEMA. Set
-  # ARGUS_RDS_SECRET_ARN on the pod to point at a dedicated secret instead.
+  # ARGUS_RDS_SECRET_ARN (in plane-argus-secrets) to point at a dedicated secret
+  # instead.
   #
   # Empty AWS_REGION is fine: argus falls back to us-east-1, matching the API.
   AWS_REGION: ""

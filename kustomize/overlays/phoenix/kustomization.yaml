@@ -895,6 +895,19 @@ replacements:
           - stringData.RDS_SECRET_ARN
 
   # Application secret keys in plane-app-secrets
+
+  # The dedicated-role override. Empty falls back to RDS_SECRET_ARN in code
+  # (envOr treats "" as unset), so wiring it costs nothing until someone uses it.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_RDS_SECRET_ARN
   - source:
       kind: Secret
       name: overlay-secret-vars
