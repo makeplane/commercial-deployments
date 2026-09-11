@@ -34,6 +34,15 @@ components:
   # - ../../components/opensearch-external-auth
   # Optional: enable when using static AWS keys for S3; omit when using IRSA via eks-irsa-plane-serviceaccount
   # - ../../components/s3-static-credentials
+  # Optional: read SECRET_KEY / AES_SECRET_KEY / LIVE_SERVER_SECRET_KEY /
+  # PI_INTERNAL_SECRET and the MCP OAuth client from AWS Secrets Manager instead of
+  # carrying them in secrets-vars.yaml. Enable TOGETHER WITH the patches block at the
+  # bottom of this file -- the component creates the Secrets but attaches nothing, so
+  # enabling it alone changes nothing, and enabling the patches alone points workloads
+  # at a Secret that does not exist. Needs ESO_ROLE_ARN, APP_KEYS_SECRET_ARN and
+  # MCP_SECRET_ARN in secrets-vars.yaml, plus the operator and IAM role in
+  # components/external-secrets/README.md.
+  # - ../../components/external-secrets
   # Pi service (AI/Intelligence features)
   - ../../components/pi-service
   # Node runner service (automation script execution)
@@ -1222,3 +1231,45 @@ replacements:
           name: plane-otel-vars
         fieldPaths:
           - data.FRONTEND_OTLP_HEADERS
+
+# --- AWS Secrets Manager delivery (enable with ../../components/external-secrets) ---
+#
+# Appends plane-app-keys-ext to each workload that reads plane-app-secrets, and
+# plane-mcp-oauth-ext to the MCP server. ORDER IS THE MECHANISM: Kubernetes resolves
+# envFrom in order and later entries win, so these must be APPENDED (op: add with /-)
+# after the existing secretRef, never inserted before it.
+#
+# The list is explicit rather than a blanket kind: Deployment target, because
+# plane-iframely-wl and plane-draw-io-wl have no envFrom array at all and the patch
+# would fail the whole render on them. Keep it in step with whichever optional
+# components this overlay enables -- a patch whose target does not exist is also a
+# render failure.
+#
+# patches:
+#   - target:
+#       kind: Deployment
+#       name: plane-(api|worker|beat-worker|outbox-poller|automation-consumer|silo|external-api|flux|flux-consumer|webhook-consumer|worker-importers|agent-consumer|dbos-worker)-wl
+#     patch: |
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-app-keys-ext
+#   - target:
+#       kind: Job
+#       name: plane-migrator
+#     patch: |
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-app-keys-ext
+#   - target:
+#       kind: Deployment
+#       name: plane-mcp-server-wl
+#     patch: |
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-mcp-oauth-ext
