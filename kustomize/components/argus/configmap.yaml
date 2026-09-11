@@ -27,3 +27,34 @@ data:
   ARGUS_DEFAULT_RATE_RPS: "500"
   ARGUS_MAX_RATE_RPS: "10000"
   FEATURE_FLAG_SERVER_BASE_URL: "http://plane-monitor:8080"
+
+  # --- AWS Secrets Manager database credentials (IRSA / EKS Pod Identity) ---
+  # Wholly inert unless RDS_SECRET_ARN (in plane-argus-secrets) is set AND the
+  # pod carries an IRSA or Pod Identity credential. With neither, argus makes no
+  # AWS call at all, which is what keeps the non-AWS and air-gapped overlays
+  # unaffected by any of this.
+  #
+  # argus deliberately reuses the APP's RDS_SECRET_ARN rather than owning one:
+  # it creates the argus schema inside the Plane database and reads Plane's
+  # content from public there, so it is the same database and the same
+  # credentials. Consequence worth knowing: argus then connects as the app's DB
+  # role, and `argus migrate` needs CREATE on ARGUS_SCHEMA. Set
+  # ARGUS_RDS_SECRET_ARN (in plane-argus-secrets) to point at a dedicated secret
+  # instead.
+  #
+  # Empty AWS_REGION is fine: argus falls back to us-east-1, matching the API.
+  AWS_REGION: ""
+  AWS_SECRET_CACHE_TTL: "300"
+  # Reader endpoint for content scans while still rotating through the one
+  # secret. Ignored when ARGUS_CONTENT_DATABASE_URL is set, which stays a
+  # complete static DSN with its own embedded credentials.
+  ARGUS_CONTENT_DB_HOST: ""
+  # JSON key names inside the secret. Empty means argus uses its own defaults --
+  # username/password/host/port/dbname, the names AWS generates for an RDS
+  # secret, which is also exactly what the phoenix overlay sets for every other
+  # workload. Only a non-standard secret shape needs these.
+  RDS_DB_USERNAME_KEY: ""
+  RDS_DB_PASSWORD_KEY: ""
+  RDS_DB_HOST_KEY: ""
+  RDS_DB_PORT_KEY: ""
+  RDS_DB_NAME_KEY: ""

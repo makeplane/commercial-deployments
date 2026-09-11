@@ -413,6 +413,11 @@ replacements:
           name: plane-mcp-server-vars
         fieldPaths:
           - data.AWS_SECRET_CACHE_TTL
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.AWS_SECRET_CACHE_TTL
 
   # Monitor StatefulSet storage class (from vars.yaml)
   - source:
@@ -706,6 +711,11 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.RDS_DB_NAME_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.RDS_DB_NAME_KEY
 
   - source:
       kind: ConfigMap
@@ -715,6 +725,11 @@ replacements:
       - select:
           kind: ConfigMap
           name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_HOST_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
         fieldPaths:
           - data.RDS_DB_HOST_KEY
 
@@ -728,6 +743,11 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.RDS_DB_PASSWORD_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.RDS_DB_PASSWORD_KEY
 
   - source:
       kind: ConfigMap
@@ -739,6 +759,11 @@ replacements:
           name: plane-app-vars
         fieldPaths:
           - data.RDS_DB_PORT_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.RDS_DB_PORT_KEY
 
   - source:
       kind: ConfigMap
@@ -748,6 +773,11 @@ replacements:
       - select:
           kind: ConfigMap
           name: plane-app-vars
+        fieldPaths:
+          - data.RDS_DB_USERNAME_KEY
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
         fieldPaths:
           - data.RDS_DB_USERNAME_KEY
 
@@ -856,8 +886,28 @@ replacements:
           name: plane-app-secrets
         fieldPaths:
           - stringData.RDS_SECRET_ARN
+      # argus reuses the app's ARN: it owns a schema inside the same Plane
+      # database and reads public.* from it, so same database, same credentials.
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.RDS_SECRET_ARN
 
   # Application secret keys in plane-app-secrets
+
+  # The dedicated-role override. Empty falls back to RDS_SECRET_ARN in code
+  # (envOr treats "" as unset), so wiring it costs nothing until someone uses it.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_RDS_SECRET_ARN
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -976,6 +1026,11 @@ replacements:
       - select:
           kind: ConfigMap
           name: plane-mcp-server-vars
+        fieldPaths:
+          - data.AWS_REGION
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
         fieldPaths:
           - data.AWS_REGION
 
