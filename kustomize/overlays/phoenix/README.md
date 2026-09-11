@@ -85,9 +85,11 @@ Then, before applying:
   invalidates every stored fingerprint and triage decision.
 - **`ARGUS_DATABASE_URL`** — must point at the **same** database the app uses
   (argus reads Plane's content tables read-only and creates its own `argus`
-  schema there). Argus has no Secrets Manager support, so on an RDS password
-  rotation every other workload follows `RDS_SECRET_ARN` while argus keeps this
-  static DSN and CrashLoops until you update it by hand.
+  schema there). **Prefer leaving it empty**: argus then reads `RDS_SECRET_ARN`
+  and rotates with everything else, which needs IRSA or EKS Pod Identity on
+  `plane-srv-account`. Keep the key present but empty — it is a replacement
+  source, so deleting it fails the whole render. A non-empty value always wins
+  over the ARN, so a stale DSN here silently disables rotation.
 - **`ARGUS_TRUSTED_PROXIES`** — while empty, argus ignores `X-Forwarded-For` and
   every audit event records the ingress pod's IP instead of the end user's. Set
   it to your ingress controller's pod CIDR if the audit trail matters.
