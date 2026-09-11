@@ -1234,22 +1234,27 @@ replacements:
 
 # --- AWS Secrets Manager delivery (enable with ../../components/external-secrets) ---
 #
-# Appends plane-app-keys-ext to each workload that reads plane-app-secrets, and
-# plane-mcp-oauth-ext to the MCP server. ORDER IS THE MECHANISM: Kubernetes resolves
-# envFrom in order and later entries win, so these must be APPENDED (op: add with /-)
-# after the existing secretRef, never inserted before it.
+# Appends plane-app-keys-ext / plane-mcp-oauth-ext to every workload that reads the
+# matching committed Secret once its values are emptied.
 #
-# The list is explicit rather than a blanket kind: Deployment target, because
-# plane-iframely-wl and plane-draw-io-wl have no envFrom array at all and the patch
-# would fail the whole render on them. Keep it in step with whichever optional
-# components this overlay enables -- a patch whose target does not exist is also a
-# render failure.
+# MERGE THESE INTO THE EXISTING `patches:` LIST ABOVE. Do not paste them as a second
+# top-level `patches:` key: that is valid YAML and the last key silently wins, which
+# drops the IngressRoute host patches and renders every route as plane.example.com.
 #
-# patches:
+# ORDER IS THE MECHANISM. Kubernetes resolves envFrom in order and later entries win,
+# so these are APPENDED (op: add with /-) after the existing secretRef. That is what
+# lets the keys stay present-but-empty in secrets-vars.yaml, where they are
+# replacement sources and cannot simply be deleted.
+#
+# The list is explicit, not a blanket kind: Deployment target -- plane-iframely-wl and
+# plane-draw-io-wl carry no envFrom array and the patch would fail the whole render.
+# Keep it in step with the optional components this overlay enables; a patch whose
+# target does not exist is also a render failure.
+#
 #   - target:
 #       kind: Deployment
-#       name: plane-(api|worker|beat-worker|outbox-poller|automation-consumer|silo|external-api|flux|flux-consumer|webhook-consumer|worker-importers|agent-consumer|dbos-worker)-wl
-#     patch: |
+#       name: plane-(api|worker|beat-worker|outbox-poller|automation-consumer|silo|external-api|flux|flux-consumer|webhook-consumer|worker-importers|agent-consumer|dbos-worker|live|live-exporter|pi-api|pi-beat|pi-worker)-wl
+#     patch: |-
 #       - op: add
 #         path: /spec/template/spec/containers/0/envFrom/-
 #         value:
@@ -1257,8 +1262,8 @@ replacements:
 #             name: plane-app-keys-ext
 #   - target:
 #       kind: Job
-#       name: plane-migrator
-#     patch: |
+#       name: plane-(migrator|pi-migrator)
+#     patch: |-
 #       - op: add
 #         path: /spec/template/spec/containers/0/envFrom/-
 #         value:
@@ -1266,8 +1271,8 @@ replacements:
 #             name: plane-app-keys-ext
 #   - target:
 #       kind: Deployment
-#       name: plane-mcp-server-wl
-#     patch: |
+#       name: plane-mcp-server
+#     patch: |-
 #       - op: add
 #         path: /spec/template/spec/containers/0/envFrom/-
 #         value:
