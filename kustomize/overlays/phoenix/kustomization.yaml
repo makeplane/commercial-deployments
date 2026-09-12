@@ -34,6 +34,15 @@ components:
   # - ../../components/opensearch-external-auth
   # Optional: enable when using static AWS keys for S3; omit when using IRSA via eks-irsa-plane-serviceaccount
   # - ../../components/s3-static-credentials
+  # Optional: read SECRET_KEY / AES_SECRET_KEY / LIVE_SERVER_SECRET_KEY /
+  # PI_INTERNAL_SECRET and the MCP OAuth client from AWS Secrets Manager instead of
+  # carrying them in secrets-vars.yaml. Enable TOGETHER WITH the patches block at the
+  # bottom of this file -- the component creates the Secrets but attaches nothing, so
+  # enabling it alone changes nothing, and enabling the patches alone points workloads
+  # at a Secret that does not exist. Needs ESO_ROLE_ARN, APP_KEYS_SECRET_ARN and
+  # MCP_SECRET_ARN in secrets-vars.yaml, plus the operator and IAM role in
+  # components/external-secrets/README.md.
+  # - ../../components/external-secrets
   # Pi service (AI/Intelligence features)
   - ../../components/pi-service
   # Node runner service (automation script execution)
@@ -1277,3 +1286,50 @@ replacements:
           name: plane-otel-vars
         fieldPaths:
           - data.FRONTEND_OTLP_HEADERS
+
+# --- AWS Secrets Manager delivery (enable with ../../components/external-secrets) ---
+#
+# Appends plane-app-keys-ext / plane-mcp-oauth-ext to every workload that reads the
+# matching committed Secret once its values are emptied.
+#
+# MERGE THESE INTO THE EXISTING `patches:` LIST ABOVE. Do not paste them as a second
+# top-level `patches:` key: that is valid YAML and the last key silently wins, which
+# drops the IngressRoute host patches and renders every route as plane.example.com.
+#
+# ORDER IS THE MECHANISM. Kubernetes resolves envFrom in order and later entries win,
+# so these are APPENDED (op: add with /-) after the existing secretRef. That is what
+# lets the keys stay present-but-empty in secrets-vars.yaml, where they are
+# replacement sources and cannot simply be deleted.
+#
+# The list is explicit, not a blanket kind: Deployment target -- plane-iframely-wl and
+# plane-draw-io-wl carry no envFrom array and the patch would fail the whole render.
+# Keep it in step with the optional components this overlay enables; a patch whose
+# target does not exist is also a render failure.
+#
+#   - target:
+#       kind: Deployment
+#       name: plane-(api|worker|beat-worker|outbox-poller|automation-consumer|silo|external-api|flux|flux-consumer|webhook-consumer|worker-importers|agent-consumer|dbos-worker|live|live-exporter|pi-api|pi-beat|pi-worker)-wl
+#     patch: |-
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-app-keys-ext
+#   - target:
+#       kind: Job
+#       name: plane-(migrator|pi-migrator)
+#     patch: |-
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-app-keys-ext
+#   - target:
+#       kind: Deployment
+#       name: plane-mcp-server
+#     patch: |-
+#       - op: add
+#         path: /spec/template/spec/containers/0/envFrom/-
+#         value:
+#           secretRef:
+#             name: plane-mcp-oauth-ext
