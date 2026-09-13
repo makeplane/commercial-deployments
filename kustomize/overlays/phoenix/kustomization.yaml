@@ -123,11 +123,14 @@ images:
   - name: makeplane/node-runner-commercial
     newTag: app-version-driven
   # Independent versioning — not driven by APP_VERSION:
-  # iframely tracks its own tags; v1.2.0 is what the phoenix reference
-  # environment runs and is also the base default. v2.5.x exists upstream but is
-  # not what this overlay has been tested against.
+  # iframely tracks its own tags, so it is pinned here rather than left on
+  # APP_VERSION. v2.5.4 is the newest release (2026-09-02) and now matches base's
+  # default; the pin stays explicit so a future base bump cannot move this
+  # environment silently. iframely is a self-contained URL-preview service with no
+  # schema and no coupling to the app version, so there is nothing to migrate when
+  # it moves.
   - name: makeplane/iframely
-    newTag: v1.2.0
+    newTag: v2.5.4
   - name: makeplane/plane-mcp-server
     newTag: v2.5.0-phoenix-b5ad5360
   # Argus is NOT on the APP_VERSION release train, so it carries its own pin.
@@ -246,7 +249,7 @@ replacements:
   # plane-iframely-wl and plane-mcp-server have independent versioning for their MAIN
   # container, so both are rejected from the containers.*.image target. Their INIT
   # containers (added by custom-ca) tell a different story:
-  #   - iframely-wl's init container uses the iframely image → keep on v1.2.0 → reject
+  #   - iframely-wl's init container uses the iframely image → keep on v2.5.4 → reject
   #   - mcp-server's init container uses backend-commercial (custom-ca default) → follows APP_VERSION
   - source:
       kind: ConfigMap

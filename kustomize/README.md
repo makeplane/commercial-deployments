@@ -33,7 +33,7 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 
 ## Quick Reference
 
-**Current Version**: `v2.3.4` (iframely: `v1.2.0`)
+**Current Version**: `v2.3.4` (iframely: `v2.5.4`)
 
 **Core Services Deployed** (from `base/`):
 - 11 Deployments: api, web, space, admin, live, worker, beat-worker, iframely, outbox-poller, automation-consumer, silo
@@ -77,7 +77,7 @@ Core Plane application services and required components defined in `base/`:
 - `live` - Real-time collaboration service
 - `worker` - Background job worker (Celery)
 - `beat-worker` - Scheduled task worker (Celery Beat)
-- `iframely` - URL preview service (v1.2.0)
+- `iframely` - URL preview service (v2.5.4)
 - `outbox-poller` - Outbox pattern poller
 - `automation-consumer` - Automation task consumer
 - `silo` - Integrations
@@ -248,7 +248,7 @@ All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 - `makeplane/monitor-commercial:v2.3.4` - Monitor service
 - `makeplane/silo-commercial:v2.3.4` - Silo service
 - `makeplane/email-commercial:v2.3.4` - Email service (optional)
-- `makeplane/iframely:v1.2.0` - URL preview service
+- `makeplane/iframely:v2.5.4` - URL preview service
 - `makeplane/argus-commercial:v3.2.0` - Argus content-security service (optional)
 
 **Note**: You need valid Plane Commercial credentials to pull these images. Configure image pull secrets if required:

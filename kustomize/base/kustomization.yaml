@@ -78,6 +78,6 @@ images:
   - name: makeplane/monitor-commercial
     newTag: v2.3.4
   - name: makeplane/iframely
-    newTag: v1.2.0
+    newTag: v2.5.4
   - name: makeplane/silo-commercial
     newTag: v2.3.4

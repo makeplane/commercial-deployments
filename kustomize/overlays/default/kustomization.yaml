@@ -167,7 +167,7 @@ images:
     newTag: app-version-driven
   # Independent versioning — not driven by APP_VERSION:
   - name: artifacts.plane.so/makeplane/iframely
-    newTag: v1.2.0
+    newTag: v2.5.4
 
 # ============================================================
 # REPLACEMENTS
