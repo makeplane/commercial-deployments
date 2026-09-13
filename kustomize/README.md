@@ -622,9 +622,27 @@ See [AWS_load_balancer_setup.md](AWS_load_balancer_setup.md) for ALB controller 
 ## Pi Service (AI/Intelligence Features)
 
 The pi service is deployed as a Kustomize component. It adds:
-- 3 Deployments: `plane-pi-api-wl`, `plane-pi-worker-wl`, `plane-pi-beat-wl`
+- 4 Deployments: `plane-pi-api-wl`, `plane-pi-worker-wl`, `plane-pi-agent-worker-wl`, `plane-pi-beat-wl`
 - 1 Service: `plane-pi-api` (port 8000)
 - 1 ConfigMap + 1 Secret: `plane-pi-api-vars`, `plane-pi-api-secrets`
+
+### Celery queues
+
+Pi's background work is split across two queues, and each worker consumes one of them:
+
+| Deployment | `CELERY_QUEUE` | Carries |
+| --- | --- | --- |
+| `plane-pi-worker-wl` | `plane_pi_queue` | Vectorization, docs sync, plan sync, search indexing, memory |
+| `plane-pi-agent-worker-wl` | `plane_pi_agent_queue` | Native agent runs only |
+
+Agent runs are separated because they are the interactive path — a person is watching the
+run's activities appear — and Celery's `worker_prefetch_multiplier=1` means two long
+vectorization tasks would otherwise occupy the whole worker while an agent run waits.
+
+`plane-pi-agent-worker-wl` is an **addition**, never a replacement: `plane-pi-worker-wl` must
+keep running or vector sync, docs sync, plan sync, search indexing and memory extraction go
+unconsumed. Removing `CELERY_QUEUE` from a worker makes it consume both queues, which is what
+a single-worker deployment wants.
 
 ### Enable it
 

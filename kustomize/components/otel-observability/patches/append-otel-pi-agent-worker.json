@@ -7,6 +7,6 @@
   {
     "op": "add",
     "path": "/spec/template/spec/containers/0/env/-",
-    "value": { "name": "OTEL_SERVICE_NAME", "value": "pi-worker" }
+    "value": { "name": "OTEL_SERVICE_NAME", "value": "pi-agent-worker" }
   }
 ]
