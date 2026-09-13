@@ -36,7 +36,7 @@ spec:
       serviceAccountName: plane-srv-account
       containers:
         - name: argus-migrator
-          image: makeplane/argus-cloud:v2.3.4
+          image: makeplane/argus-commercial:v3.2.0
           imagePullPolicy: Always
           args:
             - migrate
