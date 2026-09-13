@@ -212,11 +212,7 @@ resource "aws_iam_openid_connect_provider" "cluster" {
   })
 }
 
-# EBS CSI Driver IRSA Role
-locals {
-  oidc_provider_host = replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")
-}
-
+# EBS CSI Driver IAM Role (Pod Identity)
 resource "aws_iam_role" "ebs_csi" {
   name = "${local.name_prefix}-ebs-csi-driver"
 
@@ -226,15 +222,12 @@ resource "aws_iam_role" "ebs_csi" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.cluster.arn
+          Service = "pods.eks.amazonaws.com"
         }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "${local.oidc_provider_host}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
-            "${local.oidc_provider_host}:aud" = "sts.amazonaws.com"
-          }
-        }
+        Action = [
+          "sts:AssumeRole",
+          "sts:TagSession"
+        ]
       }
     ]
   })
@@ -245,6 +238,17 @@ resource "aws_iam_role" "ebs_csi" {
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   role       = aws_iam_role.ebs_csi.name
+}
+
+resource "aws_eks_pod_identity_association" "ebs_csi" {
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "kube-system"
+  service_account = "ebs-csi-controller-sa"
+  role_arn        = aws_iam_role.ebs_csi.arn
+
+  tags = local.common_tags
+
+  depends_on = [aws_eks_addon.pod_identity_agent]
 }
 
 # EKS Add-ons
@@ -293,6 +297,16 @@ resource "aws_eks_addon" "cert_manager" {
   depends_on = [aws_eks_node_group.main]
 }
 
+resource "aws_eks_addon" "pod_identity_agent" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  tags                        = local.common_tags
+
+  depends_on = [aws_eks_node_group.main]
+}
+
 resource "aws_eks_addon" "ebs_csi" {
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "aws-ebs-csi-driver"
@@ -305,5 +319,6 @@ resource "aws_eks_addon" "ebs_csi" {
   depends_on = [
     aws_eks_node_group.main,
     aws_iam_role_policy_attachment.ebs_csi,
+    aws_eks_pod_identity_association.ebs_csi,
   ]
 }
