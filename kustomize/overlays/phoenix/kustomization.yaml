@@ -90,7 +90,8 @@ components:
 # ============================================================
 # APPLICATION VERSION - CUSTOMIZE THIS FOR UPGRADES
 # ============================================================
-# Current Version: v2.5.0 (also defined in vars.yaml for ConfigMap replacements)
+# Current Version: v3.0.0-phoenix-191f06c (also defined in vars.yaml for ConfigMap
+# replacements). This is the set running in the phoenix reference environment.
 # ============================================================
 # Image tags for all makeplane/*-commercial workloads are driven from
 # APP_VERSION in vars.yaml at build time (see the APP_VERSION replacement
@@ -122,10 +123,35 @@ images:
   - name: makeplane/node-runner-commercial
     newTag: app-version-driven
   # Independent versioning — not driven by APP_VERSION:
+  # iframely tracks its own tags; v1.2.0 is what the phoenix reference
+  # environment runs and is also the base default. v2.5.x exists upstream but is
+  # not what this overlay has been tested against.
   - name: makeplane/iframely
-    newTag: v2.5.3
+    newTag: v1.2.0
   - name: makeplane/plane-mcp-server
     newTag: v2.5.0-phoenix-b5ad5360
+  # Argus is NOT on the APP_VERSION release train and needs BOTH a rename and a
+  # pin. Two separate reasons, so neither half is safe to drop:
+  #
+  # 1. newName. The component ships makeplane/argus-cloud, which DOES NOT EXIST
+  #    — the Docker Hub repo itself returns "object not found", not just the tag.
+  #    Leaving the default is an immediate ImagePullBackOff on both argus
+  #    workloads. phoenix is a commercial deployment, so argus-commercial is the
+  #    correct image family; argus-cloud was the anomaly.
+  #
+  # 2. newTag. TEMPORARY. This is the branch build of plane-ee#9537, which is
+  #    what teaches argus to read RDS_SECRET_ARN / ARGUS_RDS_SECRET_ARN and
+  #    compose its own DSN. It is REQUIRED here, not a preference: this overlay
+  #    leaves ARGUS_DATABASE_URL empty, so an image without the ARN code has no
+  #    database at all. #9537 is still open against preview, so no released tag
+  #    carries it — makeplane/argus-commercial:v3.0.0-phoenix-191f06c exists and
+  #    matches APP_VERSION, but predates the ARN support.
+  #
+  #    Move to a released tag as soon as #9537 ships, and confirm the tag
+  #    resolves before merging that bump.
+  - name: makeplane/argus-cloud
+    newName: makeplane/argus-commercial
+    newTag: featinfra-961-argus-secrets-manager-credentials
 
 # Most configuration flows through replacements (below). The IngressRoute host
 # can't be reached by a Kustomize replacement (it lives inside a Traefik `match`
@@ -242,6 +268,12 @@ replacements:
           - name: plane-iframely-wl
           - name: plane-mcp-server
           - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
+          # argus has its own tag scheme (see the images: pin above). Retagging it
+          # to APP_VERSION yields a tag that does not exist = ImagePullBackOff.
+          # Only the MAIN container: argus's init container is custom-ca's
+          # combine-ca-certs running backend-commercial, which SHOULD follow
+          # APP_VERSION — same split as plane-mcp-server.
+          - name: plane-argus-wl
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:
@@ -266,10 +298,22 @@ replacements:
         options:
           delimiter: ":"
           index: 1
+      # Jobs are split in two on purpose. plane-argus-migrator's MAIN container is
+      # argus-commercial (own tag scheme, must not be retagged) while its INIT
+      # container is custom-ca's combine-ca-certs on backend-commercial, which
+      # must follow APP_VERSION. One combined target cannot express that.
+      - select:
+          kind: Job
+        reject:
+          - name: plane-argus-migrator
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
       - select:
           kind: Job
         fieldPaths:
-          - spec.template.spec.containers.*.image
           - spec.template.spec.initContainers.*.image
         options:
           delimiter: ":"
