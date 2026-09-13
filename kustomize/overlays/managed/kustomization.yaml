@@ -59,8 +59,10 @@ components:
   #   2. Add the 5 ARGUS_* keys to secrets-vars.yaml and the 2 ARGUS_* keys to
   #      vars.yaml (copy from the .example files). They are replacement sources,
   #      so a missing key fails the WHOLE overlay render, not just argus.
-  #   3. Argus has no AWS Secrets Manager support, so ARGUS_DATABASE_URL is a
-  #      static credential that RDS_SECRET_ARN rotation will NOT update.
+  #   3. ARGUS_DATABASE_URL here is a static credential that RDS_SECRET_ARN
+  #      rotation will not update. argus does support Secrets Manager (empty
+  #      DSN + RDS_SECRET_ARN + IRSA/Pod Identity), but the replacement targets
+  #      for it ship in the phoenix overlay, not this one.
   #   4. Keep this line BEFORE nonroot-security-context and custom-ca below.
   # - ../../components/argus
 

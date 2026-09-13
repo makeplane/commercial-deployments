@@ -1,0 +1,84 @@
+# External Secrets: read credentials from AWS Secrets Manager instead of
+# committing them to secrets-vars.yaml.
+#
+# WHAT THIS COMPONENT DOES AND DOES NOT DO
+#
+# It creates the Secrets (plane-app-keys-ext, plane-mcp-oauth-ext) and the store
+# that fills them. It does NOT attach them to any workload -- that patch belongs
+# in the overlay, because only the overlay knows which optional components it
+# enabled, and a kustomize patch whose target does not exist fails the whole
+# render. See README.md for the snippet to paste.
+#
+# PREREQUISITES (neither is created here)
+#   1. External Secrets Operator installed in the cluster.
+#   2. An IAM role for ESO_ROLE_ARN with:
+#        - a web-identity trust policy for this cluster's OIDC provider, subject
+#          system:serviceaccount:<namespace>:plane-eso-sa
+#        - secretsmanager:GetSecretValue on the ARNs below (plus kms:Decrypt if
+#          they use a customer-managed key)
+#      This must be IRSA, not Pod Identity: ESO's auth.jwt is
+#      AssumeRoleWithWebIdentity. The role the Plane pods use is not
+#      interchangeable with it.
+#
+# REQUIRED OVERLAY KEYS (all replacement sources -- a missing one fails the whole
+# render, so add them to secrets-vars.yaml before enabling this component)
+#   ESO_ROLE_ARN, APP_KEYS_SECRET_ARN, MCP_SECRET_ARN
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - serviceaccount.yaml
+  - secretstore.yaml
+  - externalsecret-app-keys.yaml
+  - externalsecret-mcp.yaml
+
+replacements:
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ESO_ROLE_ARN
+    targets:
+      - select:
+          kind: ServiceAccount
+          name: plane-eso-sa
+        fieldPaths:
+          - metadata.annotations.eks\.amazonaws\.com/role-arn
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_REGION
+    targets:
+      - select:
+          kind: SecretStore
+          name: plane-aws-secrets-manager
+        fieldPaths:
+          - spec.provider.aws.region
+
+  # One ARN, four remoteRefs. Listing each index is verbose but explicit; a
+  # wildcard would silently stop matching if a key were added or removed.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.APP_KEYS_SECRET_ARN
+    targets:
+      - select:
+          kind: ExternalSecret
+          name: plane-app-keys-ext
+        fieldPaths:
+          - spec.data.0.remoteRef.key
+          - spec.data.1.remoteRef.key
+          - spec.data.2.remoteRef.key
+          - spec.data.3.remoteRef.key
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.MCP_SECRET_ARN
+    targets:
+      - select:
+          kind: ExternalSecret
+          name: plane-mcp-oauth-ext
+        fieldPaths:
+          - spec.data.0.remoteRef.key
+          - spec.data.1.remoteRef.key
