@@ -130,27 +130,18 @@ images:
     newTag: v1.2.0
   - name: makeplane/plane-mcp-server
     newTag: v2.5.0-phoenix-b5ad5360
-  # Argus is NOT on the APP_VERSION release train and needs BOTH a rename and a
-  # pin. Two separate reasons, so neither half is safe to drop:
+  # Argus is NOT on the APP_VERSION release train, so it carries its own pin.
   #
-  # 1. newName. The component ships makeplane/argus-cloud, which DOES NOT EXIST
-  #    — the Docker Hub repo itself returns "object not found", not just the tag.
-  #    Leaving the default is an immediate ImagePullBackOff on both argus
-  #    workloads. phoenix is a commercial deployment, so argus-commercial is the
-  #    correct image family; argus-cloud was the anomaly.
+  # TEMPORARY TAG. This is the branch build of plane-ee#9537, which is what
+  # teaches argus to read RDS_SECRET_ARN / ARGUS_RDS_SECRET_ARN and compose its
+  # own DSN. It is REQUIRED here, not a preference: this overlay leaves
+  # ARGUS_DATABASE_URL empty, so an image without the ARN code has no database at
+  # all. #9537 is still open against preview, so no released tag carries it yet --
+  # v3.0.0-phoenix-191f06c matches APP_VERSION but predates the ARN support.
   #
-  # 2. newTag. TEMPORARY. This is the branch build of plane-ee#9537, which is
-  #    what teaches argus to read RDS_SECRET_ARN / ARGUS_RDS_SECRET_ARN and
-  #    compose its own DSN. It is REQUIRED here, not a preference: this overlay
-  #    leaves ARGUS_DATABASE_URL empty, so an image without the ARN code has no
-  #    database at all. #9537 is still open against preview, so no released tag
-  #    carries it — makeplane/argus-commercial:v3.0.0-phoenix-191f06c exists and
-  #    matches APP_VERSION, but predates the ARN support.
-  #
-  #    Move to a released tag as soon as #9537 ships, and confirm the tag
-  #    resolves before merging that bump.
-  - name: makeplane/argus-cloud
-    newName: makeplane/argus-commercial
+  # Move to the component default (a released tag) as soon as #9537 ships, and
+  # confirm the tag resolves before merging that bump.
+  - name: makeplane/argus-commercial
     newTag: featinfra-961-argus-secrets-manager-credentials
 
 # Most configuration flows through replacements (below). The IngressRoute host

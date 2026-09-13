@@ -24,7 +24,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: argus
-          image: makeplane/argus-cloud:v2.3.4
+          image: makeplane/argus-commercial:v3.2.0
           imagePullPolicy: Always
           stdin: true
           tty: true
