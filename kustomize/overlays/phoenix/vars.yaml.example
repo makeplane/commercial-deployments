@@ -72,6 +72,15 @@ data:
   RDS_DB_PORT_KEY: "port"
   RDS_DB_USERNAME_KEY: "username"
 
+  # Key names inside ARGUS_CONTENT_RDS_SECRET_ARN. Each falls back to its
+  # RDS_DB_*_KEY counterpart, so leave these empty unless the content secret is
+  # shaped differently from the store secret.
+  ARGUS_CONTENT_RDS_DB_NAME_KEY: ""
+  ARGUS_CONTENT_RDS_DB_HOST_KEY: ""
+  ARGUS_CONTENT_RDS_DB_PASSWORD_KEY: ""
+  ARGUS_CONTENT_RDS_DB_PORT_KEY: ""
+  ARGUS_CONTENT_RDS_DB_USERNAME_KEY: ""
+
   # AWS Secrets Manager ARNs moved to secrets-vars.yaml (contain account ID)
 
   # AWS Secrets Manager key mappings (PI-specific)
