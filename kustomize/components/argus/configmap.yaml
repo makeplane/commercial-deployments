@@ -58,3 +58,14 @@ data:
   RDS_DB_HOST_KEY: ""
   RDS_DB_PORT_KEY: ""
   RDS_DB_NAME_KEY: ""
+
+  # Key names inside ARGUS_CONTENT_RDS_SECRET_ARN. Each one falls back to its
+  # RDS_DB_*_KEY counterpart above, so a content secret shaped like the store
+  # secret needs none of these. They matter when the two differ -- an RDS master
+  # secret for the read-only role ({username,password}) alongside an app secret
+  # using ARGUS_DATABASE_USERNAME, say.
+  ARGUS_CONTENT_RDS_DB_USERNAME_KEY: ""
+  ARGUS_CONTENT_RDS_DB_PASSWORD_KEY: ""
+  ARGUS_CONTENT_RDS_DB_HOST_KEY: ""
+  ARGUS_CONTENT_RDS_DB_PORT_KEY: ""
+  ARGUS_CONTENT_RDS_DB_NAME_KEY: ""

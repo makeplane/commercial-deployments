@@ -955,6 +955,19 @@ replacements:
           name: plane-argus-secrets
         fieldPaths:
           - stringData.ARGUS_RDS_SECRET_ARN
+
+  # The content pool's own role. Empty falls back to ARGUS_RDS_SECRET_ARN and
+  # then RDS_SECRET_ARN in code, so wiring it costs nothing until someone uses it.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.ARGUS_CONTENT_RDS_SECRET_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-argus-secrets
+        fieldPaths:
+          - stringData.ARGUS_CONTENT_RDS_SECRET_ARN
   - source:
       kind: Secret
       name: overlay-secret-vars
@@ -1371,3 +1384,57 @@ replacements:
 #         value:
 #           secretRef:
 #             name: plane-mcp-oauth-ext
+
+  # Key names inside the content secret. Each is empty by default and argus
+  # inherits the store pool's, so these only matter when the two secrets are
+  # shaped differently.
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_CONTENT_RDS_DB_NAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_CONTENT_RDS_DB_NAME_KEY
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_CONTENT_RDS_DB_HOST_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_CONTENT_RDS_DB_HOST_KEY
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_CONTENT_RDS_DB_PASSWORD_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_CONTENT_RDS_DB_PASSWORD_KEY
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_CONTENT_RDS_DB_PORT_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_CONTENT_RDS_DB_PORT_KEY
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ARGUS_CONTENT_RDS_DB_USERNAME_KEY
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-argus-vars
+        fieldPaths:
+          - data.ARGUS_CONTENT_RDS_DB_USERNAME_KEY
