@@ -58,12 +58,11 @@ components:
 
   # Argus (content security / compliance scanning) — DISABLED by default.
   # Before uncommenting:
-  #   1. Confirm you can pull makeplane/argus-cloud. It is NOT part of the public
-  #      -commercial image set, so without registry access for it both argus
-  #      workloads land in ImagePullBackOff.
-  #   2. Add the 5 ARGUS_* keys to secrets-vars.yaml and the 2 ARGUS_* keys to
+  #   1. Add the 5 ARGUS_* keys to secrets-vars.yaml and the 2 ARGUS_* keys to
   #      vars.yaml (copy from the .example files). They are replacement sources,
   #      so a missing key fails the WHOLE overlay render, not just argus.
+  #   2. Argus ships as makeplane/argus-commercial, part of the commercial image
+  #      set — the same registry access as every other workload here.
   #   3. Keep this line BEFORE nonroot-security-context and custom-ca below.
   # - ../../components/argus
 
@@ -168,7 +167,7 @@ images:
     newTag: app-version-driven
   # Independent versioning — not driven by APP_VERSION:
   - name: artifacts.plane.so/makeplane/iframely
-    newTag: v1.2.0
+    newTag: v2.5.4
 
 # ============================================================
 # REPLACEMENTS

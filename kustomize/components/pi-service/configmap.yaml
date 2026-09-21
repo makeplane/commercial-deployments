@@ -34,6 +34,21 @@ data:
   CUSTOM_LLM_PROVIDER: "bedrock"
   CUSTOM_LLM_AWS_REGION: "us-east-2"
   MODEL_CUSTOM_LLM_API_KEY: ""
+  # Which JSON field to read out of MODEL_SECRET_ARN for each vendor. pi skips a
+  # provider whose env var is already set (config.py:370-383), so these only matter
+  # when the key is NOT delivered by some other means.
+  #
+  # Emptying one is also the documented way to take a provider OUT of service while
+  # leaving its value in the secret: with no field name, secret.get("", "") returns
+  # "" and has_provider_key() stays false, so get_active_models drops that vendor's
+  # models from the picker.
+  MODEL_OPENAI_KEY: ""
+  MODEL_CLAUDE_KEY: ""
+  MODEL_COHERE_KEY: ""
+  MODEL_GROQ_KEY: ""
+  MODEL_BASETEN_KEY: ""
+  MODEL_XAI_KEY: ""
+  MODEL_META_KEY: ""
 
   EMBEDDING_MODEL: "bedrock/amazon.titan-embed-text-v1"
   OPENSEARCH_ML_MODEL_ID: ""
@@ -51,6 +66,18 @@ data:
   # AWS Secrets Manager key mappings (overridden per-environment via overlays)
   RABBITMQ_PASSWORD_KEY: ""
   RABBITMQ_USER_KEY: ""
+  # HOST/PORT/VHOST complete the set. pi reads all five out of AMAZONMQ_SECRET_ARN
+  # (pi/config.py:966-976) and composes amqps://user:pass@host:port/vhost itself, so
+  # without these an AmazonMQ deployment still needs a literal broker URL.
+  #
+  # pi does NOT read plane-app-vars, which is why these are duplicated here rather
+  # than inherited from base/configs/app-configmap.yaml.
+  #
+  # Present-but-empty is required: a kustomize replacement overwrites and never
+  # creates, so an overlay targeting a key this component omits fails the render.
+  RABBITMQ_HOST_KEY: ""
+  RABBITMQ_PORT_KEY: ""
+  RABBITMQ_VHOST_KEY: ""
 
   RDS_DB_HOST_KEY: ""
   RDS_DB_NAME_KEY: ""

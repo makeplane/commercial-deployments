@@ -66,6 +66,18 @@ data:
   REDIS_AUTH_TOKEN_KEY: ""
   RABBITMQ_USER_KEY: ""
   RABBITMQ_PASSWORD_KEY: ""
+  # HOST/PORT/VHOST complete the RabbitMQ set. Without them an AmazonMQ deployment
+  # cannot go ARN-only: api/pi/silo/live read the endpoint AND the vhost out of the
+  # secret, so an overlay that sets only USER and PASSWORD still needs a literal
+  # AMQP_URL -- and on api that splits Celery from the pika consumers, because
+  # plane/utils/amqp.py checks the secret BEFORE settings.AMQP_URL.
+  #
+  # They must exist here even though they are empty: a kustomize `replacements`
+  # entry OVERWRITES and never CREATES, so an overlay replacement targeting a key
+  # the base does not ship fails the whole render.
+  RABBITMQ_HOST_KEY: ""
+  RABBITMQ_PORT_KEY: ""
+  RABBITMQ_VHOST_KEY: ""
   RDS_DB_NAME_KEY: ""
   RDS_DB_HOST_KEY: ""
   RDS_DB_PASSWORD_KEY: ""

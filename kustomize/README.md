@@ -33,7 +33,7 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 
 ## Quick Reference
 
-**Current Version**: `v2.3.4` (iframely: `v1.2.0`)
+**Current Version**: `v2.3.4` (iframely: `v2.5.4`)
 
 **Core Services Deployed** (from `base/`):
 - 11 Deployments: api, web, space, admin, live, worker, beat-worker, iframely, outbox-poller, automation-consumer, silo
@@ -77,7 +77,7 @@ Core Plane application services and required components defined in `base/`:
 - `live` - Real-time collaboration service
 - `worker` - Background job worker (Celery)
 - `beat-worker` - Scheduled task worker (Celery Beat)
-- `iframely` - URL preview service (v1.2.0)
+- `iframely` - URL preview service (v2.5.4)
 - `outbox-poller` - Outbox pattern poller
 - `automation-consumer` - Automation task consumer
 - `silo` - Integrations
@@ -142,8 +142,7 @@ Additional features that can be enabled:
 - Adds: Deployment (`plane-argus-wl`), Service (`plane-argus`), ConfigMap, Secret, migration Job
 - Scans Plane content (work items, pages, comments) and records findings in its
   own `argus` schema inside the Plane database
-- Image: `makeplane/argus-cloud` — **not in the public `-commercial` set**, see
-  [Image Registry Access](#image-registry-access) before enabling
+- Image: `makeplane/argus-commercial` — part of the commercial image set
 
   Enabling it requires operator-supplied config in your overlay. These are
   Kustomize *replacement sources*, so a missing key fails the **entire overlay
@@ -249,15 +248,8 @@ All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 - `makeplane/monitor-commercial:v2.3.4` - Monitor service
 - `makeplane/silo-commercial:v2.3.4` - Silo service
 - `makeplane/email-commercial:v2.3.4` - Email service (optional)
-- `makeplane/iframely:v1.2.0` - URL preview service
-- `makeplane/argus-cloud:v2.3.4` - Argus content-security service (optional)
-
-> **`argus-cloud` is not part of the public `-commercial` image set.** It is
-> currently built only by the cloud pipeline, has no `-commercial` build, and is
-> not pullable anonymously. Enabling the `argus` component without registry
-> access that includes this image leaves `plane-argus-wl` and
-> `plane-argus-migrator` in `ImagePullBackOff`. Confirm availability with Plane
-> before enabling it in a self-hosted overlay.
+- `makeplane/iframely:v2.5.4` - URL preview service
+- `makeplane/argus-commercial:v3.2.0` - Argus content-security service (optional)
 
 **Note**: You need valid Plane Commercial credentials to pull these images. Configure image pull secrets if required:
 
@@ -352,7 +344,7 @@ spec:
 | **minio** | Use local S3 storage | Using AWS S3, Google Cloud Storage |
 | **opensearch** | Use local OpenSearch | Using AWS OpenSearch Service |
 | **email-service** | Need email delivery | Using external email service |
-| **argus** | Need content-security / compliance scanning **and** have registry access to `makeplane/argus-cloud` | Any self-hosted deployment without that image (see [Image Registry Access](#image-registry-access)) |
+| **argus** | Need content-security / compliance scanning | Deployments that do not need content scanning |
 
 **Note:** Silo is always deployed from `base/` (not a component). Infrastructure components (postgres, redis, rabbitmq, minio, opensearch) are **required**; if not included as components, you MUST provide external URLs in `secrets-vars.yaml`.
 

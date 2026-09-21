@@ -1,3 +1,24 @@
+# Plane Intelligence (pi).
+#
+# REQUIRED OVERLAY KEYS. Every one is a `replacements` SOURCE, and a missing source
+# fails the WHOLE overlay render -- not just pi -- so add them all (empty is fine)
+# before enabling this component:
+#
+#   secrets-vars.yaml  PI_RDS_SECRET_ARN, PI_AMAZONMQ_SECRET_ARN,
+#                      PI_FOLLOWER_RDS_SECRET_ARN, PI_MODEL_SECRET_ARN,
+#                      BEDROCK_INFERENCE_PROFILE_ARN
+#   vars.yaml          PI_CUSTOM_LLM_ENABLED, PI_CUSTOM_LLM_PROVIDER,
+#                      PI_CUSTOM_LLM_MODEL_KEY, PI_CUSTOM_LLM_NAME,
+#                      PI_CUSTOM_LLM_AWS_REGION, PI_EMBEDDING_MODEL,
+#                      PI_OPENSEARCH_ML_MODEL_ID, AWS_SECRET_CACHE_TTL,
+#                      CORS_ALLOWED_ORIGINS
+#
+# The PI_ prefix exists only so one flat overlay namespace can hold two independent
+# sets of the same logical key (the app database and pi's own). The container never
+# sees it -- the replacements below strip it.
+#
+# BEDROCK_INFERENCE_PROFILE_ARN is the exception: same name on both sides.
+#
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
@@ -54,6 +75,25 @@ replacements:
           name: plane-pi-api-secrets
         fieldPaths:
           - stringData.MODEL_SECRET_ARN
+
+  # BEDROCK_INFERENCE_PROFILE_ARN was the one pi-facing ARN this component did not
+  # wire, so every overlay had to add the replacement itself -- and an overlay that
+  # copied this component and forgot silently got an EMPTY profile ARN, which makes
+  # LLMConfig.use_inference_profile false and drops pi back to the keyed path with no
+  # error and no model in the picker. Wired here so it travels with the component.
+  #
+  # No PI_ prefix on the source, unlike the four ARNs above: this key has the same
+  # name on both sides.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.BEDROCK_INFERENCE_PROFILE_ARN
+    targets:
+      - select:
+          kind: Secret
+          name: plane-pi-api-secrets
+        fieldPaths:
+          - stringData.BEDROCK_INFERENCE_PROFILE_ARN
 
   - source:
       kind: ConfigMap
