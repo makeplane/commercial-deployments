@@ -111,3 +111,7 @@ patches:
     target:
       kind: Deployment
       name: plane-pi-worker-wl
+  - path: patches/append-otel-pi-agent-worker.json
+    target:
+      kind: Deployment
+      name: plane-pi-agent-worker-wl
