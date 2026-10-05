@@ -1,0 +1,80 @@
+# Copy this file to terraform.tfvars and customize the values
+#   cp terraform.tfvars.example terraform.tfvars
+
+name     = "plane-aks"
+location = "eastus2" # must support availability zones
+# subscription_id = "00000000-0000-0000-0000-000000000000" # or export ARM_SUBSCRIPTION_ID
+
+vnet_cidr = "10.0.0.0/16"
+zones     = ["1", "2", "3"]
+
+# null = the AKS default version. Pin as "major.minor" (e.g. "1.34") to keep the
+# patch auto-upgrade channel working.
+kubernetes_version = null
+
+# Optional: <label>.<location>.cloudapp.azure.com resolves to the ingress IP
+# ingress_domain_name_label = "plane-demo"
+
+# Static public IP for the inbound email service (MX record target)
+enable_email_public_ip = false
+
+aks = {
+  sku_tier                        = "Standard"
+  system_node_vm_size             = "Standard_D4ds_v5"
+  system_node_min_count           = 2
+  system_node_max_count           = 3
+  workload_node_pool_name         = "plane"
+  workload_node_vm_size           = "Standard_D4ds_v5"
+  workload_node_min_count         = 3
+  workload_node_max_count         = 6
+  node_os_disk_size_gb            = 128
+  admin_group_object_ids          = [] # Entra ID groups granted cluster-admin
+  api_server_authorized_ip_ranges = [] # e.g. ["203.0.113.10/32"]
+  local_account_disabled          = true
+  pod_cidr                        = "192.168.0.0/16"
+  service_cidr                    = "172.16.0.0/16"
+  dns_service_ip                  = "172.16.0.10"
+}
+
+# PostgreSQL Flexible Server, private (VNet-integrated), zone-redundant HA
+postgres = {
+  engine_version               = "16"
+  sku_name                     = "GP_Standard_D4ds_v5"
+  storage_mb                   = 131072
+  high_availability_mode       = "ZoneRedundant" # or "SameZone" / "Disabled"
+  backup_retention_days        = 14
+  geo_redundant_backup_enabled = false
+  administrator_login          = "planeadmin"
+  database_names               = ["plane", "plane_pi"]
+}
+
+# Azure Managed Redis (TLS on port 10000), reachable through a private endpoint
+redis = {
+  sku_name                  = "Balanced_B1"
+  high_availability_enabled = true
+  clustering_policy         = "NoCluster"
+}
+
+# Blob storage for uploads, reachable through a private endpoint
+object_store = {
+  account_name_prefix           = "plane"
+  replication_type              = "ZRS"
+  container_name                = "uploads"
+  versioning_enabled            = false
+  soft_delete_retention_days    = 7
+  public_network_access_enabled = false
+}
+
+# Key Vault for the generated credentials. With allowed_ips set the vault
+# firewall is on; include the IP you run terraform from.
+key_vault = {
+  allowed_ips                   = []
+  public_network_access_enabled = true
+  private_endpoint_enabled      = false
+  purge_protection_enabled      = true
+  soft_delete_retention_days    = 30
+}
+
+tags = {
+  Environment = "plane"
+}
