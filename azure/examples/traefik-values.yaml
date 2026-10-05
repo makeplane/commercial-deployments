@@ -1,0 +1,23 @@
+# Traefik on AKS, exposed on the static ingress public IP created by azure/terraform.
+#
+#   helm upgrade --install traefik traefik/traefik -n traefik --create-namespace \
+#     -f traefik-values.yaml
+#
+# Replace the placeholders from `terraform output`.
+service:
+  type: LoadBalancer
+  annotations:
+    # The IP lives in the main resource group, not the AKS node resource group.
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: <resource_group_name>
+    service.beta.kubernetes.io/azure-pip-name: <ingress_public_ip_name>
+  spec:
+    # Preserves client source IPs. The Azure LB then health-checks the Service's
+    # healthCheckNodePort, so only nodes running a Traefik pod receive traffic.
+    externalTrafficPolicy: Local
+
+deployment:
+  replicas: 2
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1

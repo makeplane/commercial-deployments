@@ -1,0 +1,106 @@
+# plane-enterprise values for the infrastructure created by azure/terraform.
+#
+# Merge order (later wins):
+#   helm upgrade --install plane plane/plane-enterprise -n plane \
+#     -f values-azure.yaml \
+#     -f <(terraform -chdir=../terraform/examples output -raw helm_values) \
+#     --set services.minio.root_user=plane \
+#     --set services.minio.root_password="$(az keyvault secret show --vault-name <kv> -n plane-minio --query value -o tsv | jq -r .password)" \
+#     --set services.rabbitmq.default_password="$(az keyvault secret show --vault-name <kv> -n plane-rabbitmq --query value -o tsv | jq -r .password)" \
+#     --set services.opensearch.password="$(az keyvault secret show --vault-name <kv> -n plane-opensearch --query value -o tsv | jq -r .password)"
+#
+# The terraform `helm_values` output fills in every <placeholder> below
+# (identity client ID, PostgreSQL / Redis hosts).
+
+license:
+  licenseDomain: plane.example.com # your Plane hostname
+
+# Release name "plane" => ServiceAccount "plane-srv-account", which is the
+# subject the workload identity's federated credential trusts
+# (terraform var plane_service_account). Keep them in sync.
+serviceAccount:
+  create: true
+  annotations:
+    azure.workload.identity/client-id: <plane_workload_identity_client_id>
+  podLabels:
+    azure.workload.identity/use: "true"
+
+ingress:
+  enabled: true
+  controller: traefik
+  ingressClass: traefik
+
+ssl:
+  # Let's Encrypt through cert-manager (HTTP-01 on the ingress public IP).
+  createIssuer: true
+  generateCerts: true
+  issuer: http
+  email: admin@example.com
+
+services:
+  # Managed: Azure Database for PostgreSQL Flexible Server
+  postgres:
+    local_setup: false
+  # Managed: Azure Managed Redis
+  redis:
+    local_setup: false
+  # Object storage: the bundled MinIO on a Premium SSD volume, until Plane ships
+  # its native Azure Blob provider (see the end of this file to switch). Root
+  # credentials come from Key Vault (see top); never keep the chart's defaults.
+  minio:
+    local_setup: true
+    volumeSize: 100Gi
+  # Azure has no managed RabbitMQ (AMQP 0-9-1) or OpenSearch, so both run in
+  # the cluster on Premium SSD volumes. Passwords come from Key Vault (see top).
+  rabbitmq:
+    local_setup: true
+    volumeSize: 10Gi
+  opensearch:
+    local_setup: true
+    volumeSize: 50Gi
+
+env:
+  storageClass: managed-csi-premium
+
+  # PostgreSQL — credentials come from the plane-postgres Secret below.
+  pgdb_host: <postgres_fqdn>
+  pgdb_port: '5432'
+  pgdb_name: plane
+  pg_pi_db_name: plane_pi
+
+  # Redis — TLS only, port 10000; the access key comes from the plane-redis Secret.
+  redis_host: <redis_hostname>
+  redis_port: '10000'
+  redis_ssl: true
+
+  storage_provider: S3
+
+  # Fail the render instead of falling back to the chart's example signing keys.
+  requireExplicitSecrets: true
+
+# Kubernetes Secrets mirrored from Key Vault by eso-keyvault.yaml.
+external_secrets:
+  database:
+    secretName: plane-postgres
+    usernameKey: username
+    passwordKey: password
+  redis:
+    secretName: plane-redis
+    passwordKey: password
+  app_keys_existingSecret: plane-app-keys
+
+# ---------------------------------------------------------------------------
+# Native Azure Blob storage (once the AZURE storage provider ships in a Plane
+# release). Uses the storage account terraform already created; uploads and
+# downloads are proxied through the API, so the account stays private and needs
+# no CORS or SAS:
+#
+#   services:
+#     minio:
+#       local_setup: false
+#   env:
+#     storage_provider: AZURE
+#     use_storage_proxy: true
+#     azure_storage_account_name: <storage_account_name>
+#     azure_storage_container: uploads
+# ---------------------------------------------------------------------------

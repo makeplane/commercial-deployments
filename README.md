@@ -5,6 +5,8 @@ Deploy [Plane](https://plane.so) (open-source project management) on AWS. This r
 1. **Terraform** — Provisions the AWS infrastructure (VPC, EKS, Redis, Amazon MQ RabbitMQ, OpenSearch, S3, RDS PostgreSQL)
 2. **Kustomize** — Deploys the Plane application on the EKS cluster (coming soon)
 
+> **Deploying on Azure?** See [azure/README.md](azure/README.md). It covers Terraform for AKS, PostgreSQL Flexible Server, Azure Managed Redis, Blob storage and Key Vault, plus the plane-enterprise Helm chart wiring.
+
 ## Prerequisites
 
 - **Terraform** >= 1.0 — [Download](https://developer.hashicorp.com/terraform/downloads)

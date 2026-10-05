@@ -1,0 +1,81 @@
+# Mirrors the Key Vault secrets created by azure/terraform into Kubernetes
+# Secrets that the plane-enterprise chart consumes (external_secrets.*).
+#
+# Prerequisite: External Secrets Operator installed in the cluster
+#   helm upgrade --install external-secrets external-secrets/external-secrets \
+#     -n external-secrets --create-namespace
+#
+# Replace the placeholders from `terraform output`, then:
+#   kubectl apply -n plane -f eso-keyvault.yaml
+---
+# Identity the SecretStore authenticates as. The federated credential on the
+# keyvault-reader managed identity trusts exactly this ServiceAccount
+# (terraform vars plane_namespace / eso_service_account).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: plane-keyvault-reader
+  annotations:
+    azure.workload.identity/client-id: <keyvault_reader_identity_client_id>
+    azure.workload.identity/tenant-id: <tenant_id>
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: plane-azure-keyvault
+spec:
+  provider:
+    azurekv:
+      authType: WorkloadIdentity
+      vaultUrl: <key_vault_uri>
+      serviceAccountRef:
+        name: plane-keyvault-reader
+---
+# {"username","password","host","port","dbname"} -> external_secrets.database
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: plane-postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: plane-azure-keyvault
+  target:
+    name: plane-postgres
+  dataFrom:
+    - extract:
+        key: plane-postgres
+---
+# {"host","port","password"} -> external_secrets.redis
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: plane-redis
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: plane-azure-keyvault
+  target:
+    name: plane-redis
+  dataFrom:
+    - extract:
+        key: plane-redis
+---
+# SECRET_KEY, AES_SECRET_KEY, LIVE_SERVER_SECRET_KEY, PI_INTERNAL_SECRET,
+# SILO_HMAC_SECRET_KEY -> external_secrets.app_keys_existingSecret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: plane-app-keys
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: plane-azure-keyvault
+  target:
+    name: plane-app-keys
+  dataFrom:
+    - extract:
+        key: plane-app-keys
