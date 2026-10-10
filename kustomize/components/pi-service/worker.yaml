@@ -25,6 +25,11 @@ spec:
           imagePullPolicy: Always
           command:
             - ./bin/entrypoint-celery-worker.sh
+          # Narrowed because agent-worker.yaml drains plane_pi_agent_queue. Left unset,
+          # the entrypoint consumes both.
+          env:
+            - name: CELERY_QUEUE
+              value: plane_pi_queue
           envFrom:
             - configMapRef:
                 name: plane-pi-api-vars
