@@ -34,7 +34,7 @@ A new optional Kustomize **component** was added at `kustomize/components/custom
 
 > **Conditional:** init containers are only present when this component is enabled. Base deployments have no `initContainers` defined, so overlays that omit `custom-ca` are unaffected.
 
-The example overlay at `kustomize/overlays/example/kustomization.yaml` was updated with a commented-out reference to this component showing where to enable it.
+The phoenix overlay at `kustomize/overlays/phoenix/kustomization.yaml` enables this component and shows where it must sit relative to the other components.
 
 ---
 
@@ -67,7 +67,7 @@ components:
   - ../../components/custom-ca
 ```
 
-**Example** (`kustomize/overlays/example/kustomization.yaml`):
+**Example** (`kustomize/overlays/phoenix/kustomization.yaml`):
 
 ```yaml
 components:

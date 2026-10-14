@@ -1,4 +1,4 @@
-# overlay: example
+# overlay: phoenix
 
 Full-featured reference overlay targeting the `plane-ns` namespace. Enables EKS IRSA, Pi service, nonroot security context, and custom CA — intended as a starting point for AWS EKS production deployments or as a reference when building a custom overlay.
 
