@@ -47,7 +47,7 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 
 **How Configuration Works**:
 ```
-1. Copy overlays/example/ to your environment (e.g., overlays/production/)
+1. Copy an overlay (overlays/default/ or overlays/managed/) to your environment (e.g., overlays/production/)
 2. Edit vars.yaml (domain, version, etc.)
 3. Edit secrets-vars.yaml (DATABASE_URL, secrets, etc.)
 4. Choose components (local infrastructure) or configure external URLs

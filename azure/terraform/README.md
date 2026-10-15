@@ -43,7 +43,7 @@ For the step-by-step deployment guide, including the Helm install, see [../READM
 
 ### AWS to Azure mapping
 
-| Plane needs | AWS module ([../../terraform](../../terraform)) | This module |
+| Plane needs | AWS module ([../../aws/terraform](../../aws/terraform/README.md)) | This module |
 |---|---|---|
 | Kubernetes | EKS + managed node group | AKS: system and user pools across zones 1-3 |
 | PostgreSQL | RDS Multi-AZ cluster | PostgreSQL Flexible Server: VNet-integrated, zone-redundant HA |

@@ -1,6 +1,8 @@
-# Plane Commercial Deployments Terraform Module
+# Plane AWS Terraform Module
 
-A Terraform module that provisions AWS infrastructure for running [Plane](https://plane.so) (open-source project management). It deploys: VPC, EKS (with cert-manager and EBS CSI add-ons), ElastiCache (Redis), OpenSearch, S3, and RDS PostgreSQL.
+A Terraform module that provisions AWS infrastructure for running [Plane](https://plane.so). It deploys: VPC, EKS (with cert-manager and EBS CSI add-ons), ElastiCache (Redis), Amazon MQ (RabbitMQ), OpenSearch, S3, and RDS PostgreSQL.
+
+For the step-by-step deployment guide, including the email NLB and the application deployment, see [../README.md](../README.md). For the equivalent Azure module, see [../../azure/terraform](../../azure/terraform/README.md).
 
 ## Prerequisites
 
@@ -23,7 +25,7 @@ The module deploys a multi-AZ infrastructure across 3 availability zones:
 
 ## Quick Start
 
-The [examples/](examples/) directory contains a complete configuration. From the repository root:
+The [examples/](examples/) directory contains a complete configuration. From this directory:
 
 ```bash
 cd examples
@@ -99,7 +101,7 @@ aws secretsmanager get-secret-value --secret-id <rds_password_secret_arn> --quer
 - **RDS and Redis**: Accessible only from within the VPC (e.g., from EKS pods) as they run in private subnets
 - **OpenSearch**: Publicly accessible via HTTPS using the master username and password from Secrets Manager
 
-**Deploy Plane**: This module provisions infrastructure only. To deploy the Plane application on the EKS cluster, see [Plane's deployment documentation](https://docs.plane.so/self-hosting).
+**Deploy Plane**: This module provisions infrastructure only. To deploy the Plane application on the EKS cluster, see [Step 2 of the AWS guide](../README.md#step-2-deploy-plane-kustomize).
 
 ## Cleanup
 
@@ -120,12 +122,12 @@ If destroy fails (e.g., due to dependencies or finalizers), you may need to manu
 
 ## Module Usage
 
-Use this repository as a Terraform module in your own project:
+Use this module in your own project:
 
 ```hcl
 module "plane_infra" {
-  source = "git::https://github.com/makeplane/commercial-deployments.git?ref=main"
-  # Or use a local path: source = "../commercial-deployments"
+  source = "git::https://github.com/makeplane/commercial-deployments.git//aws/terraform?ref=main"
+  # Or use a local path: source = "../commercial-deployments/aws/terraform"
 
   cluster_name       = "plane-eks-cluster"
   region             = "us-west-2"
