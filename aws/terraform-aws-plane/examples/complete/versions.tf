@@ -21,13 +21,8 @@ terraform {
     }
   }
 
-  # State holds generated secrets (Valkey AUTH token, MQ password, app keys): keep it in an
-  # encrypted, access-restricted backend. Uncomment and fill in before the first apply.
-  # backend "s3" {
-  #   bucket       = "my-terraform-state"
-  #   key          = "plane/terraform.tfstate"
-  #   region       = "us-east-1"
-  #   encrypt      = true
-  #   use_lockfile = true
-  # }
+  # State holds generated secrets (Valkey AUTH token, MQ password, app keys), so it lives in an
+  # encrypted, private S3 bucket. Settings come from backend.hcl (see backend.hcl.example):
+  #   terraform init -backend-config=backend.hcl
+  backend "s3" {}
 }

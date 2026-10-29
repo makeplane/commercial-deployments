@@ -4,8 +4,8 @@ An empty AWS account to a running Plane on EKS.
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # set domain, route53_zone_id, acme_email, admin_cidrs
-# Uncomment and fill in the S3 backend in versions.tf: state holds generated secrets.
-terraform init
+cp backend.hcl.example backend.hcl             # set the state bucket: state holds generated secrets
+terraform init -backend-config=backend.hcl
 terraform apply                                # roughly 35-45 minutes
 ```
 

@@ -1,0 +1,6 @@
+# Copy to backend.hcl and set your state bucket (versioned, encrypted, private).
+bucket       = "my-terraform-state"
+key          = "plane/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

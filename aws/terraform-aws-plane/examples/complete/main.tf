@@ -26,6 +26,9 @@ module "plane" {
   acme_email      = var.acme_email
   acme_server     = var.acme_server
 
+  postgres             = { deletion_protection = var.postgres_deletion_protection }
+  bucket_force_destroy = var.bucket_force_destroy
+
   cluster_endpoint_public_access_cidrs = var.admin_cidrs
   cluster_admin_principal_arns         = var.cluster_admin_principal_arns
 
