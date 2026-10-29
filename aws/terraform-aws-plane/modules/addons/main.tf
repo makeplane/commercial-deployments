@@ -7,6 +7,9 @@ locals {
   cert_manager_namespace     = "cert-manager"
   cert_manager_sa            = "cert-manager"
 
+  # Fixed name, so Terraform can find the NLB the controller creates (edge module).
+  load_balancer_name = "${var.name}-traefik"
+
   # cert-manager is only needed when the module issues the certificate (Route 53 DNS-01).
   # Without a zone, the certificate is a manual step in this release.
   cert_manager_enabled = var.route53_zone_id != null
@@ -52,7 +55,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 }
 
 # On destroy, Traefik's Service is deleted first and the LB controller removes the NLB
-# asynchronously. Keep the controller (and the EIPs behind it) around long enough for that.
+# asynchronously. Keep the controller around long enough for that.
 resource "time_sleep" "nlb_cleanup" {
   destroy_duration = "120s"
 
@@ -124,7 +127,7 @@ resource "helm_release" "metrics_server" {
   depends_on = [terraform_data.cluster_ready]
 }
 
-# Traefik behind an internet-facing NLB on the Terraform-owned EIPs. The NLB only passes TCP;
+# Traefik behind an internet-facing NLB with AWS-assigned IPs. The NLB only passes TCP;
 # Traefik terminates TLS. Proxy protocol carries the real client IP through the NLB.
 resource "helm_release" "traefik" {
   name             = "traefik"
@@ -180,9 +183,9 @@ resource "helm_release" "traefik" {
       annotations = {
         "service.beta.kubernetes.io/aws-load-balancer-type"                                = "external"
         "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"                     = "ip"
+        "service.beta.kubernetes.io/aws-load-balancer-name"                                = local.load_balancer_name
         "service.beta.kubernetes.io/aws-load-balancer-scheme"                              = "internet-facing"
         "service.beta.kubernetes.io/aws-load-balancer-subnets"                             = join(",", var.public_subnet_ids)
-        "service.beta.kubernetes.io/aws-load-balancer-eip-allocations"                     = join(",", var.eip_allocation_ids)
         "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"                      = "*"
         "service.beta.kubernetes.io/aws-load-balancer-target-group-attributes"             = "preserve_client_ip.enabled=false"
         "service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules" = "true"
@@ -195,6 +198,6 @@ resource "helm_release" "traefik" {
   })]
 
   # The LB controller must be running to create the NLB, and still running (plus the cleanup
-  # wait) when the Service is deleted on destroy, so it removes the NLB and frees the EIPs.
+  # wait) when the Service is deleted on destroy, so it removes the NLB.
   depends_on = [helm_release.aws_load_balancer_controller, time_sleep.nlb_cleanup]
 }

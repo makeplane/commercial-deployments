@@ -24,12 +24,7 @@ variable "vpc_cidr" {
 }
 
 variable "public_subnet_ids" {
-  description = "Public subnets for the NLB, one per EIP."
-  type        = list(string)
-}
-
-variable "eip_allocation_ids" {
-  description = "EIP allocation IDs attached to the NLB."
+  description = "Public subnets for the NLB."
   type        = list(string)
 }
 

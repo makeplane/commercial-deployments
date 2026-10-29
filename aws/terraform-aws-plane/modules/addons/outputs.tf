@@ -11,6 +11,11 @@ output "ready" {
   ]
 }
 
+output "load_balancer_name" {
+  description = "Name of the NLB the AWS Load Balancer Controller creates for Traefik."
+  value       = local.load_balancer_name
+}
+
 output "cert_manager_enabled" {
   description = "Whether cert-manager is installed (Route 53 DNS-01)."
   value       = local.cert_manager_enabled

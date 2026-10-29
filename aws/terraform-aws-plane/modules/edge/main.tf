@@ -1,12 +1,16 @@
-# Static public IPs for the NLB (one per public subnet it uses) and, when a Route 53 zone is given,
-# the A record. Both are known at plan time, so DNS never waits on the load balancer.
+# The NLB in front of Traefik and, when a Route 53 zone is given, the DNS record. The AWS Load
+# Balancer Controller creates the NLB with AWS-assigned public IPs, which can change, so DNS always
+# points at its hostname. The NLB has a fixed name, so it's looked up once Traefik is installed.
 
-resource "aws_eip" "lb" {
-  # checkov:skip=CKV2_AWS_19:Attached to the NLB (by the AWS Load Balancer Controller), not to EC2 instances.
-  count  = var.ip_count
-  domain = "vpc"
+# Read the NLB only after Traefik's Service has it (helm waits for the LoadBalancer address).
+resource "terraform_data" "addons_ready" {
+  input = var.addons_ready
+}
 
-  tags = merge(var.tags, { Name = "${var.name}-lb-${count.index}" })
+data "aws_lb" "traefik" {
+  name = var.load_balancer_name
+
+  depends_on = [terraform_data.addons_ready]
 }
 
 resource "aws_route53_record" "plane" {
@@ -15,6 +19,10 @@ resource "aws_route53_record" "plane" {
   zone_id = var.route53_zone_id
   name    = var.domain
   type    = "A"
-  ttl     = 300
-  records = aws_eip.lb[*].public_ip
+
+  alias {
+    name                   = data.aws_lb.traefik.dns_name
+    zone_id                = data.aws_lb.traefik.zone_id
+    evaluate_target_health = false
+  }
 }

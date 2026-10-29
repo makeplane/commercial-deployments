@@ -8,9 +8,9 @@ output "deployment_mode" {
   value       = var.deployment_mode
 }
 
-output "public_ips" {
-  description = "Static public IPs of the load balancer. Point domain here when route53_zone_id is null."
-  value       = module.edge.public_ips
+output "load_balancer_dns_name" {
+  description = "Hostname of the load balancer. Its IPs are assigned by AWS and can change: when route53_zone_id is null, point domain here with a CNAME (or an alias record), never A records to its current IPs."
+  value       = module.edge.load_balancer_dns_name
 }
 
 output "dns_record_managed" {

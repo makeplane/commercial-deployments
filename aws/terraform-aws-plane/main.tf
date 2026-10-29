@@ -59,36 +59,35 @@ module "data" {
   tags                      = local.tags
 }
 
-module "edge" {
-  source = "./modules/edge"
-
-  name            = var.name
-  domain          = var.domain
-  ip_count        = var.az_count
-  route53_zone_id = var.route53_zone_id
-  tags            = local.tags
-}
-
 module "addons" {
   source = "./modules/addons"
 
-  name               = var.name
-  region             = local.region
-  cluster_name       = module.cluster.cluster_name
-  vpc_id             = module.network.vpc_id
-  vpc_cidr           = var.vpc_cidr
-  public_subnet_ids  = module.network.public_subnet_ids
-  eip_allocation_ids = module.edge.eip_allocation_ids
-  allowed_cidrs      = var.allowed_cidrs
-  route53_zone_id    = var.route53_zone_id
-  secret_arns        = module.data.secret_arns
-  kms_key_arn        = module.data.kms_key_arn
-  tags               = local.tags
+  name              = var.name
+  region            = local.region
+  cluster_name      = module.cluster.cluster_name
+  vpc_id            = module.network.vpc_id
+  vpc_cidr          = var.vpc_cidr
+  public_subnet_ids = module.network.public_subnet_ids
+  allowed_cidrs     = var.allowed_cidrs
+  route53_zone_id   = var.route53_zone_id
+  secret_arns       = module.data.secret_arns
+  kms_key_arn       = module.data.kms_key_arn
+  tags              = local.tags
 
   # Helm releases need the node group and the creator's access entry, not only the control
   # plane. An explicit signal instead of a module-level depends_on, which would defer every
   # data source inside the module and make plans noisy.
   cluster_ready = module.cluster.ready
+}
+
+# DNS for the NLB the LB controller creates once Traefik is installed.
+module "edge" {
+  source = "./modules/edge"
+
+  domain             = var.domain
+  route53_zone_id    = var.route53_zone_id
+  load_balancer_name = module.addons.load_balancer_name
+  addons_ready       = module.addons.ready
 }
 
 module "plane" {

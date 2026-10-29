@@ -85,7 +85,7 @@ variable "tags" {
 
 variable "route53_zone_id" {
   description = <<-EOT
-    Public Route 53 hosted zone that contains domain. When set, the module writes the A record and issues the certificate
+    Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer and issues the certificate
     (cert-manager, DNS-01). When null, DNS and the certificate are a manual step: see the README.
   EOT
   type        = string

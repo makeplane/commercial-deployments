@@ -18,7 +18,7 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
 | Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
-| Edge | NLB on static Elastic IPs → Traefik; TLS terminated by Traefik | Route 53 A record + Let's Encrypt via cert-manager when you give a hosted zone |
+| Edge | NLB (AWS-assigned IPs) → Traefik; TLS terminated by Traefik | Route 53 alias record + Let's Encrypt via cert-manager when you give a hosted zone |
 | In cluster (Helm) | AWS Load Balancer Controller 2.x, Traefik, External Secrets, Reloader, metrics-server, cert-manager (Route 53 only), **plane-enterprise** | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
 
 ## Usage
@@ -56,20 +56,22 @@ A full example is in [`examples/complete`](examples/complete).
 
 - Terraform ≥ 1.10 (S3 state locking with `use_lockfile`) and the **AWS CLI v2** (Helm authenticates to EKS with `aws eks get-token`).
 - Credentials allowed to create VPC, EKS, IAM roles, RDS, ElastiCache, Amazon MQ, S3, KMS, Secrets Manager,
-  Elastic IPs and (with a zone) Route 53 records.
+  an Elastic IP (NAT) and (with a zone) Route 53 records.
 - Network access from where you run Terraform to the EKS API endpoint. It's public by default; restrict it with
   `cluster_endpoint_public_access_cidrs`.
 - An **encrypted remote state backend**. State holds generated secrets (Valkey token, MQ password, app keys).
-- Service quotas for at least 4 Elastic IPs (3 for the load balancer, 1 for the NAT gateway).
+- Service quota for 1 Elastic IP (the NAT gateway). The load balancer's IPs are assigned by AWS.
 
 ## DNS and TLS
 
-**With `route53_zone_id`:** the module creates the A record pointing at the load balancer's static IPs and issues a
-Let's Encrypt certificate with cert-manager (DNS-01). Nothing to do by hand. Set `acme_email`.
+**With `route53_zone_id`:** the module creates an alias record pointing at the load balancer and issues a Let's
+Encrypt certificate with cert-manager (DNS-01). Nothing to do by hand. Set `acme_email`.
 
 **Without a zone (manual step):**
 1. `terraform apply`. Plane comes up serving Traefik's default certificate.
-2. Point your domain at the `public_ips` output (A records), in whatever DNS you use.
+2. Point your domain at the `load_balancer_dns_name` output with a **CNAME**, in whatever DNS you use. Don't create
+   A records to the load balancer's current IPs: AWS assigns them and they can change. For a zone apex, use your
+   provider's alias/flattening record instead.
 3. Create the certificate Secret Traefik serves:
    ```bash
    aws eks update-kubeconfig --name <cluster_name> --region <region>   # see the configure_kubectl output
@@ -154,7 +156,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | Amazon MQ for RabbitMQ. | <pre>object({<br/>    engine_version  = optional(string, "3.13")<br/>    instance_type   = optional(string, "mq.m7g.medium")<br/>    deployment_mode = optional(string, "CLUSTER_MULTI_AZ")<br/>  })</pre> | `{}` | no |
 | redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 0)<br/>  })</pre> | `{}` | no |
-| route53\_zone\_id | Public Route 53 hosted zone that contains domain. When set, the module writes the A record and issues the certificate<br/>(cert-manager, DNS-01). When null, DNS and the certificate are a manual step: see the README. | `string` | `null` | no |
+| route53\_zone\_id | Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer and issues the certificate<br/>(cert-manager, DNS-01). When null, DNS and the certificate are a manual step: see the README. | `string` | `null` | no |
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
 | tls\_secret\_name | Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when route53\_zone\_id is set; created by the operator otherwise. | `string` | `"plane-tls"` | no |
@@ -171,10 +173,10 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | deployment\_mode | Deployment mode in use. |
 | dns\_record\_managed | Whether the module manages the DNS record (true when route53\_zone\_id is set). |
 | kms\_key\_arn | KMS key encrypting RDS, ElastiCache, S3 and the secrets. |
+| load\_balancer\_dns\_name | Hostname of the load balancer. Its IPs are assigned by AWS and can change: when route53\_zone\_id is null, point domain here with a CNAME (or an alias record), never A records to its current IPs. |
 | plane\_iam\_role\_arn | IAM role Plane's pods use through EKS Pod Identity. |
 | plane\_url | URL Plane is served on. |
 | private\_subnet\_ids | Private subnet IDs. |
-| public\_ips | Static public IPs of the load balancer. Point domain here when route53\_zone\_id is null. |
 | rabbitmq\_endpoint | Amazon MQ AMQPS host. |
 | rds\_endpoint | RDS cluster writer endpoint. |
 | redis\_endpoint | ElastiCache primary endpoint (TLS). |

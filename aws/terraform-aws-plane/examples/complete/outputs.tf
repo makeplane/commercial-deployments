@@ -3,9 +3,9 @@ output "plane_url" {
   value       = module.plane.plane_url
 }
 
-output "public_ips" {
-  description = "Load balancer IPs (create the DNS record here when route53_zone_id is null)."
-  value       = module.plane.public_ips
+output "load_balancer_dns_name" {
+  description = "Load balancer hostname (point domain here with a CNAME when route53_zone_id is null)."
+  value       = module.plane.load_balancer_dns_name
 }
 
 output "configure_kubectl" {
