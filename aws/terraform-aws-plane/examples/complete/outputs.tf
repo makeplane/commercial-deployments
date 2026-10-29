@@ -4,7 +4,7 @@ output "plane_url" {
 }
 
 output "load_balancer_dns_name" {
-  description = "Load balancer hostname (point domain here with a CNAME when route53_zone_id is null)."
+  description = "Path A: Traefik NLB hostname (null in path B)."
   value       = module.plane.load_balancer_dns_name
 }
 
@@ -14,8 +14,13 @@ output "configure_kubectl" {
 }
 
 output "email_load_balancer_dns_name" {
-  description = "Email NLB hostname (MX target for email_smtp_domain, default intake.<domain>, when route53_zone_id is null)."
+  description = "Email NLB hostname (the MX target for email.smtp_domain, default intake.<domain>)."
   value       = module.plane.email_load_balancer_dns_name
+}
+
+output "dns_records" {
+  description = "The DNS records to create (the module creates none)."
+  value       = module.plane.dns_records
 }
 
 output "plane_helm_values" {
