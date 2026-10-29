@@ -1,71 +1,33 @@
-# terraform.tfvars: the one place to configure Plane on AWS.
-#
-#   cp terraform.tfvars.example terraform.tfvars
-#
-# Set the required values, then uncomment only what you want to change. The settings at the top always have a value:
-# each commented line shows the module's default, and leaving it commented (or setting it to null) keeps that default.
-# The settings that are unset by default (DNS zone, certificate email) come after them. For objects, set only the fields you
-# change, e.g. node_group = { desired_size = 3 }; the other fields keep their defaults.
-#
-# Common combinations are at the end of this file.
+# Copy to terraform.tfvars. Set name and domain; uncomment anything you want to change.
+# Commented values are the defaults. For objects, set only the fields you change.
 
-################################################################################
-# Required
-################################################################################
+name   = "plane"             # never change after install
+domain = "plane.example.com" # never change after install
 
-name   = "plane"             # Prefix for every resource: 3-20 chars, lowercase letters, digits, hyphens. Never change it.
-domain = "plane.example.com" # Hostname Plane is served on. Never change it after install (the licence is bound to it).
+# region = "us-east-1"
+# tags   = {}
 
-################################################################################
-# Region and tags
-################################################################################
+# acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
+# tls_secret_name = "plane-tls"
 
-# region = "us-east-1"        # AWS region (used by the providers).
-# tags   = {}                 # Extra tags on every resource, e.g. { Environment = "production", Team = "it" }.
+# allowed_cidrs                        = ["0.0.0.0/0"] # who can reach Plane
+# cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # who can reach the EKS API
+# cluster_admin_principal_arns         = []
 
-################################################################################
-# TLS
-################################################################################
-
-# acme_server     = "https://acme-v02.api.letsencrypt.org/directory"
-#                             # Let's Encrypt production. For tests: "https://acme-staging-v02.api.letsencrypt.org/directory"
-# tls_secret_name = "plane-tls" # Kubernetes TLS Secret Traefik serves (written by cert-manager, or created by you).
-
-################################################################################
-# Access
-################################################################################
-
-# allowed_cidrs                        = ["0.0.0.0/0"] # Who can reach Plane (ports 443/80). HTTP-01 certificates need
-#                                                      # 0.0.0.0/0 (Let's Encrypt validates from the internet).
-# cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # Who can reach the EKS API (Terraform, Helm, kubectl need it).
-#                                                      # Recommended: your office/VPN, e.g. ["203.0.113.10/32"].
-# cluster_admin_principal_arns         = []            # Extra IAM roles/users given cluster-admin, besides whoever
-#                                                      # runs the apply, e.g. ["arn:aws:iam::123456789012:role/admins"].
-
-################################################################################
-# Network
-################################################################################
-
-# vpc_cidr           = "10.60.0.0/16" # CIDR of the new VPC; must not overlap networks you'll peer or VPN with.
-# az_count           = 3              # Availability zones (at least 3: the RDS Multi-AZ DB cluster needs them).
-# single_nat_gateway = true           # One shared NAT gateway (cheaper). false: one per zone (zone-failure tolerant).
-
-################################################################################
-# Kubernetes (EKS)
-################################################################################
+# vpc_cidr           = "10.60.0.0/16"
+# az_count           = 3
+# single_nat_gateway = true
 
 # kubernetes_version = "1.36"
 
 # node_group = {
-#   instance_types = ["m7a.xlarge"] # 4 vCPU / 16 GiB each.
-#   min_size       = 2              # Range the group can scale in (no autoscaler yet: it stays at desired_size).
+#   instance_types = ["m7a.xlarge"]
+#   min_size       = 2
 #   max_size       = 4
-#   desired_size   = 2              # Set at creation only; later, scale with
-#                                   # aws eks update-nodegroup-config ... --scaling-config desiredSize=N
+#   desired_size   = 2
 #   disk_size_gb   = 50
 # }
 
-# EKS managed add-on versions, pinned for Kubernetes 1.36. Change together with kubernetes_version.
 # addon_versions = {
 #   vpc_cni                = "v1.23.2-eksbuild.8"
 #   coredns                = "v1.14.7-eksbuild.22"
@@ -74,132 +36,75 @@ domain = "plane.example.com" # Hostname Plane is served on. Never change it afte
 #   aws_ebs_csi_driver     = "v1.67.2-eksbuild.1"
 # }
 
-################################################################################
-# Data services
-################################################################################
-
-# PostgreSQL: RDS Multi-AZ DB cluster (1 writer + 2 readable standbys), TLS required, password managed by RDS.
 # postgres = {
 #   engine_version        = "15.19"
-#   instance_class        = "db.m6gd.large" # Multi-AZ DB clusters support m5d/m6gd/r5d/r6gd-type classes.
+#   instance_class        = "db.m6gd.large"
 #   allocated_storage_gb  = 100
-#   storage_type          = "io1"           # "gp3" is much cheaper (3000 IOPS included); io1 IOPS cost ~$300/month.
+#   storage_type          = "io1"
 #   iops                  = 1000
 #   backup_retention_days = 14
-#   deletion_protection   = true            # Set false before destroying a test install.
+#   deletion_protection   = true
 # }
 
-# Cache: ElastiCache Valkey with TLS, an AUTH token and at-rest encryption.
 # redis = {
 #   engine_version = "8.2"
 #   node_type      = "cache.t3.medium"
-#   replicas       = 0  # >= 1 adds a replica with automatic Multi-AZ failover.
+#   replicas       = 0
 # }
 
-# Queue: Amazon MQ for RabbitMQ (AMQPS only, private).
 # rabbitmq = {
 #   engine_version  = "3.13"
 #   instance_type   = "mq.m7g.medium"
-#   deployment_mode = "CLUSTER_MULTI_AZ" # or "SINGLE_INSTANCE" (cheaper, no failover).
+#   deployment_mode = "CLUSTER_MULTI_AZ" # or SINGLE_INSTANCE
 # }
 
-# Search: Amazon OpenSearch Service, private in the VPC; Plane signs with its IAM role (no passwords).
 # opensearch = {
-#   enabled        = true              # false: Plane runs with search indexing off.
+#   enabled        = true
 #   engine_version = "OpenSearch_2.19"
 #   instance_type  = "r7g.large.search"
-#   instance_count = 2                 # Spread over 2 zones (a multiple of 3 uses 3 zones).
+#   instance_count = 2
 #   volume_size_gb = 10
-#   index_prefix   = "plane"           # Index names "<prefix>_<name>". Changing it on a running install needs the
-#                                      # indexes re-filled (manage_search_index document index --force).
+#   index_prefix   = "plane"
 # }
 
-# Uploads bucket.
-# bucket_force_destroy = false # true lets terraform destroy delete the bucket with files in it (test installs).
-
-################################################################################
-# Plane
-################################################################################
-
-# plane_version    = "v4.0.1"
-# chart_version    = "3.11.3"                 # plane-enterprise Helm chart (3.11.3 or later).
-# chart_repository = "https://helm.plane.so/" # Change only to test a preview build of the chart.
-# chart_name       = "plane-enterprise"       # Preview builds are named "<commit>-plane-enterprise".
-# helm_timeout     = 3600                     # Seconds Helm waits for the release (first install: migrations ~15 min).
-
-# Optional Plane workloads.
-# enable_components = {
-#   silo   = true  # Integrations and importers.
-#   drawio = true  # Self-hosted draw.io for diagrams in pages.
-#   pi     = false # Plane AI: needs AI provider keys (set in the admin UI).
-# }
-
-# Email service (inbound email to work items), on its own internet-facing NLB (ports 25/465/587).
 # email = {
 #   enabled       = true
-#   smtp_domain   = null # Default: "intake.<domain>". Point its MX record at the email_load_balancer_dns_name output
-#                        # (automatic with route53_zone_id; the domain must then be in that zone).
-#   load_balancer = true # false: the email service runs with no load balancer (not reachable from the internet).
+#   smtp_domain   = null # default: intake.<domain>
+#   load_balancer = true
 # }
 
-# Extra plane-enterprise chart values (YAML), merged last. Never put secrets here.
-# plane_values = <<-EOT
-#   services:
-#     api:
-#       replicas: 3
-# EOT
+# enable_components = {
+#   silo   = true
+#   drawio = true
+#   pi     = false
+# }
 
-# deployment_mode = "eks" # Only "eks" in this release.
+# bucket_force_destroy = false
 
-################################################################################
-# Unset by default: DNS zone and certificate email
-################################################################################
+# plane_version    = "v4.0.1"
+# chart_version    = "3.11.3"
+# chart_repository = "https://helm.plane.so/"
+# chart_name       = "plane-enterprise"
+# helm_timeout     = 3600
+# plane_values     = "" # extra chart values (YAML), no secrets
+# deployment_mode  = "eks"
 
-# route53_zone_id = null # Public Route 53 zone containing domain. Set: the module writes the DNS record (and the email
-#                        # MX) and issues the certificate with DNS-01. Null: you create a CNAME to the
-#                        # load_balancer_dns_name output.
-# acme_email      = null # Let's Encrypt account email (any mailbox; a team one is best). Set: the module issues the
-#                        # certificate (DNS-01 with a zone, HTTP-01 without). Null: provide your own certificate.
-#                        # Required with route53_zone_id.
+# Unset by default:
+# route53_zone_id = "Z0123456789ABCDEFGHIJ" # Route 53 zone: automatic DNS + certificate
+# acme_email      = "ops@example.com"       # Let's Encrypt certificate (needed with route53_zone_id)
 
-################################################################################
-# Common combinations (copy what you need above; don't duplicate a key)
-################################################################################
-
-# 1. Production, domain in Route 53 (fully automatic DNS + certificate):
+# Examples
+#
+# Domain in Route 53:
 #   route53_zone_id = "Z0123456789ABCDEFGHIJ"
 #   acme_email      = "ops@example.com"
-#   cluster_endpoint_public_access_cidrs = ["203.0.113.10/32"]
 #
-# 2. Domain in another DNS provider (Cloudflare, ...), Let's Encrypt HTTP-01:
-#   acme_email = "ops@example.com"
-#   # after apply: CNAME <domain> -> output load_balancer_dns_name (DNS-only, no proxy)
-#   #              MX    intake.<domain> -> 10 <output email_load_balancer_dns_name>
+# Domain elsewhere (Cloudflare, ...): set acme_email, then CNAME the domain to the load_balancer_dns_name output.
 #
-# 3. Your own certificate (no Let's Encrypt):
-#   # leave acme_email unset; after apply:
-#   # kubectl -n plane create secret tls plane-tls --cert=fullchain.pem --key=privkey.pem
-#
-# 4. Test install you'll destroy (staging certificate, everything deletable):
+# Test install you will destroy:
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }
 #   bucket_force_destroy = true
 #
-# 5. Lower cost (no failover for RabbitMQ, cheaper DB storage, no search, no email NLB):
-#   rabbitmq   = { deployment_mode = "SINGLE_INSTANCE" }
-#   postgres   = { storage_type = "gp3", iops = null }
-#   opensearch = { enabled = false }
-#   email      = { load_balancer = false }
-#
-# 6. More capacity (more nodes and Plane replicas):
-#   node_group   = { desired_size = 3, max_size = 6 }
-#   plane_values = <<-EOT
-#     services:
-#       api:    { replicas: 3 }
-#       worker: { replicas: 3 }
-#   EOT
-#
-# 7. Private EKS API and restricted Plane access (internal users only; needs a Route 53 zone or your own certificate,
-#    since HTTP-01 needs Plane reachable from the internet):
-#   cluster_endpoint_public_access_cidrs = ["10.0.0.0/8"]
-#   allowed_cidrs                        = ["10.0.0.0/8", "203.0.113.0/24"]
+# More nodes:
+#   node_group = { desired_size = 3 }

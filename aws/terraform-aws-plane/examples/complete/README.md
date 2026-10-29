@@ -11,9 +11,8 @@ terraform init -backend-config=backend.hcl
 terraform apply                                # 45-75 minutes on a fresh install
 ```
 
-`terraform.tfvars.example` lists every setting with its default value and what it does, followed by common
-combinations (Route 53, another DNS provider, your own certificate, a test install, lower cost, more capacity, private
-access). For objects, set only the fields you change, e.g. `node_group = { desired_size = 3 }`.
+`terraform.tfvars.example` shows every setting with its default (commented), then a few examples. For objects, set
+only the fields you change, e.g. `node_group = { desired_size = 3 }`.
 
 Then open the `plane_url` output. Without `route53_zone_id`, create a CNAME for your domain to the
 `load_balancer_dns_name` output; see "DNS and TLS" in the [module README](../../README.md).
