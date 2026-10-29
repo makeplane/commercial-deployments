@@ -158,7 +158,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
 | tls\_secret\_name | Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when route53\_zone\_id is set; created by the operator otherwise. | `string` | `"plane-tls"` | no |
-| vpc\_cidr | CIDR of the VPC the module creates. | `string` | `"10.0.0.0/16"` | no |
+| vpc\_cidr | CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module. | `string` | `"10.60.0.0/16"` | no |
 
 ## Outputs
 

@@ -33,6 +33,12 @@ variable "acme_server" {
   default     = "https://acme-v02.api.letsencrypt.org/directory"
 }
 
+variable "vpc_cidr" {
+  description = "CIDR of the new VPC. Must not overlap networks you will peer or VPN with."
+  type        = string
+  default     = "10.60.0.0/16"
+}
+
 variable "admin_cidrs" {
   description = "CIDRs allowed to reach the EKS API (your office, VPN or CI)."
   type        = list(string)

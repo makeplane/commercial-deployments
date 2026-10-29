@@ -6,6 +6,8 @@ domain = "plane.example.com"
 route53_zone_id = "Z0123456789ABCDEFGHIJ"
 acme_email      = "ops@example.com"
 
+# vpc_cidr = "10.60.0.0/16"  # change if it overlaps a network you will peer or VPN with
+
 admin_cidrs = ["203.0.113.10/32"]
 
 # Test installs you plan to destroy only:

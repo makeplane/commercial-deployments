@@ -103,9 +103,9 @@ variable "tls_secret_name" {
 ################################################################################
 
 variable "vpc_cidr" {
-  description = "CIDR of the VPC the module creates."
+  description = "CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module."
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "10.60.0.0/16"
 }
 
 variable "az_count" {
