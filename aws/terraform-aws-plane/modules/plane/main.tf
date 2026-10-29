@@ -1,6 +1,6 @@
-# Plane itself: one Helm release of plane-enterprise. Secrets, the DB bootstrap Job and (with
-# acme_email) the certificate travel in the chart's own extraObjects, so there is no
-# module-side chart and no kubernetes provider.
+# Plane itself: one Helm release of plane-enterprise. Secrets, the DB bootstrap Job and (path A)
+# the certificates travel in the chart's own extraObjects, so there is no module-side chart and
+# no kubernetes provider.
 
 locals {
   # Release name and namespace feed MACHINE_SIGNATURE (the licence identity): never change them.
@@ -9,9 +9,29 @@ locals {
   service_account = "${local.release}-srv-account"
 
   secret_store = "aws-secrets-manager"
-  issue_cert   = var.acme_email != null
-  # DNS-01 through Route 53 when the module has the zone; otherwise HTTP-01 through Traefik.
-  dns01 = var.route53_zone_id != null
+  # Path A, Let's Encrypt: cert-manager issues the web certificate (HTTP-01 through Traefik).
+  issue_cert = var.ingress_enabled && var.acme_email != null
+
+  # Customer certificates (path A web; email in any path) from Secrets Manager: a secret with JSON
+  # keys "tls.crt" and "tls.key", synced into a kubernetes.io/tls Secret before Plane's pods start.
+  email_tls_secret = "${local.release}-mail-tls-secret"
+  customer_certificates = {
+    for name, c in {
+      "${local.release}-web-tls"  = { arn = var.ingress_enabled ? var.tls_certificate_secret_arn : null, secret = var.tls_secret_name }
+      "${local.release}-mail-tls" = { arn = var.email.enabled ? var.email.certificate_secret_arn : null, secret = local.email_tls_secret }
+    } :
+    name => {
+      apiVersion = "external-secrets.io/v1"
+      kind       = "ExternalSecret"
+      metadata   = { name = name, annotations = local.hook.secrets }
+      spec = {
+        refreshInterval = "1h"
+        secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+        target          = { name = c.secret, creationPolicy = "Orphan", template = { type = "kubernetes.io/tls" } }
+        dataFrom        = [{ extract = { key = c.arn } }]
+      }
+    } if c.arn != null
+  }
 
   # Every workload that reads a Secret gets the Reloader annotation, so a rotated credential
   # rolls the pods (Reloader reads it on the workload, which the chart sets from
@@ -86,7 +106,7 @@ locals {
     }
   }
 
-  # Issuer + certificate only when acme_email is set; slice keeps the tuple type stable.
+  # Issuer + certificate only in path A with Let's Encrypt; slice keeps the tuple type stable.
   certificate_objects = slice([
     {
       apiVersion = "cert-manager.io/v1"
@@ -97,12 +117,9 @@ locals {
           server              = var.acme_server
           email               = var.acme_email
           privateKeySecretRef = { name = "plane-letsencrypt-account" }
-          # DNS-01: ambient credentials (cert-manager's Pod Identity role, scoped to the zone).
-          # HTTP-01: cert-manager's challenge Ingress, served by Traefik on port 80.
-          solvers = slice([
-            { dns01 = { route53 = { region = var.region, hostedZoneID = var.route53_zone_id } } },
-            { http01 = { ingress = { ingressClassName = "traefik" } } },
-          ], local.dns01 ? 0 : 1, local.dns01 ? 1 : 2)
+          # HTTP-01: cert-manager's challenge Ingress, served by Traefik on port 80. The module
+          # touches no DNS, so no DNS-01.
+          solvers = [{ http01 = { ingress = { ingressClassName = "traefik" } } }]
         }
       }
     },
@@ -134,9 +151,9 @@ locals {
   # Email service (chart 3.11.2+). On by default with a ClusterIP Service, like today's managed
   # deployment: running, not reachable from the internet. With email.load_balancer, its own
   # internet-facing NLB: instance targets plus the Service's externalTrafficPolicy: Local keep the
-  # sender's IP (SPF). Certificate: the module's Let's Encrypt ClusterIssuer (DNS-01) with a Route 53
-  # zone; otherwise none, and the email app generates a self-signed one at startup (fine for mail
-  # servers on port 25, which use opportunistic TLS).
+  # sender's IP (SPF). Certificate: the customer's, from Secrets Manager (email.certificate_secret_arn);
+  # otherwise none, and the email app generates a self-signed one at startup (fine for mail servers
+  # on port 25, which use opportunistic TLS).
   email_load_balancer_name = "${var.name}-email"
   email_service = {
     enabled = var.email.enabled
@@ -154,8 +171,8 @@ locals {
       type        = "ClusterIP"
       annotations = {}
     }
-    generateCert  = var.email.smtp_domain != null && local.dns01
-    certIssuerRef = local.dns01 ? { name = "plane-letsencrypt", kind = "ClusterIssuer" } : { name = "", kind = "" }
+    tls_secret_name = var.email.certificate_secret_arn != null ? local.email_tls_secret : ""
+    generateCert    = false
   }
 
   core_services = {
@@ -191,8 +208,9 @@ locals {
 
     license = { licenseDomain = var.domain }
 
+    # Path A: Plane's Traefik routes. Path B: none; the customer applies their own routes.
     ingress = {
-      enabled      = true
+      enabled      = var.ingress_enabled
       controller   = "traefik"
       ingressClass = "traefik"
     }
@@ -278,6 +296,7 @@ locals {
       # Plane AI's database, only when pi is on.
       var.enable_components.pi ? [local.db_init_job] : [],
       local.certificate_objects,
+      values(local.customer_certificates),
     )
   }
 }

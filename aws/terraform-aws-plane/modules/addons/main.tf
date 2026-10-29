@@ -10,10 +10,9 @@ locals {
   # Fixed name, so Terraform can find the NLB the controller creates (edge module).
   load_balancer_name = "${var.name}-traefik"
 
-  # cert-manager runs when the module issues the certificate. It only needs AWS access (Route 53)
-  # for DNS-01; HTTP-01 goes through Traefik.
+  # cert-manager runs only when the module issues the web certificate (path A, Let's Encrypt).
+  # HTTP-01 through Traefik: it needs no AWS access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
-  cert_manager_dns01   = var.issue_certificate && var.route53_zone_id != null
 
   chart_versions = {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs
@@ -103,7 +102,7 @@ resource "helm_release" "cert_manager" {
     }
   })]
 
-  depends_on = [terraform_data.cluster_ready, module.cert_manager_pod_identity]
+  depends_on = [terraform_data.cluster_ready]
 }
 
 resource "helm_release" "reloader" {
@@ -129,9 +128,11 @@ resource "helm_release" "metrics_server" {
   depends_on = [terraform_data.cluster_ready]
 }
 
-# Traefik behind an internet-facing NLB with AWS-assigned IPs. The NLB only passes TCP;
-# Traefik terminates TLS. Proxy protocol carries the real client IP through the NLB.
+# Path A only: Traefik behind an NLB with AWS-assigned IPs. The NLB only passes TCP; Traefik
+# terminates TLS. Proxy protocol carries the real client IP through the NLB.
 resource "helm_release" "traefik" {
+  count = var.install_traefik ? 1 : 0
+
   name             = "traefik"
   namespace        = "traefik"
   create_namespace = true
@@ -186,7 +187,7 @@ resource "helm_release" "traefik" {
         "service.beta.kubernetes.io/aws-load-balancer-type"                                = "external"
         "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"                     = "ip"
         "service.beta.kubernetes.io/aws-load-balancer-name"                                = local.load_balancer_name
-        "service.beta.kubernetes.io/aws-load-balancer-scheme"                              = "internet-facing"
+        "service.beta.kubernetes.io/aws-load-balancer-scheme"                              = var.load_balancer_scheme
         "service.beta.kubernetes.io/aws-load-balancer-subnets"                             = join(",", var.public_subnet_ids)
         "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"                      = "*"
         "service.beta.kubernetes.io/aws-load-balancer-target-group-attributes"             = "preserve_client_ip.enabled=false"
@@ -202,4 +203,11 @@ resource "helm_release" "traefik" {
   # The LB controller must be running to create the NLB, and still running (plus the cleanup
   # wait) when the Service is deleted on destroy, so it removes the NLB.
   depends_on = [helm_release.aws_load_balancer_controller, time_sleep.nlb_cleanup]
+}
+
+# Traefik became optional (count) after the first installs: keep the existing release (and its NLB
+# and hostname) instead of destroying and recreating it.
+moved {
+  from = helm_release.traefik
+  to   = helm_release.traefik[0]
 }

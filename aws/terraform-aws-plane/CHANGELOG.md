@@ -28,6 +28,11 @@
   agent-consumer, webhook-consumer, iframely, worker-importers), as in today's managed deployment.
   api, worker, web and live run 2 replicas with PodDisruptionBudgets. Any attachment type allowed, as today. The
   Plane AI database job only runs when pi is on.
+- Two edge paths (`ingress.mode`): **automated** (path A) installs Traefik behind an NLB, Plane's routes and the
+  certificates: Let's Encrypt over HTTP-01 (`acme_email`) or your own from Secrets Manager
+  (`ingress.tls_certificate_secret_arn`); **none** (path B, default) installs no ingress controller or routes. The
+  module configures no DNS: the `dns_records` output lists the records to create. Email certificate from Secrets
+  Manager (`email.certificate_secret_arn`) in either path, else self-signed (a warning in path A).
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
   input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
   defaulted input). `terraform.tfvars.example` shows every setting with its default, plus a few examples. CI checks that the example declares exactly the module's inputs.

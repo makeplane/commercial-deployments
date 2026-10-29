@@ -9,18 +9,29 @@ output "deployment_mode" {
 }
 
 output "load_balancer_dns_name" {
-  description = "Hostname of the load balancer. Its IPs are assigned by AWS and can change: when route53_zone_id is null, point domain here with a CNAME (or an alias record), never A records to its current IPs."
+  description = "Path A: hostname of the Traefik NLB (null in path B). Point domain here with a CNAME (or an alias record in Route 53), never A records to its current IPs: AWS assigns them and they can change."
   value       = module.edge.load_balancer_dns_name
 }
 
 output "email_load_balancer_dns_name" {
-  description = "Hostname of the email NLB (null when email is off). Point email.smtp_domain's MX record here when route53_zone_id is null."
+  description = "Hostname of the email NLB (null without email.load_balancer). email.smtp_domain's MX record points here."
   value       = module.plane.email_load_balancer_dns_name
 }
 
-output "dns_record_managed" {
-  description = "Whether the module manages the DNS record (true when route53_zone_id is set)."
-  value       = var.route53_zone_id != null
+output "dns_records" {
+  description = "The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer."
+  value = {
+    web = module.edge.load_balancer_dns_name == null ? null : {
+      name  = var.domain
+      type  = "CNAME (or alias A in Route 53; DNS-only, no proxy)"
+      value = module.edge.load_balancer_dns_name
+    }
+    email_mx = module.plane.email_load_balancer_dns_name == null ? null : {
+      name  = local.email.smtp_domain
+      type  = "MX"
+      value = "10 ${module.plane.email_load_balancer_dns_name}"
+    }
+  }
 }
 
 output "vpc_id" {

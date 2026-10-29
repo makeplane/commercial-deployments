@@ -28,19 +28,29 @@ variable "public_subnet_ids" {
   type        = list(string)
 }
 
+variable "install_traefik" {
+  description = "Path A: install Traefik behind an NLB."
+  type        = bool
+}
+
 variable "allowed_cidrs" {
-  description = "Source CIDRs allowed through the NLB."
+  description = "Source CIDRs allowed through the Traefik NLB."
   type        = list(string)
 }
 
-variable "route53_zone_id" {
-  description = "Route 53 zone for DNS-01 (null = HTTP-01)."
+variable "load_balancer_scheme" {
+  description = "Traefik NLB scheme: internet-facing or internal."
   type        = string
 }
 
 variable "issue_certificate" {
-  description = "Install cert-manager: the module issues Plane's certificate."
+  description = "Install cert-manager: the module issues the web certificate with Let's Encrypt (HTTP-01)."
   type        = bool
+}
+
+variable "certificate_secret_arns" {
+  description = "Customer certificate secrets (web, email) External Secrets may read."
+  type        = list(string)
 }
 
 variable "secret_arns" {

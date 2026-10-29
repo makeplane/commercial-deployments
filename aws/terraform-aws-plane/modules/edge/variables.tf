@@ -1,11 +1,6 @@
-variable "domain" {
-  description = "Plane FQDN."
-  type        = string
-}
-
-variable "route53_zone_id" {
-  description = "Route 53 zone for the alias record (null = DNS is managed outside the module)."
-  type        = string
+variable "install_traefik" {
+  description = "Path A: the module installs Traefik (and its NLB)."
+  type        = bool
 }
 
 variable "load_balancer_name" {
@@ -15,15 +10,5 @@ variable "load_balancer_name" {
 
 variable "addons_ready" {
   description = "Available once the add-ons (Traefik and its NLB) are installed."
-  type        = string
-}
-
-variable "email_smtp_domain" {
-  description = "Domain that receives Plane's email (null = email off)."
-  type        = string
-}
-
-variable "email_load_balancer_dns_name" {
-  description = "Hostname of the email NLB, the MX target."
   type        = string
 }

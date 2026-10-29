@@ -30,10 +30,9 @@ module "plane" {
   chart_name                           = var.chart_name
   acme_email                           = var.acme_email
   acme_server                          = var.acme_server
-  allowed_cidrs                        = var.allowed_cidrs
   enable_components                    = var.enable_components
   tags                                 = var.tags
-  route53_zone_id                      = var.route53_zone_id
+  ingress                              = var.ingress
   tls_secret_name                      = var.tls_secret_name
   vpc_cidr                             = var.vpc_cidr
   az_count                             = var.az_count

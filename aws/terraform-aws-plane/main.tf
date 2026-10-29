@@ -13,6 +13,10 @@ data "aws_availability_zones" "available" {
 locals {
   azs = slice(data.aws_availability_zones.available.names, 0, var.az_count)
 
+  # Path A: the module installs Traefik, Plane's routes and the certificates. Path B: none of them.
+  automated    = var.ingress.mode == "automated"
+  lets_encrypt = local.automated && var.acme_email != null
+
   # Plane's email intake domain: a subdomain, so its MX record never collides with a CNAME on domain.
   email  = merge(var.email, { smtp_domain = coalesce(var.email.smtp_domain, "intake.${var.domain}") })
   region = data.aws_region.current.region
@@ -66,18 +70,23 @@ module "data" {
 module "addons" {
   source = "./modules/addons"
 
-  name              = var.name
-  region            = local.region
-  cluster_name      = module.cluster.cluster_name
-  vpc_id            = module.network.vpc_id
-  vpc_cidr          = var.vpc_cidr
-  public_subnet_ids = module.network.public_subnet_ids
-  allowed_cidrs     = var.allowed_cidrs
-  route53_zone_id   = var.route53_zone_id
-  issue_certificate = var.acme_email != null
-  secret_arns       = module.data.secret_arns
-  kms_key_arn       = module.data.kms_key_arn
-  tags              = local.tags
+  name                 = var.name
+  region               = local.region
+  cluster_name         = module.cluster.cluster_name
+  vpc_id               = module.network.vpc_id
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_ids    = module.network.public_subnet_ids
+  install_traefik      = local.automated
+  allowed_cidrs        = var.ingress.allowed_cidrs
+  load_balancer_scheme = var.ingress.scheme
+  issue_certificate    = local.lets_encrypt
+  certificate_secret_arns = compact([
+    local.automated ? var.ingress.tls_certificate_secret_arn : null,
+    local.email.enabled ? local.email.certificate_secret_arn : null,
+  ])
+  secret_arns = module.data.secret_arns
+  kms_key_arn = module.data.kms_key_arn
+  tags        = local.tags
 
   # Helm releases need the node group and the creator's access entry, not only the control
   # plane. An explicit signal instead of a module-level depends_on, which would defer every
@@ -85,17 +94,13 @@ module "addons" {
   cluster_ready = module.cluster.ready
 }
 
-# DNS for the NLB the LB controller creates once Traefik is installed.
+# The NLB in front of the module's Traefik (path A). The module creates no DNS records.
 module "edge" {
   source = "./modules/edge"
 
-  domain             = var.domain
-  route53_zone_id    = var.route53_zone_id
+  install_traefik    = local.automated
   load_balancer_name = module.addons.load_balancer_name
   addons_ready       = module.addons.ready
-
-  email_smtp_domain            = local.email.load_balancer ? local.email.smtp_domain : null
-  email_load_balancer_dns_name = module.plane.email_load_balancer_dns_name
 }
 
 module "plane" {
@@ -114,22 +119,26 @@ module "plane" {
   public_subnet_ids = module.network.public_subnet_ids
   chart_repository  = var.chart_repository
   chart_name        = var.chart_name
-  route53_zone_id   = var.route53_zone_id
-  acme_email        = var.acme_email
+  ingress_enabled   = local.automated
+  acme_email        = local.lets_encrypt ? var.acme_email : null
   acme_server       = var.acme_server
-  helm_timeout      = var.helm_timeout
-  plane_values      = var.plane_values
-  data              = module.data.plane_inputs
-  tags              = local.tags
+
+  tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
+  helm_timeout               = var.helm_timeout
+  plane_values               = var.plane_values
+  data                       = module.data.plane_inputs
+  tags                       = local.tags
 
   # The chart's extraObjects need the External Secrets, cert-manager and Traefik CRDs and
   # webhooks; on destroy, Plane must go before Traefik and the LB controller.
   addons_ready = module.addons.ready
 }
 
-check "certificate_inputs" {
+# Path A without an email certificate still works (the email app self-signs, fine for receiving
+# mail); ask for one without blocking the apply.
+check "email_certificate" {
   assert {
-    condition     = var.route53_zone_id == null || var.acme_email != null
-    error_message = "acme_email is required when route53_zone_id is set: the module issues the certificate through Let's Encrypt."
+    condition     = !local.automated || !local.email.enabled || !local.email.load_balancer || local.email.certificate_secret_arn != null
+    error_message = "No email certificate (email.certificate_secret_arn): the email service uses a self-signed one. That's fine for receiving mail; store a certificate in Secrets Manager and set email.certificate_secret_arn for a trusted one."
   }
 }

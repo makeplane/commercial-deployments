@@ -1,16 +1,44 @@
-# Copy to terraform.tfvars. Set name and domain; uncomment anything you want to change.
-# Commented values are the defaults. For objects, set only the fields you change.
+# Copy to terraform.tfvars. Set name and domain, pick how traffic reaches Plane, and uncomment anything else you want
+# to change. Commented values are the defaults. For objects, set only the fields you change.
 
 name   = "plane"             # never change after install
 domain = "plane.example.com" # never change after install
 
+################################################################################
+# How traffic reaches Plane: pick ONE block and uncomment it.
+# The module configures no DNS. After the apply, create the records shown by:  terraform output dns_records
+################################################################################
+
+# Path A: automated. The module installs Traefik, Plane's routes and the certificates.
+
+# A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
+# ingress    = { mode = "automated" }
+# acme_email = "ops@example.com"
+# email      = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; else self-signed
+
+# A.2  Your own certificates, stored in Secrets Manager before the apply (JSON keys "tls.crt" and "tls.key")
+# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/web-tls" }
+# email   = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; same ARN if it covers both names
+
+# Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
+# apply Plane's routes, add your certificate and DNS records.
+
+################################################################################
+# Everything else (defaults)
+################################################################################
+
 # region = "us-east-1"
 # tags   = {}
 
+# ingress = {
+#   mode                       = "none"            # automated (path A) | none (path B)
+#   allowed_cidrs              = ["0.0.0.0/0"]     # path A: who can reach Plane
+#   scheme                     = "internet-facing" # path A: or internal (not with Let's Encrypt)
+#   tls_certificate_secret_arn = null              # path A: your web certificate (A.2)
+# }
 # acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
 # tls_secret_name = "plane-tls"
 
-# allowed_cidrs                        = ["0.0.0.0/0"] # who can reach Plane
 # cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # who can reach the EKS API
 # cluster_admin_principal_arns         = []
 
@@ -68,9 +96,10 @@ domain = "plane.example.com" # never change after install
 # }
 
 # email = {
-#   enabled       = true
-#   smtp_domain   = null # default: intake.<domain>
-#   load_balancer = true
+#   enabled                = true
+#   smtp_domain            = null # default: intake.<domain>
+#   load_balancer          = true
+#   certificate_secret_arn = null # your email certificate; else self-signed
 # }
 
 # enable_components = {
@@ -89,22 +118,9 @@ domain = "plane.example.com" # never change after install
 # plane_values     = "" # extra chart values (YAML), no secrets
 # deployment_mode  = "eks"
 
-# Unset by default:
-# route53_zone_id = "Z0123456789ABCDEFGHIJ" # Route 53 zone: automatic DNS + certificate
-# acme_email      = "ops@example.com"       # Let's Encrypt certificate (needed with route53_zone_id)
+# acme_email = null # Let's Encrypt account email (path A, A.1)
 
-# Examples
-#
-# Domain in Route 53:
-#   route53_zone_id = "Z0123456789ABCDEFGHIJ"
-#   acme_email      = "ops@example.com"
-#
-# Domain elsewhere (Cloudflare, ...): set acme_email, then CNAME the domain to the load_balancer_dns_name output.
-#
 # Test install you will destroy:
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }
 #   bucket_force_destroy = true
-#
-# More nodes:
-#   node_group = { desired_size = 3 }

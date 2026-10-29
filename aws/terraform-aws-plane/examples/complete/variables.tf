@@ -51,9 +51,10 @@ variable "chart_name" {
 
 variable "acme_email" {
   description = <<-EOT
-    Let's Encrypt account email. When set, the module issues Plane's certificate with cert-manager: DNS-01 through
-    Route 53 when route53_zone_id is set, otherwise HTTP-01 through Traefik (domain must already resolve to the load
-    balancer, port 80 open). When null, provide the certificate yourself (tls_secret_name). Required with route53_zone_id.
+    Path A (ingress.mode = "automated"), variant A.1: the Let's Encrypt account email. cert-manager issues the web
+    certificate with HTTP-01 through Traefik: Plane must be public on port 80, and the certificate is issued once your
+    DNS record for domain points at load_balancer_dns_name. Leave null for your own certificates
+    (ingress.tls_certificate_secret_arn, variant A.2) or for path B.
   EOT
   type        = string
   default     = null
@@ -62,12 +63,6 @@ variable "acme_email" {
 variable "acme_server" {
   description = "ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits."
   type        = string
-  default     = null
-}
-
-variable "allowed_cidrs" {
-  description = "Source CIDRs allowed to reach Plane on 443/80 through the load balancer."
-  type        = list(string)
   default     = null
 }
 
@@ -87,18 +82,27 @@ variable "tags" {
   default     = null
 }
 
-variable "route53_zone_id" {
+variable "ingress" {
   description = <<-EOT
-    Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer
-    and issues the certificate with DNS-01 (set acme_email). When null, you create the DNS record (CNAME to
-    load_balancer_dns_name); the certificate then comes from HTTP-01 (acme_email) or from you. See the README.
+    How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind an NLB, Plane's routes and
+    the certificates (Let's Encrypt via acme_email, or your own via tls_certificate_secret_arn). mode = "none" (path B,
+    default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and
+    DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns_records output).
+    Path A only: allowed_cidrs (who can reach Plane), scheme (internet-facing or internal) and
+    tls_certificate_secret_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted
+    with the default aws/secretsmanager key or this module's KMS key).
   EOT
-  type        = string
-  default     = null
+  type = object({
+    mode                       = optional(string)
+    allowed_cidrs              = optional(list(string))
+    scheme                     = optional(string)
+    tls_certificate_secret_arn = optional(string)
+  })
+  default = null
 }
 
 variable "tls_secret_name" {
-  description = "Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when acme_email is set; created by the operator otherwise."
+  description = "Path A: name of the Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager (acme_email) or by External Secrets from ingress.tls_certificate_secret_arn."
   type        = string
   default     = null
 }
@@ -236,15 +240,17 @@ variable "email" {
   description = <<-EOT
     Plane's email service (inbound email to work items). On by default with its own internet-facing NLB (ports 25 SMTP,
     465 SMTPS, 587 submission), the sender's IP preserved. smtp_domain is the domain that receives mail (default
-    "intake.<domain>"): point its MX record at the email_load_balancer_dns_name output (the module does it with
-    route53_zone_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53 zone;
-    otherwise the email app's own self-signed certificate. load_balancer = false keeps the service running with no load
+    "intake.<domain>"): create its MX record pointing at the email_load_balancer_dns_name output (see dns_records).
+    Certificate: your own via certificate_secret_arn (a Secrets Manager secret like ingress.tls_certificate_secret_arn),
+    else the email app's own self-signed certificate (fine for receiving mail). load_balancer = false keeps the
+    service running with no load
     balancer (not reachable from the internet); enabled = false turns it off. Needs plane-enterprise chart 3.11.3+.
   EOT
   type = object({
-    enabled       = optional(bool)
-    smtp_domain   = optional(string)
-    load_balancer = optional(bool)
+    enabled                = optional(bool)
+    smtp_domain            = optional(string)
+    load_balancer          = optional(bool)
+    certificate_secret_arn = optional(string)
   })
   default = null
 }

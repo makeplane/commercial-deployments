@@ -47,17 +47,23 @@ variable "tls_secret_name" {
   type        = string
 }
 
-variable "route53_zone_id" {
-  description = "Route 53 zone for DNS-01 (null = HTTP-01 when acme_email is set)."
+variable "ingress_enabled" {
+  description = "Path A: render Plane's Traefik routes (and issue or sync the web certificate)."
+  type        = bool
+}
+
+variable "tls_certificate_secret_arn" {
+  description = "Path A: customer web certificate in Secrets Manager (null = Let's Encrypt, if acme_email)."
   type        = string
 }
 
 variable "email" {
   description = "Plane's email service: on, the domain that receives mail, and whether it gets its own NLB."
   type = object({
-    enabled       = bool
-    smtp_domain   = string
-    load_balancer = bool
+    enabled                = bool
+    smtp_domain            = string
+    load_balancer          = bool
+    certificate_secret_arn = string
   })
 }
 
