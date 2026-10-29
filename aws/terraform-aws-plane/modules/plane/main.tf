@@ -1,5 +1,5 @@
-# Plane itself: one Helm release of plane-enterprise. Secrets, the DB bootstrap Job and (with a
-# Route 53 zone) the certificate travel in the chart's own extraObjects, so there is no
+# Plane itself: one Helm release of plane-enterprise. Secrets, the DB bootstrap Job and (with
+# acme_email) the certificate travel in the chart's own extraObjects, so there is no
 # module-side chart and no kubernetes provider.
 
 locals {
@@ -9,7 +9,9 @@ locals {
   service_account = "${local.release}-srv-account"
 
   secret_store = "aws-secrets-manager"
-  issue_cert   = var.route53_zone_id != null
+  issue_cert   = var.acme_email != null
+  # DNS-01 through Route 53 when the module has the zone; otherwise HTTP-01 through Traefik.
+  dns01 = var.route53_zone_id != null
 
   # Every workload that reads a Secret gets the Reloader annotation, so a rotated credential
   # rolls the pods (Reloader reads it on the workload, which the chart sets from
@@ -82,7 +84,7 @@ locals {
     }
   }
 
-  # Issuer + certificate only when the module owns DNS (Route 53); slice keeps the tuple type stable.
+  # Issuer + certificate only when acme_email is set; slice keeps the tuple type stable.
   certificate_objects = slice([
     {
       apiVersion = "cert-manager.io/v1"
@@ -93,8 +95,12 @@ locals {
           server              = var.acme_server
           email               = var.acme_email
           privateKeySecretRef = { name = "plane-letsencrypt-account" }
-          # Ambient credentials: cert-manager's Pod Identity role, scoped to this zone.
-          solvers = [{ dns01 = { route53 = { region = var.region, hostedZoneID = var.route53_zone_id } } }]
+          # DNS-01: ambient credentials (cert-manager's Pod Identity role, scoped to the zone).
+          # HTTP-01: cert-manager's challenge Ingress, served by Traefik on port 80.
+          solvers = slice([
+            { dns01 = { route53 = { region = var.region, hostedZoneID = var.route53_zone_id } } },
+            { http01 = { ingress = { ingressClassName = "traefik" } } },
+          ], local.dns01 ? 0 : 1, local.dns01 ? 1 : 2)
         }
       }
     },

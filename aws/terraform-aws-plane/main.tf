@@ -70,6 +70,7 @@ module "addons" {
   public_subnet_ids = module.network.public_subnet_ids
   allowed_cidrs     = var.allowed_cidrs
   route53_zone_id   = var.route53_zone_id
+  issue_certificate = var.acme_email != null
   secret_arns       = module.data.secret_arns
   kms_key_arn       = module.data.kms_key_arn
   tags              = local.tags

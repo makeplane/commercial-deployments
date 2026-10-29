@@ -34,8 +34,13 @@ variable "allowed_cidrs" {
 }
 
 variable "route53_zone_id" {
-  description = "Route 53 zone for DNS-01 (null = no cert-manager)."
+  description = "Route 53 zone for DNS-01 (null = HTTP-01)."
   type        = string
+}
+
+variable "issue_certificate" {
+  description = "Install cert-manager: the module issues Plane's certificate."
+  type        = bool
 }
 
 variable "secret_arns" {

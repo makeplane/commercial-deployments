@@ -48,12 +48,12 @@ variable "tls_secret_name" {
 }
 
 variable "route53_zone_id" {
-  description = "Route 53 zone for DNS-01 (null = manual certificate)."
+  description = "Route 53 zone for DNS-01 (null = HTTP-01 when acme_email is set)."
   type        = string
 }
 
 variable "acme_email" {
-  description = "Let's Encrypt account email."
+  description = "Let's Encrypt account email (null = manual certificate)."
   type        = string
 }
 

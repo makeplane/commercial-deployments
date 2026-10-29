@@ -10,9 +10,10 @@ locals {
   # Fixed name, so Terraform can find the NLB the controller creates (edge module).
   load_balancer_name = "${var.name}-traefik"
 
-  # cert-manager is only needed when the module issues the certificate (Route 53 DNS-01).
-  # Without a zone, the certificate is a manual step in this release.
-  cert_manager_enabled = var.route53_zone_id != null
+  # cert-manager runs when the module issues the certificate. It only needs AWS access (Route 53)
+  # for DNS-01; HTTP-01 goes through Traefik.
+  cert_manager_enabled = var.issue_certificate
+  cert_manager_dns01   = var.issue_certificate && var.route53_zone_id != null
 
   chart_versions = {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs

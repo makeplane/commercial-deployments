@@ -43,7 +43,7 @@ module "cert_manager_pod_identity" {
   source  = "terraform-aws-modules/eks-pod-identity/aws"
   version = "2.10.0"
 
-  count = local.cert_manager_enabled ? 1 : 0
+  count = local.cert_manager_dns01 ? 1 : 0
 
   name                          = "${var.name}-cert-manager"
   attach_cert_manager_policy    = true

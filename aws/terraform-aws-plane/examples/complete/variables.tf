@@ -16,13 +16,13 @@ variable "domain" {
 }
 
 variable "route53_zone_id" {
-  description = "Public hosted zone containing domain. Leave null to create DNS and the certificate by hand (see the module README)."
+  description = "Public hosted zone containing domain. Leave null to create the DNS record yourself (CNAME to load_balancer_dns_name; see the module README)."
   type        = string
   default     = null
 }
 
 variable "acme_email" {
-  description = "Let's Encrypt account email (needed with route53_zone_id)."
+  description = "Let's Encrypt account email. Set it and the module issues the certificate (DNS-01 with route53_zone_id, HTTP-01 without)."
   type        = string
   default     = null
 }

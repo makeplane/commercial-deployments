@@ -9,8 +9,8 @@ terraform init -backend-config=backend.hcl
 terraform apply                                # roughly 35-45 minutes
 ```
 
-Then open the `plane_url` output. Without `route53_zone_id`, follow "DNS and TLS" in the
-[module README](../../README.md) to create the DNS record and certificate.
+Then open the `plane_url` output. Without `route53_zone_id`, create a CNAME for your domain to the
+`load_balancer_dns_name` output; see "DNS and TLS" in the [module README](../../README.md).
 
 To test without hitting Let's Encrypt rate limits, set
 `acme_server = "https://acme-staging-v02.api.letsencrypt.org/directory"`.

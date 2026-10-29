@@ -46,7 +46,11 @@ variable "chart_version" {
 }
 
 variable "acme_email" {
-  description = "Let's Encrypt account email. Required when route53_zone_id is set (the module then issues the certificate itself)."
+  description = <<-EOT
+    Let's Encrypt account email. When set, the module issues Plane's certificate with cert-manager: DNS-01 through
+    Route 53 when route53_zone_id is set, otherwise HTTP-01 through Traefik (domain must already resolve to the load
+    balancer, port 80 open). When null, provide the certificate yourself (tls_secret_name). Required with route53_zone_id.
+  EOT
   type        = string
   default     = null
 }
@@ -61,6 +65,11 @@ variable "allowed_cidrs" {
   description = "Source CIDRs allowed to reach Plane on 443/80 through the load balancer."
   type        = list(string)
   default     = ["0.0.0.0/0"]
+
+  validation {
+    condition     = var.acme_email == null || var.route53_zone_id != null || contains(var.allowed_cidrs, "0.0.0.0/0")
+    error_message = "HTTP-01 (acme_email without route53_zone_id) needs allowed_cidrs to include 0.0.0.0/0: Let's Encrypt validates from the internet on port 80. Use a Route 53 zone (DNS-01) or your own certificate to restrict access."
+  }
 }
 
 variable "enable_components" {
@@ -85,15 +94,16 @@ variable "tags" {
 
 variable "route53_zone_id" {
   description = <<-EOT
-    Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer and issues the certificate
-    (cert-manager, DNS-01). When null, DNS and the certificate are a manual step: see the README.
+    Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer
+    and issues the certificate with DNS-01 (set acme_email). When null, you create the DNS record (CNAME to
+    load_balancer_dns_name); the certificate then comes from HTTP-01 (acme_email) or from you. See the README.
   EOT
   type        = string
   default     = null
 }
 
 variable "tls_secret_name" {
-  description = "Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when route53_zone_id is set; created by the operator otherwise."
+  description = "Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when acme_email is set; created by the operator otherwise."
   type        = string
   default     = "plane-tls"
 }

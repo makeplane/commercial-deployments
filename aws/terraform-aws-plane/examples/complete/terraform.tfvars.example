@@ -2,9 +2,10 @@ region = "us-east-1"
 name   = "plane"
 domain = "plane.example.com"
 
-# Route 53 public zone containing the domain. Remove to create DNS and the certificate by hand.
+# Route 53 public zone containing the domain: the module writes the DNS record. Remove it to create a CNAME to the
+# load_balancer_dns_name output yourself; with acme_email kept, the certificate then comes from HTTP-01.
 route53_zone_id = "Z0123456789ABCDEFGHIJ"
-acme_email      = "ops@example.com"
+acme_email      = "ops@example.com" # remove to provide your own certificate
 
 # vpc_cidr = "10.60.0.0/16"  # change if it overlaps a network you will peer or VPN with
 

@@ -17,7 +17,7 @@ output "load_balancer_name" {
 }
 
 output "cert_manager_enabled" {
-  description = "Whether cert-manager is installed (Route 53 DNS-01)."
+  description = "Whether cert-manager is installed (the module issues the certificate)."
   value       = local.cert_manager_enabled
 }
 

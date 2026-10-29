@@ -64,20 +64,40 @@ A full example is in [`examples/complete`](examples/complete).
 
 ## DNS and TLS
 
-**With `route53_zone_id`:** the module creates an alias record pointing at the load balancer and issues a Let's
-Encrypt certificate with cert-manager (DNS-01). Nothing to do by hand. Set `acme_email`.
+The load balancer's IPs are assigned by AWS and can change, so DNS always points at its hostname
+(`load_balancer_dns_name` output). The certificate is issued by cert-manager (Let's Encrypt) whenever `acme_email` is
+set.
 
-**Without a zone (manual step):**
-1. `terraform apply`. Plane comes up serving Traefik's default certificate.
-2. Point your domain at the `load_balancer_dns_name` output with a **CNAME**, in whatever DNS you use. Don't create
-   A records to the load balancer's current IPs: AWS assigns them and they can change. For a zone apex, use your
-   provider's alias/flattening record instead.
-3. Create the certificate Secret Traefik serves:
-   ```bash
-   aws eks update-kubeconfig --name <cluster_name> --region <region>   # see the configure_kubectl output
-   kubectl -n plane create secret tls plane-tls --cert=fullchain.pem --key=privkey.pem
-   ```
-4. Traefik picks it up without a restart. Replace the Secret before it expires.
+| `route53_zone_id` | `acme_email` | DNS record | Certificate |
+|---|---|---|---|
+| set | set (required) | Alias record, created by the module | Let's Encrypt, **DNS-01** through Route 53 |
+| null | set | **You** create a CNAME to `load_balancer_dns_name` | Let's Encrypt, **HTTP-01** through Traefik |
+| null | null | **You** create a CNAME to `load_balancer_dns_name` | **You** create the Secret (below) |
+
+**HTTP-01 needs:**
+- the domain to resolve publicly to the load balancer. Create the CNAME after `terraform apply` (the hostname is an
+  output). cert-manager keeps checking until the record exists, then issues the certificate within minutes;
+- port 80 reachable from the internet: `allowed_cidrs` must include `0.0.0.0/0` (the module checks this). For a
+  private install, use a Route 53 zone or your own certificate.
+
+For a zone apex (no subdomain), use your DNS provider's alias/flattening record instead of a CNAME. If the provider can
+proxy traffic (e.g. Cloudflare), keep it DNS-only: Traefik terminates TLS. Use the Let's Encrypt staging server
+(`acme_server`) while testing, to stay clear of rate limits.
+
+Check the certificate:
+
+```bash
+aws eks update-kubeconfig --name <cluster_name> --region <region>   # see the configure_kubectl output
+kubectl -n plane get certificate                                    # READY = True
+```
+
+**Your own certificate** (no `acme_email`): until it exists, Traefik serves its default self-signed certificate.
+
+```bash
+kubectl -n plane create secret tls plane-tls --cert=fullchain.pem --key=privkey.pem
+```
+
+Traefik picks it up without a restart. Replace the Secret before it expires.
 
 ## After install
 
@@ -137,7 +157,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | ---- | ----------- | ---- | ------- | :------: |
 | domain | FQDN Plane is served on. It is also the licence domain and part of the instance identity, so it must never change after install. | `string` | n/a | yes |
 | name | Prefix for every resource the module creates. Lowercase letters, digits and hyphens, at most 20 characters. | `string` | n/a | yes |
-| acme\_email | Let's Encrypt account email. Required when route53\_zone\_id is set (the module then issues the certificate itself). | `string` | `null` | no |
+| acme\_email | Let's Encrypt account email. When set, the module issues Plane's certificate with cert-manager: DNS-01 through<br/>Route 53 when route53\_zone\_id is set, otherwise HTTP-01 through Traefik (domain must already resolve to the load<br/>balancer, port 80 open). When null, provide the certificate yourself (tls\_secret\_name). Required with route53\_zone\_id. | `string` | `null` | no |
 | acme\_server | ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits. | `string` | `"https://acme-v02.api.letsencrypt.org/directory"` | no |
 | addon\_versions | EKS managed add-on versions. null for an add-on means the most recent version for kubernetes\_version. | <pre>object({<br/>    vpc_cni                = optional(string, "v1.23.2-eksbuild.8")<br/>    coredns                = optional(string, "v1.14.7-eksbuild.22")<br/>    kube_proxy             = optional(string, "v1.36.0-eksbuild.58")<br/>    eks_pod_identity_agent = optional(string, "v1.4.1-eksbuild.3")<br/>    aws_ebs_csi_driver     = optional(string, "v1.67.2-eksbuild.1")<br/>  })</pre> | `{}` | no |
 | allowed\_cidrs | Source CIDRs allowed to reach Plane on 443/80 through the load balancer. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
@@ -156,10 +176,10 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | Amazon MQ for RabbitMQ. | <pre>object({<br/>    engine_version  = optional(string, "3.13")<br/>    instance_type   = optional(string, "mq.m7g.medium")<br/>    deployment_mode = optional(string, "CLUSTER_MULTI_AZ")<br/>  })</pre> | `{}` | no |
 | redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 0)<br/>  })</pre> | `{}` | no |
-| route53\_zone\_id | Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer and issues the certificate<br/>(cert-manager, DNS-01). When null, DNS and the certificate are a manual step: see the README. | `string` | `null` | no |
+| route53\_zone\_id | Public Route 53 hosted zone that contains domain. When set, the module writes an alias record to the load balancer<br/>and issues the certificate with DNS-01 (set acme\_email). When null, you create the DNS record (CNAME to<br/>load\_balancer\_dns\_name); the certificate then comes from HTTP-01 (acme\_email) or from you. See the README. | `string` | `null` | no |
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
-| tls\_secret\_name | Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when route53\_zone\_id is set; created by the operator otherwise. | `string` | `"plane-tls"` | no |
+| tls\_secret\_name | Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when acme\_email is set; created by the operator otherwise. | `string` | `"plane-tls"` | no |
 | vpc\_cidr | CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module. | `string` | `"10.60.0.0/16"` | no |
 
 ## Outputs
