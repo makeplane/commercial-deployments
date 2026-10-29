@@ -54,7 +54,7 @@ A full example is in [`examples/complete`](examples/complete).
 
 ## Prerequisites
 
-- Terraform ≥ 1.9 and the **AWS CLI v2** (Helm authenticates to EKS with `aws eks get-token`).
+- Terraform ≥ 1.10 (S3 state locking with `use_lockfile`) and the **AWS CLI v2** (Helm authenticates to EKS with `aws eks get-token`).
 - Credentials allowed to create VPC, EKS, IAM roles, RDS, ElastiCache, Amazon MQ, S3, KMS, Secrets Manager,
   Elastic IPs and (with a zone) Route 53 records.
 - Network access from where you run Terraform to the EKS API endpoint. It's public by default; restrict it with
@@ -99,7 +99,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 
 | Name | Version |
 | ---- | ------- |
-| terraform | >= 1.9 |
+| terraform | >= 1.10 |
 | aws | >= 6.28 |
 | helm | >= 3.0 |
 | random | >= 3.6 |

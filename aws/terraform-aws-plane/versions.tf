@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.9"
+  required_version = ">= 1.10"
 
   # Lower bounds only. Examples and templates pin exact versions and commit their lock file.
   required_providers {
