@@ -1,16 +1,19 @@
 # Complete example
 
-An empty AWS account to a running Plane on EKS.
+An empty AWS account to a running Plane on EKS. **`terraform.tfvars` is the one place to configure it:** this example
+declares every module input under the same name and passes it straight through, and anything you don't set keeps the
+module's default.
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars   # set domain, route53_zone_id, acme_email, admin_cidrs
+cp terraform.tfvars.example terraform.tfvars   # set name and domain; uncomment anything else you want to change
 cp backend.hcl.example backend.hcl             # set the state bucket: state holds generated secrets
 terraform init -backend-config=backend.hcl
-terraform apply                                # roughly 35-45 minutes
+terraform apply                                # 45-75 minutes on a fresh install
 ```
+
+`terraform.tfvars.example` lists every setting with its default value and what it does, followed by common
+combinations (Route 53, another DNS provider, your own certificate, a test install, lower cost, more capacity, private
+access). For objects, set only the fields you change, e.g. `node_group = { desired_size = 3 }`.
 
 Then open the `plane_url` output. Without `route53_zone_id`, create a CNAME for your domain to the
 `load_balancer_dns_name` output; see "DNS and TLS" in the [module README](../../README.md).
-
-To test without hitting Let's Encrypt rate limits, set
-`acme_server = "https://acme-staging-v02.api.letsencrypt.org/directory"`.

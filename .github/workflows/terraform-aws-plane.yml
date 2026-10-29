@@ -77,3 +77,11 @@ jobs:
       - name: Check README
         working-directory: aws/terraform-aws-plane
         run: /tmp/terraform-docs --config .terraform-docs.yml --output-check .
+      # examples/complete is the one place customers set inputs (terraform.tfvars): it must declare
+      # every module input, under the same name, and nothing else (plus region for the provider).
+      - name: Example declares every module input
+        working-directory: aws/terraform-aws-plane
+        run: |
+          grep -h '^variable "' variables.tf | cut -d'"' -f2 | sort > /tmp/module-inputs
+          grep -h '^variable "' examples/complete/*.tf | cut -d'"' -f2 | grep -vx region | sort > /tmp/example-inputs
+          diff -u /tmp/module-inputs /tmp/example-inputs

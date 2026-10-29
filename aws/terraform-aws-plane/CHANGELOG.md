@@ -28,4 +28,7 @@
   agent-consumer, webhook-consumer, iframely, worker-importers), as in today's managed deployment.
   api, worker, web and live run 2 replicas with PodDisruptionBudgets. Any attachment type allowed, as today. The
   Plane AI database job only runs when pi is on.
-- `examples/complete`.
+- `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
+  input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
+  defaulted input). `terraform.tfvars.example` lists every setting with its default and a comment, plus common
+  combinations. CI checks that the example declares exactly the module's inputs.

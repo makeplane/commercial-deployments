@@ -26,6 +26,7 @@ variable "deployment_mode" {
   description = "How Plane runs. Only \"eks\" is available in this release; \"docker\" (one EC2 instance with prime-cli) comes in v0.2."
   type        = string
   default     = "eks"
+  nullable    = false
 
   validation {
     condition     = contains(["eks"], var.deployment_mode)
@@ -37,6 +38,7 @@ variable "plane_version" {
   description = "Plane release to install (chart planeVersion)."
   type        = string
   default     = "v4.0.1"
+  nullable    = false
 }
 
 variable "chart_version" {
@@ -74,12 +76,14 @@ variable "acme_server" {
   description = "ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits."
   type        = string
   default     = "https://acme-v02.api.letsencrypt.org/directory"
+  nullable    = false
 }
 
 variable "allowed_cidrs" {
   description = "Source CIDRs allowed to reach Plane on 443/80 through the load balancer."
   type        = list(string)
   default     = ["0.0.0.0/0"]
+  nullable    = false
 
   validation {
     condition     = var.acme_email == null || var.route53_zone_id != null || contains(var.allowed_cidrs, "0.0.0.0/0")
@@ -94,13 +98,15 @@ variable "enable_components" {
     drawio = optional(bool, true)
     pi     = optional(bool, false)
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "tags" {
   description = "Tags applied to every AWS resource."
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 ################################################################################
@@ -121,6 +127,7 @@ variable "tls_secret_name" {
   description = "Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager when acme_email is set; created by the operator otherwise."
   type        = string
   default     = "plane-tls"
+  nullable    = false
 }
 
 ################################################################################
@@ -131,12 +138,14 @@ variable "vpc_cidr" {
   description = "CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module."
   type        = string
   default     = "10.60.0.0/16"
+  nullable    = false
 }
 
 variable "az_count" {
   description = "Availability zones to use. The RDS Multi-AZ DB cluster needs at least 3."
   type        = number
   default     = 3
+  nullable    = false
 
   validation {
     condition     = var.az_count >= 3
@@ -148,6 +157,7 @@ variable "single_nat_gateway" {
   description = "One shared NAT gateway (cheaper, as today's module) instead of one per AZ."
   type        = bool
   default     = true
+  nullable    = false
 }
 
 ################################################################################
@@ -158,18 +168,21 @@ variable "kubernetes_version" {
   description = "EKS Kubernetes version."
   type        = string
   default     = "1.36"
+  nullable    = false
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
   description = "CIDRs allowed to reach the public EKS API endpoint. The private endpoint is always on. Restrict this to your office, VPN or CI ranges."
   type        = list(string)
   default     = ["0.0.0.0/0"]
+  nullable    = false
 }
 
 variable "cluster_admin_principal_arns" {
   description = "IAM principal ARNs granted cluster-admin through EKS access entries. The identity running Terraform is added automatically."
   type        = list(string)
   default     = []
+  nullable    = false
 }
 
 variable "node_group" {
@@ -204,19 +217,22 @@ variable "addon_versions" {
     eks_pod_identity_agent = optional(string, "v1.4.1-eksbuild.3")
     aws_ebs_csi_driver     = optional(string, "v1.67.2-eksbuild.1")
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "helm_timeout" {
   description = "Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes."
   type        = number
   default     = 3600
+  nullable    = false
 }
 
 variable "plane_values" {
   description = "Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release."
   type        = string
   default     = ""
+  nullable    = false
 }
 
 ################################################################################
@@ -234,7 +250,8 @@ variable "postgres" {
     backup_retention_days = optional(number, 14)
     deletion_protection   = optional(bool, true)
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "redis" {
@@ -244,7 +261,8 @@ variable "redis" {
     node_type      = optional(string, "cache.t3.medium")
     replicas       = optional(number, 0)
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "rabbitmq" {
@@ -254,7 +272,8 @@ variable "rabbitmq" {
     instance_type   = optional(string, "mq.m7g.medium")
     deployment_mode = optional(string, "CLUSTER_MULTI_AZ")
   })
-  default = {}
+  default  = {}
+  nullable = false
 
   validation {
     condition     = contains(["SINGLE_INSTANCE", "CLUSTER_MULTI_AZ"], var.rabbitmq.deployment_mode)
@@ -279,7 +298,8 @@ variable "opensearch" {
     # needs the indexes created again and re-filled (manage_search_index index create + document index).
     index_prefix = optional(string, "plane")
   })
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 variable "email" {
@@ -309,4 +329,5 @@ variable "bucket_force_destroy" {
   description = "Allow terraform destroy to delete the uploads bucket even when it holds objects."
   type        = bool
   default     = false
+  nullable    = false
 }
