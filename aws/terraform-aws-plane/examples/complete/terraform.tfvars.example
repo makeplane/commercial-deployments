@@ -1,0 +1,9 @@
+region = "us-east-1"
+name   = "plane"
+domain = "plane.example.com"
+
+# Route 53 public zone containing the domain. Remove to create DNS and the certificate by hand.
+route53_zone_id = "Z0123456789ABCDEFGHIJ"
+acme_email      = "ops@example.com"
+
+admin_cidrs = ["203.0.113.10/32"]

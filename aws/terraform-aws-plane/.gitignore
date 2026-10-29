@@ -1,0 +1,2 @@
+# Reusable module: no lock file at the module root (examples commit theirs).
+/.terraform.lock.hcl

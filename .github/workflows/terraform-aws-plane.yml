@@ -1,0 +1,77 @@
+name: terraform-aws-plane
+
+on:
+  pull_request:
+    paths:
+      - "aws/terraform-aws-plane/**"
+      - ".github/workflows/terraform-aws-plane.yml"
+  push:
+    branches: [main]
+    paths:
+      - "aws/terraform-aws-plane/**"
+      - ".github/workflows/terraform-aws-plane.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: aws/terraform-aws-plane
+
+jobs:
+  static:
+    name: fmt, validate, tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.10.5"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform validate (module)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: terraform validate (examples)
+        run: |
+          for d in examples/*/; do
+            echo "::group::$d"
+            terraform -chdir="$d" init -backend=false -input=false
+            terraform -chdir="$d" validate
+            echo "::endgroup::"
+          done
+
+      - uses: terraform-linters/setup-tflint@v6
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$PWD/.tflint.hcl"
+          tflint --recursive --config "$PWD/.tflint.hcl" --format compact
+
+  checkov:
+    name: checkov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: aws/terraform-aws-plane
+          config_file: aws/terraform-aws-plane/.checkov.yml
+
+  docs:
+    name: terraform-docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: aws/terraform-aws-plane
+          config-file: .terraform-docs.yml
+          output-method: inject
+          fail-on-diff: true
