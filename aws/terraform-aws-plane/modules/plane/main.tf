@@ -228,7 +228,8 @@ locals {
 
       # Managed OpenSearch, keyless: with no username/password and a pod identity, the api signs
       # with SigV4 (region from aws_region). Empty = search indexing off.
-      opensearch_remote_url = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
+      opensearch_remote_url   = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
+      opensearch_index_prefix = var.data.opensearch_enabled ? var.data.opensearch_prefix : ""
 
       # silo publishes imports to worker_importers' queue (chart default: the main worker's).
       silo_envs = { importers_queue_name = "celery.importer" }

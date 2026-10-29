@@ -53,6 +53,7 @@ variable "opensearch" {
     instance_type  = string
     instance_count = number
     volume_size_gb = number
+    index_prefix   = string
   })
 }
 

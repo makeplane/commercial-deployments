@@ -18,7 +18,9 @@
   self-signed certificate otherwise. `email.load_balancer = false` keeps the service without a load balancer.
 - Plane v4.0.1 on plane-enterprise chart 3.11.3 (configurable email Service, `/dav/` route, unbuffered live streaming).
   `chart_repository` and `chart_name` to test a preview build.
-- Amazon OpenSearch Service on by default, as today.
+- Amazon OpenSearch Service on by default, as today. Search indexes are created by the chart's post-install/upgrade Job
+  (3.11.3); index names use the `opensearch.index_prefix`, default `plane`, as today.
+- `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - Imports run on worker-importers' own queue; the RDS-managed database password is re-read every minute (RDS rotates it
   every 7 days); api, worker, web and live replicas spread across nodes.
 - Plane's background services for paid features on by default (outbox-poller, automation-consumer, runner,

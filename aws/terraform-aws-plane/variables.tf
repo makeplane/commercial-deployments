@@ -262,6 +262,9 @@ variable "opensearch" {
     instance_type  = optional(string, "r7g.large.search")
     instance_count = optional(number, 2)
     volume_size_gb = optional(number, 10)
+    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install
+    # needs the indexes created again and re-filled (manage_search_index index create + document index).
+    index_prefix = optional(string, "plane")
   })
   default = {}
 }

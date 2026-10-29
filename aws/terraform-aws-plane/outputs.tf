@@ -87,3 +87,8 @@ output "plane_iam_role_arn" {
   description = "IAM role Plane's pods use through EKS Pod Identity."
   value       = module.plane.iam_role_arn
 }
+
+output "plane_helm_values" {
+  description = "The plane-enterprise chart values the module generates from the infrastructure (YAML): endpoints, bucket, region, domain, load balancer and Secret names; no secret values. Excludes plane_values. For support, debugging and reading what was installed."
+  value       = module.plane.helm_values
+}

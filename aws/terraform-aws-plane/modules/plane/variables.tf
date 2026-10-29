@@ -118,6 +118,7 @@ variable "data" {
     opensearch_endpoint    = string
     opensearch_domain_name = string
     opensearch_domain_arn  = string
+    opensearch_prefix      = string
   })
 }
 

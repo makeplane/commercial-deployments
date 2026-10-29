@@ -60,6 +60,7 @@ output "plane_inputs" {
     opensearch_endpoint    = local.opensearch_enabled ? aws_opensearch_domain.this[0].endpoint : null
     opensearch_domain_name = local.opensearch_enabled ? aws_opensearch_domain.this[0].domain_name : null
     opensearch_domain_arn  = local.opensearch_enabled ? aws_opensearch_domain.this[0].arn : null
+    opensearch_prefix      = var.opensearch.index_prefix
   }
 
   # The nodes must be able to reach the services before Plane's DB-init Job and workloads start.

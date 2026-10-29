@@ -109,11 +109,15 @@ Identity role (SigV4): there are no users or passwords, and the domain policy al
 `opensearch = { enabled = false }` to run without it: Plane then has search indexing off, and search behaves
 differently from today's installs.
 
-**After the first install with OpenSearch** (or after turning it on later), create the search indexes once:
+**Search indexes are created automatically:** after every install and upgrade, the chart's `plane-api-search-index`
+Job (plane-enterprise 3.11.3+) waits for the database migrations and creates any missing index. Index names are
+`<opensearch.index_prefix>_<name>` (prefix `plane`, as today's deployments). Changing mappings stays manual, when a
+Plane release's notes ask for it:
 
 ```bash
-kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index index create --force
-# Turned on for an install that already has data: also index the existing documents
+kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index list
+kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index index update --force   # added fields
+kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index index rebuild --force  # changed mappings, then:
 kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index document index --force
 ```
 
@@ -215,7 +219,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |
 | node\_group | The managed node group. Fixed size (no autoscaler in this release): change count and re-apply to scale. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    count          = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
-| opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). After<br/>the first install, create the search indexes once (see the README). enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
+| opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). After<br/>the first install, create the search indexes once (see the README). enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
@@ -240,6 +244,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | email\_load\_balancer\_dns\_name | Hostname of the email NLB (null when email is off). Point email.smtp\_domain's MX record here when route53\_zone\_id is null. |
 | kms\_key\_arn | KMS key encrypting RDS, ElastiCache, S3 and the secrets. |
 | load\_balancer\_dns\_name | Hostname of the load balancer. Its IPs are assigned by AWS and can change: when route53\_zone\_id is null, point domain here with a CNAME (or an alias record), never A records to its current IPs. |
+| plane\_helm\_values | The plane-enterprise chart values the module generates from the infrastructure (YAML): endpoints, bucket, region, domain, load balancer and Secret names; no secret values. Excludes plane\_values. For support, debugging and reading what was installed. |
 | plane\_iam\_role\_arn | IAM role Plane's pods use through EKS Pod Identity. |
 | plane\_url | URL Plane is served on. |
 | private\_subnet\_ids | Private subnet IDs. |

@@ -17,3 +17,8 @@ output "email_load_balancer_dns_name" {
   description = "Hostname of the email NLB (null without email.load_balancer)."
   value       = var.email.load_balancer ? data.aws_lb.email[0].dns_name : null
 }
+
+output "helm_values" {
+  description = "The plane-enterprise values the module generates (YAML), without the caller's plane_values."
+  value       = yamlencode(local.values)
+}

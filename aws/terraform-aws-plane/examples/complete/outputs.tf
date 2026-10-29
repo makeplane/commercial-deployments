@@ -17,3 +17,8 @@ output "email_load_balancer_dns_name" {
   description = "Email NLB hostname (MX target for email_smtp_domain, default intake.<domain>, when route53_zone_id is null)."
   value       = module.plane.email_load_balancer_dns_name
 }
+
+output "plane_helm_values" {
+  description = "Chart values the module generated (YAML, no secret values)."
+  value       = module.plane.plane_helm_values
+}
