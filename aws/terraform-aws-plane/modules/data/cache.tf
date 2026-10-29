@@ -32,13 +32,24 @@ resource "random_password" "valkey_auth" {
   special = false
 }
 
+# Own parameter group (a copy of the defaults) so settings can be tuned later without
+# replacing the cache.
+resource "aws_elasticache_parameter_group" "valkey" {
+  name        = "${var.name}-valkey${split(".", var.redis.engine_version)[0]}"
+  family      = "valkey${split(".", var.redis.engine_version)[0]}"
+  description = "Plane (${var.name}) Valkey"
+
+  tags = var.tags
+}
+
 resource "aws_elasticache_replication_group" "valkey" {
+  # checkov:skip=CKV2_AWS_50:Single node is the default size; set redis.replicas >= 1 for Multi-AZ automatic failover.
   replication_group_id = "${var.name}-valkey"
   description          = "Plane (${var.name}) cache"
 
   engine               = "valkey"
   engine_version       = var.redis.engine_version
-  parameter_group_name = "default.valkey${split(".", var.redis.engine_version)[0]}"
+  parameter_group_name = aws_elasticache_parameter_group.valkey.name
   node_type            = var.redis.node_type
   port                 = 6379
 

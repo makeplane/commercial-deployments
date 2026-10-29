@@ -2,6 +2,7 @@
 # Secrets. The RDS master secret is created and rotated by RDS itself (postgres.tf).
 
 resource "aws_secretsmanager_secret" "valkey" {
+  # checkov:skip=CKV2_AWS_57:The ElastiCache AUTH token isn't rotated automatically in this release.
   name                    = "plane/${var.name}/redis"
   description             = "Plane (${var.name}) ElastiCache AUTH token"
   kms_key_id              = aws_kms_key.this.arn
@@ -16,6 +17,7 @@ resource "aws_secretsmanager_secret_version" "valkey" {
 }
 
 resource "aws_secretsmanager_secret" "rabbitmq" {
+  # checkov:skip=CKV2_AWS_57:The Amazon MQ user password isn't rotated automatically in this release.
   name                    = "plane/${var.name}/rabbitmq"
   description             = "Plane (${var.name}) Amazon MQ user"
   kms_key_id              = aws_kms_key.this.arn
@@ -49,6 +51,7 @@ resource "random_password" "app_keys" {
 }
 
 resource "aws_secretsmanager_secret" "app_keys" {
+  # checkov:skip=CKV2_AWS_57:These keys encrypt stored data and must never rotate.
   name                    = "plane/${var.name}/app-keys"
   description             = "Plane (${var.name}) signing and encryption keys. Never rotate."
   kms_key_id              = aws_kms_key.this.arn

@@ -1,6 +1,7 @@
 data "aws_region" "current" {}
 
 data "aws_availability_zones" "available" {
+  # checkov:skip=CKV_AWS_394:The module takes the first az_count zones by name; zones AWS adds later sort after them, so the set doesn't shift.
   state = "available"
 
   filter {

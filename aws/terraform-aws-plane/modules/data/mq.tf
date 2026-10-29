@@ -24,6 +24,7 @@ resource "random_password" "rabbitmq" {
 }
 
 resource "aws_mq_broker" "rabbitmq" {
+  # checkov:skip=CKV_AWS_209:Amazon MQ for RabbitMQ only supports AWS owned keys; data is still encrypted at rest.
   broker_name = "${var.name}-mq"
 
   engine_type        = "RabbitMQ"

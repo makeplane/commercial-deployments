@@ -6,6 +6,9 @@ resource "random_id" "bucket_suffix" {
 }
 
 resource "aws_s3_bucket" "uploads" {
+  # checkov:skip=CKV_AWS_18:Server access logging needs a separate log bucket; optional, customer choice.
+  # checkov:skip=CKV_AWS_144:Cross-region replication is a disaster-recovery choice left to the customer.
+  # checkov:skip=CKV2_AWS_62:Plane doesn't consume S3 event notifications.
   bucket        = "${var.name}-uploads-${random_id.bucket_suffix.hex}"
   force_destroy = var.bucket_force_destroy
 

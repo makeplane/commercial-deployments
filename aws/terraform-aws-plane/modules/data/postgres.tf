@@ -44,6 +44,11 @@ resource "aws_rds_cluster_parameter_group" "postgres" {
 }
 
 resource "aws_rds_cluster" "postgres" {
+  # checkov:skip=CKV2_AWS_27:Logging every statement risks capturing personal data and adds cost; enable through the parameter group if needed.
+  # checkov:skip=CKV_AWS_162:Plane authenticates with the RDS-managed password, not IAM database auth.
+  # checkov:skip=CKV_AWS_133:Defaults to 14 days (postgres.backup_retention_days); checkov can't read optional() defaults.
+  # checkov:skip=CKV_AWS_139:Defaults to true (postgres.deletion_protection); checkov can't read optional() defaults.
+  # checkov:skip=CKV2_AWS_8:An AWS Backup plan is planned (A25); RDS keeps automated backups (14 days) and a final snapshot meanwhile.
   cluster_identifier = "${var.name}-pg"
 
   engine                    = "postgres"

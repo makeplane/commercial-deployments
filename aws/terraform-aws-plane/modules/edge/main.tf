@@ -2,6 +2,7 @@
 # the A record. Both are known at plan time, so DNS never waits on the load balancer.
 
 resource "aws_eip" "lb" {
+  # checkov:skip=CKV2_AWS_19:Attached to the NLB (by the AWS Load Balancer Controller), not to EC2 instances.
   count  = var.ip_count
   domain = "vpc"
 
