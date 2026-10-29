@@ -45,6 +45,12 @@ variable "admin_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "email_smtp_domain" {
+  description = "Turn on Plane's email service (own NLB, ports 25/465/587) for this receiving domain. Null: email off."
+  type        = string
+  default     = null
+}
+
 variable "enable_opensearch" {
   description = "Create Amazon OpenSearch Service for Plane's search (2 x r7g.large.search). Off: Plane runs with search indexing off."
   type        = bool

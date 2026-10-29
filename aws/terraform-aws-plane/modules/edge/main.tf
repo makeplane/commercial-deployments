@@ -26,3 +26,14 @@ resource "aws_route53_record" "plane" {
     evaluate_target_health = false
   }
 }
+
+# MX for Plane's email intake domain, when the module has the zone. The domain must be in that zone.
+resource "aws_route53_record" "email_mx" {
+  count = var.route53_zone_id != null && var.email_smtp_domain != null ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.email_smtp_domain
+  type    = "MX"
+  ttl     = 300
+  records = ["10 ${var.email_load_balancer_dns_name}"]
+}

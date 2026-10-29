@@ -52,6 +52,14 @@ variable "route53_zone_id" {
   type        = string
 }
 
+variable "email" {
+  description = "Plane's email service: enabled and the domain that receives mail."
+  type = object({
+    enabled     = bool
+    smtp_domain = string
+  })
+}
+
 variable "acme_email" {
   description = "Let's Encrypt account email (null = manual certificate)."
   type        = string

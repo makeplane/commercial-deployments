@@ -13,4 +13,6 @@
 - Load balancer with AWS-assigned IPs; `load_balancer_dns_name` output for DNS outside Route 53.
 - Optional Amazon OpenSearch Service (`opensearch.enabled`, off by default): private, KMS-encrypted, HTTPS only, keyless
   access from Plane through Pod Identity (SigV4).
+- Optional email service (`email.enabled`, off by default) on its own internet-facing NLB (ports 25/465/587) with the
+  sender's IP preserved; MX record and Let's Encrypt certificate with a Route 53 zone, self-signed certificate otherwise.
 - `examples/complete`.

@@ -17,3 +17,13 @@ variable "addons_ready" {
   description = "Available once the add-ons (Traefik and its NLB) are installed."
   type        = string
 }
+
+variable "email_smtp_domain" {
+  description = "Domain that receives Plane's email (null = email off)."
+  type        = string
+}
+
+variable "email_load_balancer_dns_name" {
+  description = "Hostname of the email NLB, the MX target."
+  type        = string
+}

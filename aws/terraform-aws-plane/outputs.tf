@@ -13,6 +13,11 @@ output "load_balancer_dns_name" {
   value       = module.edge.load_balancer_dns_name
 }
 
+output "email_load_balancer_dns_name" {
+  description = "Hostname of the email NLB (null when email is off). Point email.smtp_domain's MX record here when route53_zone_id is null."
+  value       = module.plane.email_load_balancer_dns_name
+}
+
 output "dns_record_managed" {
   description = "Whether the module manages the DNS record (true when route53_zone_id is set)."
   value       = var.route53_zone_id != null

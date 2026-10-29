@@ -29,6 +29,7 @@ module "plane" {
   vpc_cidr = var.vpc_cidr
 
   opensearch           = { enabled = var.enable_opensearch }
+  email                = { enabled = var.email_smtp_domain != null, smtp_domain = var.email_smtp_domain }
   postgres             = { deletion_protection = var.postgres_deletion_protection }
   bucket_force_destroy = var.bucket_force_destroy
 

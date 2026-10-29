@@ -84,6 +84,33 @@ locals {
     }
   }
 
+  # The chart's mail certificate (for email.smtp_domain) references a namespaced Issuer
+  # "<release>-cert-issuer", which the chart only creates when it manages TLS itself. The module
+  # creates it: Let's Encrypt DNS-01 with a Route 53 zone, otherwise self-signed (inbound mail on
+  # port 25 uses opportunistic TLS, which doesn't verify the certificate).
+  email_issuer_start = local.dns01 ? 0 : 1
+  email_issuer_objects = slice([
+    {
+      apiVersion = "cert-manager.io/v1"
+      kind       = "Issuer"
+      metadata   = { name = "${local.release}-cert-issuer" }
+      spec = {
+        acme = {
+          server              = var.acme_server
+          email               = var.acme_email
+          privateKeySecretRef = { name = "${local.release}-cert-issuer-key" }
+          solvers             = [{ dns01 = { route53 = { region = var.region, hostedZoneID = var.route53_zone_id } } }]
+        }
+      }
+    },
+    {
+      apiVersion = "cert-manager.io/v1"
+      kind       = "Issuer"
+      metadata   = { name = "${local.release}-cert-issuer" }
+      spec       = { selfSigned = {} }
+    },
+  ], local.email_issuer_start, local.email_issuer_start + (var.email.enabled ? 1 : 0))
+
   # Issuer + certificate only when acme_email is set; slice keeps the tuple type stable.
   certificate_objects = slice([
     {
@@ -125,9 +152,10 @@ locals {
   }
 
   component_services = {
-    silo   = { enabled = var.enable_components.silo }
-    pi     = { enabled = var.enable_components.pi }
-    drawio = { local_setup = var.enable_components.drawio }
+    email_service = { enabled = var.email.enabled }
+    silo          = { enabled = var.enable_components.silo }
+    pi            = { enabled = var.enable_components.pi }
+    drawio        = { local_setup = var.enable_components.drawio }
   }
 
   reloader_services = {
@@ -171,6 +199,8 @@ locals {
       # with SigV4 (region from aws_region). Empty = search indexing off.
       opensearch_remote_url = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
 
+      email_service_envs = { smtp_domain = var.email.enabled ? var.email.smtp_domain : "" }
+
       redis_host = var.data.redis_host
       redis_port = tostring(var.data.redis_port)
       redis_ssl  = true
@@ -205,6 +235,7 @@ locals {
       values(local.external_secret),
       [local.db_init_job],
       local.certificate_objects,
+      local.email_issuer_objects,
     )
   }
 }
@@ -229,4 +260,17 @@ resource "helm_release" "plane" {
   values = compact([yamlencode(local.values), var.plane_values])
 
   depends_on = [terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane]
+}
+
+# The NLB the LB controller creates for the chart's email Service (looked up by its tags once the
+# release, which waits for the LoadBalancer address, is installed).
+data "aws_lb" "email" {
+  count = var.email.enabled ? 1 : 0
+
+  tags = {
+    "elbv2.k8s.aws/cluster" = var.cluster_name
+    "service.k8s.aws/stack" = "${local.namespace}/${local.release}-email-service"
+  }
+
+  depends_on = [helm_release.plane]
 }

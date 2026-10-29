@@ -250,6 +250,25 @@ variable "opensearch" {
   default = {}
 }
 
+variable "email" {
+  description = <<-EOT
+    Plane's email service (inbound email to work items), on its own internet-facing NLB: ports 25 (SMTP), 465 (SMTPS) and
+    587 (submission). Off by default. smtp_domain receives the mail: point its MX record at the
+    email_load_balancer_dns_name output (the module does it with route53_zone_id; the domain must then be in that zone).
+    Its certificate comes from Let's Encrypt DNS-01 with a Route 53 zone, otherwise it's self-signed.
+  EOT
+  type = object({
+    enabled     = optional(bool, false)
+    smtp_domain = optional(string)
+  })
+  default = {}
+
+  validation {
+    condition     = !var.email.enabled || var.email.smtp_domain != null
+    error_message = "email.smtp_domain is required when email.enabled is true."
+  }
+}
+
 variable "bucket_force_destroy" {
   description = "Allow terraform destroy to delete the uploads bucket even when it holds objects."
   type        = bool

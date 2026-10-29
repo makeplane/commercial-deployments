@@ -38,6 +38,11 @@ variable "route53_zone_id" {
   type        = string
 }
 
+variable "email_enabled" {
+  description = "Plane's email service is on: its LoadBalancer Service gets an internet-facing NLB."
+  type        = bool
+}
+
 variable "issue_certificate" {
   description = "Install cert-manager: the module issues Plane's certificate."
   type        = bool
