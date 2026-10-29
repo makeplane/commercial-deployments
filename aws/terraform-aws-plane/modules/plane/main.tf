@@ -39,7 +39,9 @@ locals {
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        refreshInterval = "1h"
+        # RDS rotates its managed master password every 7 days and the old one stops working at
+        # once: re-read it every minute (Reloader then rolls the pods). The others don't rotate.
+        refreshInterval = name == "plane-db" ? "1m" : "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
         target   = { name = name, creationPolicy = "Orphan" }
@@ -127,8 +129,8 @@ locals {
   # Background services the paid features depend on, on as in today's managed deployment
   # (the chart defaults them off): Automations needs outbox_poller (it fills the event stream),
   # automation_consumer and the script runner; agent runs and event-stream webhooks need their
-  # consumers; live's link previews call iframely; silo talks to external_api; large imports run
-  # on worker_importers.
+  # consumers; live's link previews call iframely; imports run on worker_importers (its queue is
+  # wired below). external_api stays off: the chart points silo at the api.
   # Email service (chart 3.11.2+). On by default with a ClusterIP Service, like today's managed
   # deployment: running, not reachable from the internet. With email.load_balancer, its own
   # internet-facing NLB: instance targets plus the Service's externalTrafficPolicy: Local keep the
@@ -159,14 +161,18 @@ locals {
   core_services = {
     for s in [
       "outbox_poller", "automation_consumer", "runner", "agent_consumer", "webhook_consumer",
-      "iframely", "external_api", "worker_importers",
+      "iframely", "worker_importers",
     ] : s => { enabled = true }
   }
 
-  # Two replicas for the user-facing and busiest workloads, so a node drain or node-group update
-  # doesn't take Plane down. The PodDisruptionBudgets (below) only apply to multi-replica workloads.
+  # Two replicas for the user-facing and busiest workloads, spread across nodes, so a node drain or
+  # node-group update doesn't take Plane down. The PodDisruptionBudgets (below) only apply to
+  # multi-replica workloads.
   replica_services = {
-    for s in ["api", "worker", "web", "live"] : s => { replicas = 2 }
+    for s in ["api", "worker", "web", "live"] : s => {
+      replicas                  = 2
+      topologySpreadConstraints = [{ topologyKey = "kubernetes.io/hostname", maxSkew = 1, whenUnsatisfiable = "ScheduleAnyway" }]
+    }
   }
 
   component_services = {
@@ -224,6 +230,9 @@ locals {
       # with SigV4 (region from aws_region). Empty = search indexing off.
       opensearch_remote_url = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
 
+      # silo publishes imports to worker_importers' queue (chart default: the main worker's).
+      silo_envs = { importers_queue_name = "celery.importer" }
+
       email_service_envs = { smtp_domain = var.email.enabled && var.email.smtp_domain != null ? var.email.smtp_domain : "" }
 
       redis_host = var.data.redis_host
@@ -256,7 +265,11 @@ locals {
 
     # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). Traefik sits
     # behind the NLB inside the VPC, so the VPC CIDR is the trusted proxy range.
-    extraEnv = [{ name = "TRUSTED_PROXIES", value = var.vpc_cidr }]
+    extraEnv = [
+      { name = "TRUSTED_PROXIES", value = var.vpc_cidr },
+      # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
+      { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
+    ]
 
     extraObjects = concat(
       [local.secret_store_object],

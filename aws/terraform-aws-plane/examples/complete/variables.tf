@@ -76,9 +76,9 @@ variable "chart_version" {
 }
 
 variable "enable_opensearch" {
-  description = "Create Amazon OpenSearch Service for Plane's search (2 x r7g.large.search). Off: Plane runs with search indexing off."
+  description = "Amazon OpenSearch Service for Plane's search (2 x r7g.large.search), as today. false: Plane runs with search indexing off."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "postgres_deletion_protection" {

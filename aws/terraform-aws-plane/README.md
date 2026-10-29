@@ -16,13 +16,13 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | PostgreSQL | RDS for PostgreSQL **Multi-AZ DB cluster** (1 writer + 2 readable standbys) | 15.19, `db.m6gd.large`, 100 GB io1 / 1000 IOPS, KMS, TLS required, master password managed by RDS |
 | Cache | ElastiCache **Valkey** | 8.2, `cache.t3.medium`, TLS + AUTH token + at-rest encryption |
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
-| Search (optional) | Amazon OpenSearch Service, `opensearch.enabled` | Off. When on: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
+| Search | Amazon OpenSearch Service, `opensearch.enabled` | On, as today: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
 | Email | Plane's email service (inbound email to work items) | Runs by default with no load balancer, as today. `email.load_balancer`: its own internet-facing NLB (ports 25/465/587, sender IP preserved); MX record by the module with a Route 53 zone |
 | Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | NLB (AWS-assigned IPs) → Traefik; TLS terminated by Traefik | Route 53 alias record + Let's Encrypt via cert-manager when you give a hosted zone |
 | In cluster (Helm) | AWS Load Balancer Controller 2.x, Traefik, External Secrets, Reloader, metrics-server, cert-manager (when it issues a certificate), **plane-enterprise** | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
-| Plane workloads | web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus the services paid features need: outbox-poller, automation-consumer, runner (Automations), agent-consumer, webhook-consumer, iframely (link previews), external-api, worker-importers | api, worker, web and live run 2 replicas with PodDisruptionBudgets; the rest 1. Plane AI (pi) off. Any attachment type can be uploaded, as today |
+| Plane workloads | web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus the services paid features need: outbox-poller, automation-consumer, runner (Automations), agent-consumer, webhook-consumer, iframely (link previews), worker-importers (imports, on their own queue), email | api, worker, web and live run 2 replicas spread across nodes, with PodDisruptionBudgets; the rest 1. Plane AI (pi) off. Any attachment type can be uploaded, as today |
 
 ## Usage
 
@@ -104,9 +104,10 @@ Traefik picks it up without a restart. Replace the Secret before it expires.
 
 ## Search (OpenSearch)
 
-Off by default: Plane runs without it, with search indexing off. Set `opensearch = { enabled = true }` for a private
-Amazon OpenSearch Service domain. Plane reaches it with its Pod Identity role (SigV4): there are no users or passwords,
-and the domain policy allows only that role.
+On by default, as in today's deployments: a private Amazon OpenSearch Service domain. Plane reaches it with its Pod
+Identity role (SigV4): there are no users or passwords, and the domain policy allows only that role. Set
+`opensearch = { enabled = false }` to run without it: Plane then has search indexing off, and search behaves
+differently from today's installs.
 
 **After the first install with OpenSearch** (or after turning it on later), create the search indexes once:
 
@@ -132,7 +133,7 @@ To receive mail, set `email = { smtp_domain = "intake.example.com", load_balance
   self-signed one at startup. Mail servers delivering on port 25 use opportunistic TLS and accept it; mail clients on
   465/587 will warn.
 
-Needs plane-enterprise chart 3.11.2 or later (configurable email Service). Set `email = { enabled = false }` to not run it.
+Needs plane-enterprise chart 3.11.3 or later (configurable email Service). Set `email = { enabled = false }` to not run it.
 
 ## After install
 
@@ -149,10 +150,11 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 - **App keys are generated once and never rotated** (`plane/<name>/app-keys`). Changing them makes stored encrypted
   data unreadable.
 - **The node group has a fixed size.** Change `node_group.count` and re-apply to scale.
+- **Scaling Plane:** api, worker, web and live run 2 replicas (today's kustomize default was 5 api / 5 worker). For more
+  capacity, raise replicas through `plane_values`, e.g. `services: { api: { replicas: 4 }, worker: { replicas: 4 } }`,
+  and add nodes to match. There are no autoscalers in this release.
 - **Destroying:** RDS deletion protection is on. Set `postgres = { deletion_protection = false }`, apply, then
   destroy. The bucket is kept unless it's empty or `bucket_force_destroy = true`.
-- **Known gap:** the live service's export queue doesn't connect to RabbitMQ when broker credentials come from a
-  Secret (a chart fix is pending).
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -203,18 +205,18 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
-| chart\_version | plane-enterprise Helm chart version. 3.11.2 or later (configurable email Service). | `string` | `"3.11.2"` | no |
+| chart\_version | plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service). | `string` | `"3.11.3"` | no |
 | cluster\_admin\_principal\_arns | IAM principal ARNs granted cluster-admin through EKS access entries. The identity running Terraform is added automatically. | `list(string)` | `[]` | no |
 | cluster\_endpoint\_public\_access\_cidrs | CIDRs allowed to reach the public EKS API endpoint. The private endpoint is always on. Restrict this to your office, VPN or CI ranges. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | deployment\_mode | How Plane runs. Only "eks" is available in this release; "docker" (one EC2 instance with prime-cli) comes in v0.2. | `string` | `"eks"` | no |
-| email | Plane's email service (inbound email to work items). On by default with no load balancer, as today's managed<br/>deployment: running, not reachable from the internet. smtp\_domain is the domain that receives mail.<br/>load\_balancer = true gives it its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission) with the<br/>sender's IP preserved; point smtp\_domain's MX record at the email\_load\_balancer\_dns\_name output (the module does it<br/>with route53\_zone\_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53<br/>zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.2 or later. | <pre>object({<br/>    enabled       = optional(bool, true)<br/>    smtp_domain   = optional(string)<br/>    load_balancer = optional(bool, false)<br/>  })</pre> | `{}` | no |
+| email | Plane's email service (inbound email to work items). On by default with no load balancer, as today's managed<br/>deployment: running, not reachable from the internet. smtp\_domain is the domain that receives mail.<br/>load\_balancer = true gives it its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission) with the<br/>sender's IP preserved; point smtp\_domain's MX record at the email\_load\_balancer\_dns\_name output (the module does it<br/>with route53\_zone\_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53<br/>zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.3 or later. | <pre>object({<br/>    enabled       = optional(bool, true)<br/>    smtp_domain   = optional(string)<br/>    load_balancer = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | enable\_components | Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |
 | node\_group | The managed node group. Fixed size (no autoscaler in this release): change count and re-apply to scale. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    count          = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
-| opensearch | Amazon OpenSearch Service for Plane's search. Off by default: Plane runs without it, with search indexing off.<br/>When enabled: a private domain in the VPC (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod<br/>Identity role (SigV4, no passwords). After the first install, create the search indexes once (see the README). | <pre>object({<br/>    enabled        = optional(bool, false)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
+| opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). After<br/>the first install, create the search indexes once (see the README). enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
-| plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.0"` | no |
+| plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | Amazon MQ for RabbitMQ. | <pre>object({<br/>    engine_version  = optional(string, "3.13")<br/>    instance_type   = optional(string, "mq.m7g.medium")<br/>    deployment_mode = optional(string, "CLUSTER_MULTI_AZ")<br/>  })</pre> | `{}` | no |
 | redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 0)<br/>  })</pre> | `{}` | no |

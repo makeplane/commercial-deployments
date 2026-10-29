@@ -16,9 +16,9 @@ admin_cidrs = ["203.0.113.10/32"]
 # email_smtp_domain   = "intake.example.com"
 # email_load_balancer = true
 
-# Amazon OpenSearch Service for search (off by default). After the first install, create the indexes once:
-# see "Search (OpenSearch)" in the module README.
-# enable_opensearch = true
+# Amazon OpenSearch Service for search is on by default (as today). After the first install, create the indexes
+# once: see "Search (OpenSearch)" in the module README. To run without it (search indexing off):
+# enable_opensearch = false
 
 # Test installs you plan to destroy only:
 # postgres_deletion_protection = false

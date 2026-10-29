@@ -36,13 +36,13 @@ variable "deployment_mode" {
 variable "plane_version" {
   description = "Plane release to install (chart planeVersion)."
   type        = string
-  default     = "v4.0.0"
+  default     = "v4.0.1"
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.2 or later (configurable email Service)."
+  description = "plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service)."
   type        = string
-  default     = "3.11.2"
+  default     = "3.11.3"
   nullable    = false
 }
 
@@ -251,12 +251,13 @@ variable "rabbitmq" {
 
 variable "opensearch" {
   description = <<-EOT
-    Amazon OpenSearch Service for Plane's search. Off by default: Plane runs without it, with search indexing off.
-    When enabled: a private domain in the VPC (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod
-    Identity role (SigV4, no passwords). After the first install, create the search indexes once (see the README).
+    Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC
+    (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). After
+    the first install, create the search indexes once (see the README). enabled = false: Plane runs with search
+    indexing off.
   EOT
   type = object({
-    enabled        = optional(bool, false)
+    enabled        = optional(bool, true)
     engine_version = optional(string, "OpenSearch_2.19")
     instance_type  = optional(string, "r7g.large.search")
     instance_count = optional(number, 2)
@@ -272,7 +273,7 @@ variable "email" {
     load_balancer = true gives it its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission) with the
     sender's IP preserved; point smtp_domain's MX record at the email_load_balancer_dns_name output (the module does it
     with route53_zone_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53
-    zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.2 or later.
+    zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.3 or later.
   EOT
   type = object({
     enabled       = optional(bool, true)
