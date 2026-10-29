@@ -32,7 +32,9 @@ variable "node_group" {
   description = "Managed node group settings."
   type = object({
     instance_types = list(string)
-    count          = number
+    min_size       = number
+    max_size       = number
+    desired_size   = number
     disk_size_gb   = number
   })
 }

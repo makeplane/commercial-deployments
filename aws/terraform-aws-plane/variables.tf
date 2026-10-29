@@ -173,13 +173,26 @@ variable "cluster_admin_principal_arns" {
 }
 
 variable "node_group" {
-  description = "The managed node group. Fixed size (no autoscaler in this release): change count and re-apply to scale."
+  description = <<-EOT
+    The managed node group: starts at desired_size nodes and can range from min_size to max_size (2 to 4 by default, as
+    today). No node autoscaler in this release, so it stays at desired_size until scaled by hand (aws eks
+    update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired_size
+    only at creation and leaves later changes alone.
+  EOT
   type = object({
     instance_types = optional(list(string), ["m7a.xlarge"])
-    count          = optional(number, 2)
+    min_size       = optional(number, 2)
+    max_size       = optional(number, 4)
+    desired_size   = optional(number, 2)
     disk_size_gb   = optional(number, 50)
   })
-  default = {}
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = var.node_group.min_size >= 1 && var.node_group.min_size <= var.node_group.desired_size && var.node_group.desired_size <= var.node_group.max_size
+    error_message = "node_group needs 1 <= min_size <= desired_size <= max_size."
+  }
 }
 
 variable "addon_versions" {

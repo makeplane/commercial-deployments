@@ -20,6 +20,7 @@
   `chart_repository` and `chart_name` to test a preview build.
 - Amazon OpenSearch Service on by default, as today. Search indexes are created by the chart's post-install/upgrade Job
   (3.11.3); index names use the `opensearch.index_prefix`, default `plane`, as today.
+- Node group range 2–4 nodes (`node_group.min_size` / `max_size` / `desired_size`), as today, replacing the fixed `count`.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - Imports run on worker-importers' own queue; the RDS-managed database password is re-read every minute (RDS rotates it
   every 7 days); api, worker, web and live replicas spread across nodes.

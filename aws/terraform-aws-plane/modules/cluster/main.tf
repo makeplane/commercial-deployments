@@ -86,14 +86,15 @@ module "eks" {
     }
   }
 
-  # Fixed size: no autoscaler in this release. Scale by changing node_group.count and re-applying.
+  # min..max range as today (2..4); no autoscaler yet. The EKS module ignores desired_size after creation, so a
+  # manual (or future autoscaler) scale-out isn't reverted by the next apply.
   eks_managed_node_groups = {
     default = {
       ami_type       = "AL2023_x86_64_STANDARD"
       instance_types = var.node_group.instance_types
-      min_size       = var.node_group.count
-      max_size       = var.node_group.count
-      desired_size   = var.node_group.count
+      min_size       = var.node_group.min_size
+      max_size       = var.node_group.max_size
+      desired_size   = var.node_group.desired_size
       subnet_ids     = var.private_subnet_ids
 
       block_device_mappings = {
