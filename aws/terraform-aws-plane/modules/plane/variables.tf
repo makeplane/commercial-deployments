@@ -53,11 +53,27 @@ variable "route53_zone_id" {
 }
 
 variable "email" {
-  description = "Plane's email service: enabled and the domain that receives mail."
+  description = "Plane's email service: on, the domain that receives mail, and whether it gets its own NLB."
   type = object({
-    enabled     = bool
-    smtp_domain = string
+    enabled       = bool
+    smtp_domain   = string
+    load_balancer = bool
   })
+}
+
+variable "public_subnet_ids" {
+  description = "Public subnets for the email NLB."
+  type        = list(string)
+}
+
+variable "chart_repository" {
+  description = "Helm repository of the plane-enterprise chart."
+  type        = string
+}
+
+variable "chart_name" {
+  description = "Chart name in that repository."
+  type        = string
 }
 
 variable "acme_email" {

@@ -12,11 +12,8 @@ locals {
 
   # cert-manager runs when the module issues the certificate. It only needs AWS access (Route 53)
   # for DNS-01; HTTP-01 goes through Traefik.
-  # The email service's certificate needs it too (self-signed without a zone).
-  cert_manager_enabled = var.issue_certificate || var.email_enabled
-  cert_manager_dns01   = local.cert_manager_enabled && var.route53_zone_id != null
-  # The chart's mail certificate uses a namespaced Issuer; with Route 53 it needs ambient credentials.
-  issuer_ambient_credentials = var.email_enabled && var.route53_zone_id != null
+  cert_manager_enabled = var.issue_certificate
+  cert_manager_dns01   = var.issue_certificate && var.route53_zone_id != null
 
   chart_versions = {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs
@@ -51,12 +48,9 @@ resource "helm_release" "aws_load_balancer_controller" {
       create = true
       name   = local.lb_controller_sa
     }
-    # Without email, only Services that ask for it (Traefik's) get an NLB from this controller.
-    # With email: the chart's email Service takes no annotations, so the controller becomes the
-    # default for new LoadBalancer Services and makes them internet-facing. It keeps instance
-    # targets, which (with the Service's externalTrafficPolicy: Local) preserve the sender's IP.
-    enableServiceMutatorWebhook = var.email_enabled
-    defaultLoadBalancerScheme   = var.email_enabled ? "internet-facing" : "internal"
+    # Only Services that ask for it (Traefik's, and the email Service with email.load_balancer)
+    # get an NLB from this controller.
+    enableServiceMutatorWebhook = false
   })]
 
   depends_on = [terraform_data.cluster_ready, module.lb_controller_pod_identity]
@@ -107,7 +101,6 @@ resource "helm_release" "cert_manager" {
       create = true
       name   = local.cert_manager_sa
     }
-    extraArgs = local.issuer_ambient_credentials ? ["--issuer-ambient-credentials"] : []
   })]
 
   depends_on = [terraform_data.cluster_ready, module.cert_manager_pod_identity]

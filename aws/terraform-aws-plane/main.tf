@@ -72,7 +72,6 @@ module "addons" {
   allowed_cidrs     = var.allowed_cidrs
   route53_zone_id   = var.route53_zone_id
   issue_certificate = var.acme_email != null
-  email_enabled     = var.email.enabled
   secret_arns       = module.data.secret_arns
   kms_key_arn       = module.data.kms_key_arn
   tags              = local.tags
@@ -92,7 +91,7 @@ module "edge" {
   load_balancer_name = module.addons.load_balancer_name
   addons_ready       = module.addons.ready
 
-  email_smtp_domain            = var.email.enabled ? var.email.smtp_domain : null
+  email_smtp_domain            = var.email.load_balancer ? var.email.smtp_domain : null
   email_load_balancer_dns_name = module.plane.email_load_balancer_dns_name
 }
 
@@ -108,7 +107,10 @@ module "plane" {
   vpc_cidr          = var.vpc_cidr
   enable_components = var.enable_components
   tls_secret_name   = var.tls_secret_name
-  email             = { enabled = var.email.enabled, smtp_domain = var.email.smtp_domain }
+  email             = var.email
+  public_subnet_ids = module.network.public_subnet_ids
+  chart_repository  = var.chart_repository
+  chart_name        = var.chart_name
   route53_zone_id   = var.route53_zone_id
   acme_email        = var.acme_email
   acme_server       = var.acme_server

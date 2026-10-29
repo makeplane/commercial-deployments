@@ -46,7 +46,31 @@ variable "admin_cidrs" {
 }
 
 variable "email_smtp_domain" {
-  description = "Turn on Plane's email service (own NLB, ports 25/465/587) for this receiving domain. Null: email off."
+  description = "Domain that receives Plane's email (inbound email to work items). The email service runs either way."
+  type        = string
+  default     = null
+}
+
+variable "email_load_balancer" {
+  description = "Give the email service its own internet-facing NLB (ports 25/465/587). Needs email_smtp_domain."
+  type        = bool
+  default     = false
+}
+
+variable "chart_repository" {
+  description = "plane-enterprise Helm repository (null = the module default, https://helm.plane.so/). Set only to test a preview build."
+  type        = string
+  default     = null
+}
+
+variable "chart_name" {
+  description = "Chart name (null = plane-enterprise). Preview builds are named <commit>-plane-enterprise."
+  type        = string
+  default     = null
+}
+
+variable "chart_version" {
+  description = "Chart version (null = the module default)."
   type        = string
   default     = null
 }

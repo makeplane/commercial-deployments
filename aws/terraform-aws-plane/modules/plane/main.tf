@@ -84,33 +84,6 @@ locals {
     }
   }
 
-  # The chart's mail certificate (for email.smtp_domain) references a namespaced Issuer
-  # "<release>-cert-issuer", which the chart only creates when it manages TLS itself. The module
-  # creates it: Let's Encrypt DNS-01 with a Route 53 zone, otherwise self-signed (inbound mail on
-  # port 25 uses opportunistic TLS, which doesn't verify the certificate).
-  email_issuer_start = local.dns01 ? 0 : 1
-  email_issuer_objects = slice([
-    {
-      apiVersion = "cert-manager.io/v1"
-      kind       = "Issuer"
-      metadata   = { name = "${local.release}-cert-issuer" }
-      spec = {
-        acme = {
-          server              = var.acme_server
-          email               = var.acme_email
-          privateKeySecretRef = { name = "${local.release}-cert-issuer-key" }
-          solvers             = [{ dns01 = { route53 = { region = var.region, hostedZoneID = var.route53_zone_id } } }]
-        }
-      }
-    },
-    {
-      apiVersion = "cert-manager.io/v1"
-      kind       = "Issuer"
-      metadata   = { name = "${local.release}-cert-issuer" }
-      spec       = { selfSigned = {} }
-    },
-  ], local.email_issuer_start, local.email_issuer_start + (var.email.enabled ? 1 : 0))
-
   # Issuer + certificate only when acme_email is set; slice keeps the tuple type stable.
   certificate_objects = slice([
     {
@@ -156,6 +129,33 @@ locals {
   # automation_consumer and the script runner; agent runs and event-stream webhooks need their
   # consumers; live's link previews call iframely; silo talks to external_api; large imports run
   # on worker_importers.
+  # Email service (chart 3.11.2+). On by default with a ClusterIP Service, like today's managed
+  # deployment: running, not reachable from the internet. With email.load_balancer, its own
+  # internet-facing NLB: instance targets plus the Service's externalTrafficPolicy: Local keep the
+  # sender's IP (SPF). Certificate: the module's Let's Encrypt ClusterIssuer (DNS-01) with a Route 53
+  # zone; otherwise none, and the email app generates a self-signed one at startup (fine for mail
+  # servers on port 25, which use opportunistic TLS).
+  email_load_balancer_name = "${var.name}-email"
+  email_service = {
+    enabled = var.email.enabled
+    service = var.email.load_balancer ? {
+      type = "LoadBalancer"
+      annotations = {
+        "service.beta.kubernetes.io/aws-load-balancer-type"                                = "external"
+        "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"                     = "instance"
+        "service.beta.kubernetes.io/aws-load-balancer-scheme"                              = "internet-facing"
+        "service.beta.kubernetes.io/aws-load-balancer-name"                                = local.email_load_balancer_name
+        "service.beta.kubernetes.io/aws-load-balancer-subnets"                             = join(",", var.public_subnet_ids)
+        "service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules" = "true"
+      }
+      } : {
+      type        = "ClusterIP"
+      annotations = {}
+    }
+    generateCert  = var.email.smtp_domain != null && local.dns01
+    certIssuerRef = local.dns01 ? { name = "plane-letsencrypt", kind = "ClusterIssuer" } : { name = "", kind = "" }
+  }
+
   core_services = {
     for s in [
       "outbox_poller", "automation_consumer", "runner", "agent_consumer", "webhook_consumer",
@@ -170,7 +170,7 @@ locals {
   }
 
   component_services = {
-    email_service = { enabled = var.email.enabled }
+    email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
     pi            = { enabled = var.enable_components.pi }
     drawio        = { local_setup = var.enable_components.drawio }
@@ -224,7 +224,7 @@ locals {
       # with SigV4 (region from aws_region). Empty = search indexing off.
       opensearch_remote_url = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
 
-      email_service_envs = { smtp_domain = var.email.enabled ? var.email.smtp_domain : "" }
+      email_service_envs = { smtp_domain = var.email.enabled && var.email.smtp_domain != null ? var.email.smtp_domain : "" }
 
       redis_host = var.data.redis_host
       redis_port = tostring(var.data.redis_port)
@@ -264,7 +264,6 @@ locals {
       # Plane AI's database, only when pi is on.
       var.enable_components.pi ? [local.db_init_job] : [],
       local.certificate_objects,
-      local.email_issuer_objects,
     )
   }
 }
@@ -277,8 +276,8 @@ resource "helm_release" "plane" {
   name             = local.release
   namespace        = local.namespace
   create_namespace = true
-  repository       = "https://helm.plane.so/"
-  chart            = "plane-enterprise"
+  repository       = var.chart_repository
+  chart            = var.chart_name
   version          = var.chart_version
 
   wait    = true
@@ -291,15 +290,12 @@ resource "helm_release" "plane" {
   depends_on = [terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane]
 }
 
-# The NLB the LB controller creates for the chart's email Service (looked up by its tags once the
-# release, which waits for the LoadBalancer address, is installed).
+# The email NLB the LB controller creates for the chart's email Service, found by its fixed name once
+# the release (which waits for the LoadBalancer address) is installed.
 data "aws_lb" "email" {
-  count = var.email.enabled ? 1 : 0
+  count = var.email.load_balancer ? 1 : 0
 
-  tags = {
-    "elbv2.k8s.aws/cluster" = var.cluster_name
-    "service.k8s.aws/stack" = "${local.namespace}/${local.release}-email-service"
-  }
+  name = local.email_load_balancer_name
 
   depends_on = [helm_release.plane]
 }

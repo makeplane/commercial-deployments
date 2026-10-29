@@ -14,6 +14,6 @@ output "release" {
 }
 
 output "email_load_balancer_dns_name" {
-  description = "Hostname of the email NLB (null when email is off)."
-  value       = var.email.enabled ? data.aws_lb.email[0].dns_name : null
+  description = "Hostname of the email NLB (null without email.load_balancer)."
+  value       = var.email.load_balancer ? data.aws_lb.email[0].dns_name : null
 }
