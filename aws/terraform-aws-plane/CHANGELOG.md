@@ -15,4 +15,8 @@
   access from Plane through Pod Identity (SigV4).
 - Optional email service (`email.enabled`, off by default) on its own internet-facing NLB (ports 25/465/587) with the
   sender's IP preserved; MX record and Let's Encrypt certificate with a Route 53 zone, self-signed certificate otherwise.
+- Plane's background services for paid features on by default (outbox-poller, automation-consumer, runner,
+  agent-consumer, webhook-consumer, iframely, external-api, worker-importers), as in today's managed deployment.
+  api, worker, web and live run 2 replicas with PodDisruptionBudgets. Any attachment type allowed, as today. The
+  Plane AI database job only runs when pi is on.
 - `examples/complete`.

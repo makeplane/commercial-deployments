@@ -151,6 +151,24 @@ locals {
     opensearch = { local_setup = false }
   }
 
+  # Background services the paid features depend on, on as in today's managed deployment
+  # (the chart defaults them off): Automations needs outbox_poller (it fills the event stream),
+  # automation_consumer and the script runner; agent runs and event-stream webhooks need their
+  # consumers; live's link previews call iframely; silo talks to external_api; large imports run
+  # on worker_importers.
+  core_services = {
+    for s in [
+      "outbox_poller", "automation_consumer", "runner", "agent_consumer", "webhook_consumer",
+      "iframely", "external_api", "worker_importers",
+    ] : s => { enabled = true }
+  }
+
+  # Two replicas for the user-facing and busiest workloads, so a node drain or node-group update
+  # doesn't take Plane down. The PodDisruptionBudgets (below) only apply to multi-replica workloads.
+  replica_services = {
+    for s in ["api", "worker", "web", "live"] : s => { replicas = 2 }
+  }
+
   component_services = {
     email_service = { enabled = var.email.enabled }
     silo          = { enabled = var.enable_components.silo }
@@ -177,10 +195,17 @@ locals {
 
     serviceAccount = { create = true }
 
+    podDisruptionBudget = { enabled = true }
+
     services = {
-      for s in distinct(concat(keys(local.data_services), keys(local.component_services), keys(local.reloader_services))) :
+      for s in distinct(concat(
+        keys(local.data_services), keys(local.core_services), keys(local.replica_services),
+        keys(local.component_services), keys(local.reloader_services),
+      )) :
       s => merge(
         lookup(local.data_services, s, {}),
+        lookup(local.core_services, s, {}),
+        lookup(local.replica_services, s, {}),
         lookup(local.component_services, s, {}),
         lookup(local.reloader_services, s, {}),
       )
@@ -217,6 +242,9 @@ locals {
       aws_access_key        = ""
       aws_secret_access_key = ""
       use_storage_proxy     = false
+
+      # As today's managed deployment: any attachment type can be uploaded.
+      allow_all_attachment_types = true
     }
 
     external_secrets = {
@@ -233,7 +261,8 @@ locals {
     extraObjects = concat(
       [local.secret_store_object],
       values(local.external_secret),
-      [local.db_init_job],
+      # Plane AI's database, only when pi is on.
+      var.enable_components.pi ? [local.db_init_job] : [],
       local.certificate_objects,
       local.email_issuer_objects,
     )

@@ -21,7 +21,8 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | NLB (AWS-assigned IPs) → Traefik; TLS terminated by Traefik | Route 53 alias record + Let's Encrypt via cert-manager when you give a hosted zone |
-| In cluster (Helm) | AWS Load Balancer Controller 2.x, Traefik, External Secrets, Reloader, metrics-server, cert-manager (Route 53 only), **plane-enterprise** | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
+| In cluster (Helm) | AWS Load Balancer Controller 2.x, Traefik, External Secrets, Reloader, metrics-server, cert-manager (when it issues a certificate), **plane-enterprise** | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
+| Plane workloads | web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus the services paid features need: outbox-poller, automation-consumer, runner (Automations), agent-consumer, webhook-consumer, iframely (link previews), external-api, worker-importers | api, worker, web and live run 2 replicas with PodDisruptionBudgets; the rest 1. Plane AI (pi) off. Any attachment type can be uploaded, as today |
 
 ## Usage
 
@@ -137,6 +138,9 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 
 ## Things to know
 
+- **New installs only in this release.** The module generates new app keys (`SECRET_KEY`, `AES_SECRET_KEY`, `AES_SALT`)
+  and a new licence identity, and has no inputs for an existing database snapshot, bucket or keys. Moving an existing
+  installation's data onto it would leave encrypted fields unreadable and need the licence re-activated.
 - **Never change `domain`, the namespace or the release name.** They're part of Plane's licence identity. The release
   and namespace are fixed to `plane`.
 - **App keys are generated once and never rotated** (`plane/<name>/app-keys`). Changing them makes stored encrypted
