@@ -14,6 +14,6 @@ output "configure_kubectl" {
 }
 
 output "email_load_balancer_dns_name" {
-  description = "Email NLB hostname, with email_load_balancer (MX target for email_smtp_domain when route53_zone_id is null)."
+  description = "Email NLB hostname (MX target for email_smtp_domain, default intake.<domain>, when route53_zone_id is null)."
   value       = module.plane.email_load_balancer_dns_name
 }

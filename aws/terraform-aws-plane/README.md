@@ -17,7 +17,7 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | Cache | ElastiCache **Valkey** | 8.2, `cache.t3.medium`, TLS + AUTH token + at-rest encryption |
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
 | Search | Amazon OpenSearch Service, `opensearch.enabled` | On, as today: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
-| Email | Plane's email service (inbound email to work items) | Runs by default with no load balancer, as today. `email.load_balancer`: its own internet-facing NLB (ports 25/465/587, sender IP preserved); MX record by the module with a Route 53 zone |
+| Email | Plane's email service (inbound email to work items) on its own internet-facing NLB | On by default: ports 25/465/587, sender IP preserved, receiving mail for `intake.<domain>`; MX record by the module with a Route 53 zone |
 | Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | NLB (AWS-assigned IPs) → Traefik; TLS terminated by Traefik | Route 53 alias record + Let's Encrypt via cert-manager when you give a hosted zone |
@@ -119,21 +119,22 @@ kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_inde
 
 ## Email
 
-Plane's email service turns inbound email into work items. As in today's managed deployment it **runs by default with no
-load balancer** (a `ClusterIP` Service): nothing reaches it from the internet until you ask for it.
+Plane's email service turns inbound email into work items. It's **on by default with its own internet-facing NLB**,
+receiving mail for **`intake.<domain>`** (set `email.smtp_domain` for another domain):
 
-To receive mail, set `email = { smtp_domain = "intake.example.com", load_balancer = true }`:
-
-- **Load balancer:** its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission), named `<name>-email`, with
-  instance targets and `externalTrafficPolicy: Local`, so the email service sees the sender's real IP (SPF). The
-  hostname is the `email_load_balancer_dns_name` output.
-- **MX record:** with `route53_zone_id`, the module creates `smtp_domain MX 10 <email NLB>` (the domain must be in that
-  zone). Otherwise create it yourself.
+- **Load balancer:** ports 25 SMTP, 465 SMTPS, 587 submission, named `<name>-email`, with instance targets and
+  `externalTrafficPolicy: Local`, so the email service sees the sender's real IP (SPF). The hostname is the
+  `email_load_balancer_dns_name` output.
+- **MX record:** with `route53_zone_id`, the module creates `<smtp_domain> MX 10 <email NLB>` (the domain must be in that
+  zone). Otherwise create it yourself. The default is a subdomain so it never collides with a CNAME on `domain` (an MX
+  record can't share a name with a CNAME).
 - **Certificate** (STARTTLS/SMTPS): Let's Encrypt DNS-01 with a Route 53 zone; otherwise the email service generates a
   self-signed one at startup. Mail servers delivering on port 25 use opportunistic TLS and accept it; mail clients on
   465/587 will warn.
 
-Needs plane-enterprise chart 3.11.3 or later (configurable email Service). Set `email = { enabled = false }` to not run it.
+`email = { load_balancer = false }` keeps the service running with no load balancer (not reachable from the
+internet, like today's managed deployment); `email = { enabled = false }` turns it off. The NLB costs about $27/month.
+Needs plane-enterprise chart 3.11.3 or later.
 
 ## After install
 
@@ -209,7 +210,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | cluster\_admin\_principal\_arns | IAM principal ARNs granted cluster-admin through EKS access entries. The identity running Terraform is added automatically. | `list(string)` | `[]` | no |
 | cluster\_endpoint\_public\_access\_cidrs | CIDRs allowed to reach the public EKS API endpoint. The private endpoint is always on. Restrict this to your office, VPN or CI ranges. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | deployment\_mode | How Plane runs. Only "eks" is available in this release; "docker" (one EC2 instance with prime-cli) comes in v0.2. | `string` | `"eks"` | no |
-| email | Plane's email service (inbound email to work items). On by default with no load balancer, as today's managed<br/>deployment: running, not reachable from the internet. smtp\_domain is the domain that receives mail.<br/>load\_balancer = true gives it its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission) with the<br/>sender's IP preserved; point smtp\_domain's MX record at the email\_load\_balancer\_dns\_name output (the module does it<br/>with route53\_zone\_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53<br/>zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.3 or later. | <pre>object({<br/>    enabled       = optional(bool, true)<br/>    smtp_domain   = optional(string)<br/>    load_balancer = optional(bool, false)<br/>  })</pre> | `{}` | no |
+| email | Plane's email service (inbound email to work items). On by default with its own internet-facing NLB (ports 25 SMTP,<br/>465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is the domain that receives mail (default<br/>"intake.<domain>"): point its MX record at the email\_load\_balancer\_dns\_name output (the module does it with<br/>route53\_zone\_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53 zone;<br/>otherwise the email app's own self-signed certificate. load\_balancer = false keeps the service running with no load<br/>balancer (not reachable from the internet); enabled = false turns it off. Needs plane-enterprise chart 3.11.3+. | <pre>object({<br/>    enabled       = optional(bool, true)<br/>    smtp_domain   = optional(string)<br/>    load_balancer = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | enable\_components | Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |

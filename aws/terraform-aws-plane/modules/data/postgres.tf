@@ -35,9 +35,12 @@ resource "aws_rds_cluster_parameter_group" "postgres" {
   family      = "postgres${local.postgres_major}"
   description = "Plane PostgreSQL: TLS required"
 
+  # Static on Multi-AZ DB clusters: AWS records it as pending-reboot, so say so, or every plan shows a
+  # change. The cluster is created with this group, so it's in effect from the start.
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
   }
 
   tags = var.tags

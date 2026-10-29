@@ -13,9 +13,9 @@
 - Load balancer with AWS-assigned IPs; `load_balancer_dns_name` output for DNS outside Route 53.
 - Amazon OpenSearch Service (`opensearch.enabled`): private, KMS-encrypted, HTTPS only, keyless access from Plane
   through Pod Identity (SigV4).
-- Email service on by default with no load balancer, as today; `email.load_balancer` gives it its own internet-facing
-  NLB (ports 25/465/587) with the sender's IP preserved; MX record and Let's Encrypt certificate with a Route 53 zone,
-  the email app's self-signed certificate otherwise.
+- Email service on by default with its own internet-facing NLB (ports 25/465/587), the sender's IP preserved, receiving
+  mail for `intake.<domain>` by default; MX record and Let's Encrypt certificate with a Route 53 zone, the email app's
+  self-signed certificate otherwise. `email.load_balancer = false` keeps the service without a load balancer.
 - Plane v4.0.1 on plane-enterprise chart 3.11.3 (configurable email Service, `/dav/` route, unbuffered live streaming).
   `chart_repository` and `chart_name` to test a preview build.
 - Amazon OpenSearch Service on by default, as today.

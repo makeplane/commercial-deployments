@@ -268,24 +268,24 @@ variable "opensearch" {
 
 variable "email" {
   description = <<-EOT
-    Plane's email service (inbound email to work items). On by default with no load balancer, as today's managed
-    deployment: running, not reachable from the internet. smtp_domain is the domain that receives mail.
-    load_balancer = true gives it its own internet-facing NLB (ports 25 SMTP, 465 SMTPS, 587 submission) with the
-    sender's IP preserved; point smtp_domain's MX record at the email_load_balancer_dns_name output (the module does it
-    with route53_zone_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53
-    zone; otherwise the email app's own self-signed certificate. Needs plane-enterprise chart 3.11.3 or later.
+    Plane's email service (inbound email to work items). On by default with its own internet-facing NLB (ports 25 SMTP,
+    465 SMTPS, 587 submission), the sender's IP preserved. smtp_domain is the domain that receives mail (default
+    "intake.<domain>"): point its MX record at the email_load_balancer_dns_name output (the module does it with
+    route53_zone_id; the domain must then be in that zone). Certificate: Let's Encrypt DNS-01 with a Route 53 zone;
+    otherwise the email app's own self-signed certificate. load_balancer = false keeps the service running with no load
+    balancer (not reachable from the internet); enabled = false turns it off. Needs plane-enterprise chart 3.11.3+.
   EOT
   type = object({
     enabled       = optional(bool, true)
     smtp_domain   = optional(string)
-    load_balancer = optional(bool, false)
+    load_balancer = optional(bool, true)
   })
   default  = {}
   nullable = false
 
   validation {
-    condition     = !var.email.load_balancer || (var.email.enabled && var.email.smtp_domain != null)
-    error_message = "email.load_balancer needs email.enabled and email.smtp_domain (the MX record points the domain at the load balancer)."
+    condition     = !var.email.load_balancer || var.email.enabled
+    error_message = "email.load_balancer needs email.enabled."
   }
 }
 

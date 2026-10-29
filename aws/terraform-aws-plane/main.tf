@@ -11,7 +11,10 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  azs    = slice(data.aws_availability_zones.available.names, 0, var.az_count)
+  azs = slice(data.aws_availability_zones.available.names, 0, var.az_count)
+
+  # Plane's email intake domain: a subdomain, so its MX record never collides with a CNAME on domain.
+  email  = merge(var.email, { smtp_domain = coalesce(var.email.smtp_domain, "intake.${var.domain}") })
   region = data.aws_region.current.region
 
   tags = merge(var.tags, {
@@ -91,7 +94,7 @@ module "edge" {
   load_balancer_name = module.addons.load_balancer_name
   addons_ready       = module.addons.ready
 
-  email_smtp_domain            = var.email.load_balancer ? var.email.smtp_domain : null
+  email_smtp_domain            = local.email.load_balancer ? local.email.smtp_domain : null
   email_load_balancer_dns_name = module.plane.email_load_balancer_dns_name
 }
 
@@ -107,7 +110,7 @@ module "plane" {
   vpc_cidr          = var.vpc_cidr
   enable_components = var.enable_components
   tls_secret_name   = var.tls_secret_name
-  email             = var.email
+  email             = local.email
   public_subnet_ids = module.network.public_subnet_ids
   chart_repository  = var.chart_repository
   chart_name        = var.chart_name

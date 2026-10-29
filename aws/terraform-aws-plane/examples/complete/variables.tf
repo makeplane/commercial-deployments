@@ -46,15 +46,15 @@ variable "admin_cidrs" {
 }
 
 variable "email_smtp_domain" {
-  description = "Domain that receives Plane's email (inbound email to work items). The email service runs either way."
+  description = "Domain that receives Plane's email (inbound email to work items). Null: intake.<domain>."
   type        = string
   default     = null
 }
 
 variable "email_load_balancer" {
-  description = "Give the email service its own internet-facing NLB (ports 25/465/587). Needs email_smtp_domain."
+  description = "The email service's own internet-facing NLB (ports 25/465/587). false: the service runs with no load balancer."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "chart_repository" {
