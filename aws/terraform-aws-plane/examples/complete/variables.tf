@@ -45,6 +45,12 @@ variable "admin_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "enable_opensearch" {
+  description = "Create Amazon OpenSearch Service for Plane's search (2 x r7g.large.search). Off: Plane runs with search indexing off."
+  type        = bool
+  default     = false
+}
+
 variable "postgres_deletion_protection" {
   description = "Block deletion of the database. Set false only for test installs you plan to destroy."
   type        = bool

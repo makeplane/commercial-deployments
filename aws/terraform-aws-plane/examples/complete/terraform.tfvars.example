@@ -11,6 +11,10 @@ acme_email      = "ops@example.com" # remove to provide your own certificate
 
 admin_cidrs = ["203.0.113.10/32"]
 
+# Amazon OpenSearch Service for search (off by default). After the first install, create the indexes once:
+# see "Search (OpenSearch)" in the module README.
+# enable_opensearch = true
+
 # Test installs you plan to destroy only:
 # postgres_deletion_protection = false
 # bucket_force_destroy         = true

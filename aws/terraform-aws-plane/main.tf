@@ -55,6 +55,7 @@ module "data" {
   postgres                  = var.postgres
   redis                     = var.redis
   rabbitmq                  = var.rabbitmq
+  opensearch                = var.opensearch
   bucket_force_destroy      = var.bucket_force_destroy
   tags                      = local.tags
 }

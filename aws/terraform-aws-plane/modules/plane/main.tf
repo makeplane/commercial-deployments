@@ -167,6 +167,10 @@ locals {
       pgdb_name     = var.data.postgres_db
       pg_pi_db_name = "plane_pi"
 
+      # Managed OpenSearch, keyless: with no username/password and a pod identity, the api signs
+      # with SigV4 (region from aws_region). Empty = search indexing off.
+      opensearch_remote_url = var.data.opensearch_enabled ? "https://${var.data.opensearch_endpoint}" : ""
+
       redis_host = var.data.redis_host
       redis_port = tostring(var.data.redis_port)
       redis_ssl  = true
@@ -224,5 +228,5 @@ resource "helm_release" "plane" {
 
   values = compact([yamlencode(local.values), var.plane_values])
 
-  depends_on = [terraform_data.addons_ready, module.plane_pod_identity]
+  depends_on = [terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane]
 }

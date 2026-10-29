@@ -28,6 +28,7 @@ module "plane" {
 
   vpc_cidr = var.vpc_cidr
 
+  opensearch           = { enabled = var.enable_opensearch }
   postgres             = { deletion_protection = var.postgres_deletion_protection }
   bucket_force_destroy = var.bucket_force_destroy
 

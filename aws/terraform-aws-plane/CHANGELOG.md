@@ -11,4 +11,6 @@
   EKS Pod Identity, and TLS from cert-manager (Let's Encrypt: DNS-01 with a Route 53 zone, HTTP-01 without one) or
   a certificate the operator provides.
 - Load balancer with AWS-assigned IPs; `load_balancer_dns_name` output for DNS outside Route 53.
+- Optional Amazon OpenSearch Service (`opensearch.enabled`, off by default): private, KMS-encrypted, HTTPS only, keyless
+  access from Plane through Pod Identity (SigV4).
 - `examples/complete`.

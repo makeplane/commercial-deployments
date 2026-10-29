@@ -16,6 +16,7 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | PostgreSQL | RDS for PostgreSQL **Multi-AZ DB cluster** (1 writer + 2 readable standbys) | 15.19, `db.m6gd.large`, 100 GB io1 / 1000 IOPS, KMS, TLS required, master password managed by RDS |
 | Cache | ElastiCache **Valkey** | 8.2, `cache.t3.medium`, TLS + AUTH token + at-rest encryption |
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
+| Search (optional) | Amazon OpenSearch Service, `opensearch.enabled` | Off. When on: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
 | Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | NLB (AWS-assigned IPs) → Traefik; TLS terminated by Traefik | Route 53 alias record + Let's Encrypt via cert-manager when you give a hosted zone |
@@ -99,6 +100,20 @@ kubectl -n plane create secret tls plane-tls --cert=fullchain.pem --key=privkey.
 
 Traefik picks it up without a restart. Replace the Secret before it expires.
 
+## Search (OpenSearch)
+
+Off by default: Plane runs without it, with search indexing off. Set `opensearch = { enabled = true }` for a private
+Amazon OpenSearch Service domain. Plane reaches it with its Pod Identity role (SigV4): there are no users or passwords,
+and the domain policy allows only that role.
+
+**After the first install with OpenSearch** (or after turning it on later), create the search indexes once:
+
+```bash
+kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index index create --force
+# Turned on for an install that already has data: also index the existing documents
+kubectl -n plane exec deploy/plane-api-wl -- python manage.py manage_search_index document index --force
+```
+
 ## After install
 
 Open `https://<domain>`, finish the setup wizard, then activate your licence in the admin UI. SMTP, SSO and AI provider
@@ -171,6 +186,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |
 | node\_group | The managed node group. Fixed size (no autoscaler in this release): change count and re-apply to scale. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    count          = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
+| opensearch | Amazon OpenSearch Service for Plane's search. Off by default: Plane runs without it, with search indexing off.<br/>When enabled: a private domain in the VPC (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod<br/>Identity role (SigV4, no passwords). After the first install, create the search indexes once (see the README). | <pre>object({<br/>    enabled        = optional(bool, false)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.0"` | no |
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |

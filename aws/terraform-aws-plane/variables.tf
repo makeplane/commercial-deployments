@@ -234,6 +234,22 @@ variable "rabbitmq" {
   }
 }
 
+variable "opensearch" {
+  description = <<-EOT
+    Amazon OpenSearch Service for Plane's search. Off by default: Plane runs without it, with search indexing off.
+    When enabled: a private domain in the VPC (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod
+    Identity role (SigV4, no passwords). After the first install, create the search indexes once (see the README).
+  EOT
+  type = object({
+    enabled        = optional(bool, false)
+    engine_version = optional(string, "OpenSearch_2.19")
+    instance_type  = optional(string, "r7g.large.search")
+    instance_count = optional(number, 2)
+    volume_size_gb = optional(number, 10)
+  })
+  default = {}
+}
+
 variable "bucket_force_destroy" {
   description = "Allow terraform destroy to delete the uploads bucket even when it holds objects."
   type        = bool

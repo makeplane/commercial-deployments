@@ -55,6 +55,11 @@ output "plane_inputs" {
     rabbitmq_secret_arn = aws_secretsmanager_secret.rabbitmq.arn
 
     app_keys_secret_arn = aws_secretsmanager_secret.app_keys.arn
+
+    opensearch_enabled     = local.opensearch_enabled
+    opensearch_endpoint    = local.opensearch_enabled ? aws_opensearch_domain.this[0].endpoint : null
+    opensearch_domain_name = local.opensearch_enabled ? aws_opensearch_domain.this[0].domain_name : null
+    opensearch_domain_arn  = local.opensearch_enabled ? aws_opensearch_domain.this[0].arn : null
   }
 
   # The nodes must be able to reach the services before Plane's DB-init Job and workloads start.
@@ -62,5 +67,6 @@ output "plane_inputs" {
     aws_vpc_security_group_ingress_rule.postgres,
     aws_vpc_security_group_ingress_rule.valkey,
     aws_vpc_security_group_ingress_rule.rabbitmq,
+    aws_vpc_security_group_ingress_rule.opensearch,
   ]
 }

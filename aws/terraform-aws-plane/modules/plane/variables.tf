@@ -89,6 +89,11 @@ variable "data" {
     rabbitmq_port       = number
     rabbitmq_secret_arn = string
     app_keys_secret_arn = string
+
+    opensearch_enabled     = bool
+    opensearch_endpoint    = string
+    opensearch_domain_name = string
+    opensearch_domain_arn  = string
   })
 }
 

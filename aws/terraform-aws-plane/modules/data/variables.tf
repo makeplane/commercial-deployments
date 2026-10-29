@@ -45,6 +45,17 @@ variable "redis" {
   })
 }
 
+variable "opensearch" {
+  description = "Amazon OpenSearch Service settings."
+  type = object({
+    enabled        = bool
+    engine_version = string
+    instance_type  = string
+    instance_count = number
+    volume_size_gb = number
+  })
+}
+
 variable "rabbitmq" {
   description = "Amazon MQ settings."
   type = object({
