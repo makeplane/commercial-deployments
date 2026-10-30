@@ -224,3 +224,14 @@ run "reject_lets_encrypt_internal" {
   }
   expect_failures = [var.ingress]
 }
+
+run "email_off" {
+  variables {
+    email = { enabled = false }
+  }
+
+  assert {
+    condition     = output.dns_records.email_mx == null && output.email_load_balancer_dns_name == null
+    error_message = "email.enabled = false must turn off the email load balancer too."
+  }
+}

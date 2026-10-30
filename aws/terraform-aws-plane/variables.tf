@@ -302,8 +302,8 @@ variable "rabbitmq" {
 variable "opensearch" {
   description = <<-EOT
     Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC
-    (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). After
-    the first install, create the search indexes once (see the README). enabled = false: Plane runs with search
+    (HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). The
+    chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search
     indexing off.
   EOT
   type = object({
@@ -327,8 +327,8 @@ variable "email" {
     "intake.<domain>"): create its MX record pointing at the email_load_balancer_dns_name output (see dns_records).
     Certificate: your own via certificate_secret_arn (a Secrets Manager secret like ingress.tls_certificate_secret_arn),
     else the email app's own self-signed certificate (fine for receiving mail). load_balancer = false keeps the
-    service running with no load
-    balancer (not reachable from the internet); enabled = false turns it off. Needs plane-enterprise chart 3.11.3+.
+    service running with no load balancer (not reachable from the internet); enabled = false turns the service and
+    its load balancer off. Needs plane-enterprise chart 3.11.3+.
   EOT
   type = object({
     enabled                = optional(bool, true)
@@ -338,11 +338,6 @@ variable "email" {
   })
   default  = {}
   nullable = false
-
-  validation {
-    condition     = !var.email.load_balancer || var.email.enabled
-    error_message = "email.load_balancer needs email.enabled."
-  }
 }
 
 variable "bucket_force_destroy" {

@@ -18,7 +18,11 @@ locals {
   lets_encrypt = local.automated && var.acme_email != null
 
   # Plane's email intake domain: a subdomain, so its MX record never collides with a CNAME on domain.
-  email  = merge(var.email, { smtp_domain = coalesce(var.email.smtp_domain, "intake.${var.domain}") })
+  # No load balancer without the email service.
+  email = merge(var.email, {
+    smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")
+    load_balancer = var.email.enabled && var.email.load_balancer
+  })
   region = data.aws_region.current.region
 
   tags = merge(var.tags, {
@@ -76,6 +80,7 @@ module "addons" {
   vpc_id               = module.network.vpc_id
   vpc_cidr             = var.vpc_cidr
   public_subnet_ids    = module.network.public_subnet_ids
+  private_subnet_ids   = module.network.private_subnet_ids
   install_traefik      = local.automated
   allowed_cidrs        = var.ingress.allowed_cidrs
   load_balancer_scheme = var.ingress.scheme

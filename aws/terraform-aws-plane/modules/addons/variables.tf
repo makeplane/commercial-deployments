@@ -24,7 +24,12 @@ variable "vpc_cidr" {
 }
 
 variable "public_subnet_ids" {
-  description = "Public subnets for the NLB."
+  description = "Public subnets for an internet-facing NLB."
+  type        = list(string)
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnets for an internal NLB."
   type        = list(string)
 }
 

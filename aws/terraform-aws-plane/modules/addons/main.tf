@@ -188,7 +188,7 @@ resource "helm_release" "traefik" {
         "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"                     = "ip"
         "service.beta.kubernetes.io/aws-load-balancer-name"                                = local.load_balancer_name
         "service.beta.kubernetes.io/aws-load-balancer-scheme"                              = var.load_balancer_scheme
-        "service.beta.kubernetes.io/aws-load-balancer-subnets"                             = join(",", var.public_subnet_ids)
+        "service.beta.kubernetes.io/aws-load-balancer-subnets"                             = join(",", var.load_balancer_scheme == "internal" ? var.private_subnet_ids : var.public_subnet_ids)
         "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"                      = "*"
         "service.beta.kubernetes.io/aws-load-balancer-target-group-attributes"             = "preserve_client_ip.enabled=false"
         "service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules" = "true"

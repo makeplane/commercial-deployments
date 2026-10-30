@@ -148,9 +148,9 @@ locals {
   # automation_consumer and the script runner; agent runs and event-stream webhooks need their
   # consumers; live's link previews call iframely; imports run on worker_importers (its queue is
   # wired below). external_api stays off: the chart points silo at the api.
-  # Email service (chart 3.11.2+). On by default with a ClusterIP Service, like today's managed
-  # deployment: running, not reachable from the internet. With email.load_balancer, its own
-  # internet-facing NLB: instance targets plus the Service's externalTrafficPolicy: Local keep the
+  # Email service (chart 3.11.3+). On by default with its own internet-facing NLB
+  # (email.load_balancer; without it, a ClusterIP Service, like today's managed deployment). On
+  # the NLB, instance targets plus the Service's externalTrafficPolicy: Local keep the
   # sender's IP (SPF). Certificate: the customer's, from Secrets Manager (email.certificate_secret_arn);
   # otherwise none, and the email app generates a self-signed one at startup (fine for mail servers
   # on port 25, which use opportunistic TLS).

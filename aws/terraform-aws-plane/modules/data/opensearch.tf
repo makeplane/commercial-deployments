@@ -1,4 +1,4 @@
-# Amazon OpenSearch Service for Plane's search (optional, off by default). Private: inside the
+# Amazon OpenSearch Service for Plane's search (on by default; opensearch.enabled). Private: inside the
 # VPC, reachable only from the EKS nodes over HTTPS. No users or passwords: Plane signs its
 # requests with its Pod Identity role (SigV4). The domain policy that grants the role lives in the
 # plane module, next to the role.
