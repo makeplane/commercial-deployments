@@ -74,6 +74,10 @@ resource "helm_release" "external_secrets" {
 
   values = [yamlencode({
     installCRDs = true
+    # Keep the CRDs on uninstall (as cert-manager does). Plane's ExternalSecrets are Helm hooks,
+    # which Helm doesn't delete, and their cleanup finalizer needs the controller: deleting the
+    # CRDs with the controller leaves them stuck and the destroy times out.
+    crds = { annotations = { "helm.sh/resource-policy" = "keep" } }
     serviceAccount = {
       create = true
       name   = local.external_secrets_sa
