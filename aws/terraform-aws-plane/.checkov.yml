@@ -1,0 +1,11 @@
+framework:
+  - terraform
+# Third-party registry modules (terraform-aws-modules/*) are pinned to exact versions and
+# maintained upstream; scanning their unused branches only adds noise. Our calls into them
+# are still checked.
+download-external-modules: false
+compact: true
+quiet: true
+skip-check:
+  # Registry modules are pinned to exact versions, the standard practice for Registry sources.
+  - CKV_TF_1

@@ -1,0 +1,90 @@
+name: terraform-aws-plane
+
+on:
+  pull_request:
+    paths:
+      - "aws/terraform-aws-plane/**"
+      - ".github/workflows/terraform-aws-plane.yml"
+  push:
+    branches: [main]
+    paths:
+      - "aws/terraform-aws-plane/**"
+      - ".github/workflows/terraform-aws-plane.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: aws/terraform-aws-plane
+
+jobs:
+  static:
+    name: fmt, validate, tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.10.5"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform validate (module)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: terraform test (mock providers)
+        run: terraform test
+
+      - name: terraform validate (examples)
+        run: |
+          for d in examples/*/; do
+            echo "::group::$d"
+            terraform -chdir="$d" init -backend=false -input=false
+            terraform -chdir="$d" validate
+            echo "::endgroup::"
+          done
+
+      - uses: terraform-linters/setup-tflint@v6
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$PWD/.tflint.hcl"
+          tflint --recursive --config "$PWD/.tflint.hcl" --format compact
+
+  checkov:
+    name: checkov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: aws/terraform-aws-plane
+          config_file: aws/terraform-aws-plane/.checkov.yml
+
+  docs:
+    name: terraform-docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Same terraform-docs version as local runs, so the generated README matches exactly.
+      - name: Install terraform-docs
+        run: |
+          curl -sSLo /tmp/terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-linux-amd64.tar.gz
+          tar -xzf /tmp/terraform-docs.tar.gz -C /tmp terraform-docs
+      - name: Check README
+        working-directory: aws/terraform-aws-plane
+        run: /tmp/terraform-docs --config .terraform-docs.yml --output-check .
+      # examples/complete is the one place customers set inputs (terraform.tfvars): it must declare
+      # every module input, under the same name, and nothing else (plus region for the provider).
+      - name: Example declares every module input
+        working-directory: aws/terraform-aws-plane
+        run: |
+          grep -h '^variable "' variables.tf | cut -d'"' -f2 | sort > /tmp/module-inputs
+          grep -h '^variable "' examples/complete/*.tf | cut -d'"' -f2 | grep -vx region | sort > /tmp/example-inputs
+          diff -u /tmp/module-inputs /tmp/example-inputs
