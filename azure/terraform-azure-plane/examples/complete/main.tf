@@ -1,25 +1,21 @@
 provider "azurerm" {
   subscription_id = var.subscription_id
-  # The uploads account has no shared keys: any storage data-plane call uses Entra ID.
+  # The uploads account has no shared keys.
   storage_use_azuread = true
 
   features {
     key_vault {
-      # Purge protection (default) forbids purging: leave the destroyed vault and its secrets
-      # soft-deleted instead of failing the destroy. The vault name carries a random suffix, so a
-      # reinstall doesn't collide with it.
+      # Purge protection forbids purging; the vault name's random suffix avoids reinstall collisions.
       purge_soft_delete_on_destroy          = false
       purge_soft_deleted_secrets_on_destroy = false
     }
     resource_group {
-      # Never delete a resource group that still holds resources Terraform doesn't know about.
       prevent_deletion_if_contains_resources = true
     }
   }
 }
 
-# The module has no provider blocks. AKS has local accounts off (Entra ID only), so Helm authenticates
-# through kubelogin with the Azure CLI login (CI: --login workloadidentity, or azurecli after azure/login).
+# AKS local accounts are off, so Helm uses kubelogin (CI: --login workloadidentity).
 provider "helm" {
   kubernetes = {
     host                   = module.plane.cluster_endpoint
@@ -27,7 +23,7 @@ provider "helm" {
     exec = {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "kubelogin"
-      # The AKS AAD server application ID (the same for every cluster).
+      # The AKS AAD server app ID, the same for every cluster.
       args = ["get-token", "--login", "azurecli", "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630"]
     }
   }
@@ -37,7 +33,6 @@ module "plane" {
   # Registry source once published: source = "makeplane/plane/azurerm", version = "~> 0.1"
   source = "../../"
 
-  # Every input passed through as is: set values in terraform.tfvars; unset means the module default.
   name                            = var.name
   domain                          = var.domain
   deployment_mode                 = var.deployment_mode

@@ -1,5 +1,4 @@
-# Every module input, same names and types. Unset (null) means the module default: set only what you need in
-# terraform.tfvars (see terraform.tfvars.example for every default). Generated to match the module; CI checks the names.
+# Mirrors the module's inputs (CI checks the names); null means the module default.
 
 variable "subscription_id" {
   description = "Azure subscription to deploy into (null: ARM_SUBSCRIPTION_ID or the Azure CLI default)."

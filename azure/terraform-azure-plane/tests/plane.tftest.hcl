@@ -1,6 +1,3 @@
-# The plane-enterprise values the module generates: the Azure Blob contract, the in-cluster services
-# and their secrets, and that no secret value reaches the Helm values. Runs the plane module on its own.
-
 mock_provider "azurerm" {
   mock_resource "azurerm_user_assigned_identity" {
     defaults = {
@@ -58,8 +55,7 @@ variables {
   }
 }
 
-# Pins the assumed Azure Blob chart contract (modules/plane/main.tf, "AZURE BLOB STORAGE"). Update both
-# together when Plane's Blob support ships.
+# Pins the "AZURE BLOB STORAGE" contract in modules/plane/main.tf; update both together.
 run "blob_contract" {
   module {
     source = "./modules/plane"
@@ -136,7 +132,7 @@ run "in_cluster_services" {
     ] == ["https://plane-test-kv.vault.azure.net/"]
     error_message = "External Secrets must read the module's Key Vault (azurekv)."
   }
-  # The whole-Secret replacement mirrors chart-internal keys (opensearchdb.yaml): pin the list.
+  # Chart-internal keys (opensearchdb.yaml): pin the list.
   assert {
     condition = toset(flatten([
       for o in yamldecode(output.helm_values).extraObjects : keys(o.spec.target.template.data)

@@ -1,6 +1,3 @@
-# Traefik's Azure load balancer (static public IP or fixed private IP), External Secrets' workload
-# identity and CRD retention. Runs the addons module on its own with mock providers.
-
 mock_provider "azurerm" {
   mock_resource "azurerm_user_assigned_identity" {
     defaults = {

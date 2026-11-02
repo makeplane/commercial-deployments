@@ -6,15 +6,13 @@ locals {
   lets_encrypt = local.automated && var.acme_email != null
   internal     = var.ingress.scheme == "internal"
 
-  # Plane's email intake domain: a subdomain, so its MX and A records never collide with domain's.
-  # No load balancer without the email service.
+  # A subdomain, so its MX and A records never collide with domain's.
   email = merge(var.email, {
     smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")
     load_balancer = var.email.enabled && var.email.load_balancer
   })
 
-  # Read back from the resource or data source (not the input), so every module depends on the
-  # resource group existing.
+  # Read from the resource/data source, not the input, so every module waits for the resource group.
   resource_group_name = var.resource_group.create ? azurerm_resource_group.this[0].name : data.azurerm_resource_group.this[0].name
   resource_group_id   = var.resource_group.create ? azurerm_resource_group.this[0].id : data.azurerm_resource_group.this[0].id
 
@@ -23,18 +21,15 @@ locals {
   postgres_subnet_cidr          = cidrsubnet(var.vnet_cidr, 8, 16)
   private_endpoints_subnet_cidr = cidrsubnet(var.vnet_cidr, 8, 17)
 
-  # Azure CNI Overlay: pods and Services take no VNet addresses. Traefik's pods (pod_cidr) are
-  # the proxies Plane's api trusts for the client IP.
+  # CNI Overlay: pods and Services take no VNet addresses.
   pod_cidr       = "192.168.0.0/16"
   service_cidr   = "172.16.0.0/16"
   dns_service_ip = "172.16.0.10"
 
-  # Path A, internal: a fixed private address near the end of the AKS subnet (nodes are
-  # allocated from the start), so the DNS record is known before the apply.
+  # Near the end of the AKS subnet (nodes fill from the start), so it's known before the apply.
   internal_ingress_ip = cidrhost(local.aks_subnet_cidr, -10)
 
-  # Customer certificates in Key Vault (path A web; email in any path), by versionless ID. External
-  # Secrets reads the certificate's backing secret (the private key included).
+  # External Secrets reads each certificate's backing secret, which holds the private key.
   certificate_ids = {
     web  = local.automated ? var.ingress.tls_certificate_secret_id : null
     mail = local.email.enabled ? local.email.certificate_secret_id : null
@@ -90,8 +85,7 @@ module "network" {
   tags                          = local.tags
 }
 
-# Static public IPs for the module's load balancers (path A web, email). They exist before the
-# cluster, so dns_records is complete after the first plan. The module creates no DNS records.
+# Static IPs exist before the cluster, so dns_records is complete after the first plan.
 module "edge" {
   source = "./modules/edge"
 
@@ -124,9 +118,8 @@ module "cluster" {
   dns_service_ip                  = local.dns_service_ip
   tags                            = local.tags
 
-  # Destroy order: the static IPs go only after the cluster (and its load balancer frontends) is
-  # gone, or Azure refuses with PublicIPAddressInUse. The cluster module has no data sources, so
-  # this module-level dependency doesn't defer anything at plan time.
+  # On destroy the IPs must outlive the cluster (PublicIPAddressInUse). The cluster module has no
+  # data sources, so this depends_on defers nothing at plan time.
   depends_on = [module.edge]
 }
 
@@ -169,9 +162,7 @@ module "addons" {
   certificate_scopes     = distinct([for c in values(local.certificates) : c.secret_scope])
   tags                   = local.tags
 
-  # Helm releases need the node pool and the deployer's cluster role, not only the control
-  # plane. An explicit signal instead of a module-level depends_on, which would defer every
-  # data source inside the module and make plans noisy.
+  # A signal, not depends_on: a module-level depends_on would defer every data source inside it.
   cluster_ready = module.cluster.ready
 }
 
@@ -205,13 +196,11 @@ module "plane" {
   data                  = module.data.plane_inputs
   tags                  = local.tags
 
-  # The chart's extraObjects need the External Secrets and cert-manager CRDs and webhooks; on
-  # destroy, Plane must go before Traefik and External Secrets.
+  # extraObjects need the add-ons' CRDs and webhooks; on destroy, Plane goes first.
   addons_ready = module.addons.ready
 }
 
-# Path A without an email certificate still works (the email app self-signs, fine for receiving
-# mail); ask for one without blocking the apply.
+# A warning, not an error: the email app self-signs, which is fine for receiving mail.
 check "email_certificate" {
   assert {
     condition     = !local.automated || !local.email.enabled || !local.email.load_balancer || local.email.certificate_secret_id != null

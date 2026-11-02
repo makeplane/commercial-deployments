@@ -1,6 +1,3 @@
-# The two edge paths (A: ingress.mode = "automated", B: "none") and their input rules. Mock
-# providers: no Azure credentials or cluster needed. Run: terraform init && terraform test
-
 mock_provider "azurerm" {
   mock_data "azurerm_client_config" {
     defaults = {
@@ -27,8 +24,7 @@ mock_provider "helm" {}
 mock_provider "random" {}
 mock_provider "time" {}
 
-# The edge logic lives in the root wiring and the edge, addons and plane modules: the network,
-# cluster and data layers are replaced by fixed outputs.
+# Only the edge logic is under test; the other layers return fixed outputs.
 override_module {
   target = module.network
   outputs = {

@@ -1,7 +1,6 @@
 terraform {
   required_version = ">= 1.10"
 
-  # Exact versions here; the module itself only sets lower bounds.
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -21,9 +20,6 @@ terraform {
     }
   }
 
-  # State holds generated secrets (database and RabbitMQ passwords, the Redis key, app keys), so it
-  # lives in a private storage account with Entra ID auth. Settings come from backend.hcl (see
-  # backend.hcl.example):
-  #   terraform init -backend-config=backend.hcl
+  # State holds generated secrets. terraform init -backend-config=backend.hcl (see backend.hcl.example)
   backend "azurerm" {}
 }

@@ -1,5 +1,4 @@
-# The data layer: deletion protection, the Key Vault secrets Plane reads, storage without shared keys,
-# and globally unique names that fit Azure's limits. Runs the data module on its own; random runs for real.
+# random isn't mocked: it runs for real.
 
 mock_provider "azurerm" {
   mock_resource "azurerm_private_dns_zone" {
@@ -148,7 +147,6 @@ run "unprotected_without_opensearch" {
   }
 }
 
-# Global names within Azure's limits for the longest allowed name.
 run "long_name" {
   module {
     source = "./modules/data"

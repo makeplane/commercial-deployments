@@ -1,10 +1,6 @@
-# Key Vault in RBAC mode with purge protection. Its public endpoint stays on, gated by Entra ID RBAC
-# (as Secrets Manager on AWS); key_vault.allowed_ips turns on the firewall and
-# key_vault.private_endpoint_enabled adds a private endpoint. Adapted from azure/terraform/modules/key_vault.
-
 resource "azurerm_key_vault" "this" {
-  # checkov:skip=CKV_AZURE_109:The firewall is an input (key_vault.allowed_ips); off by default, access is RBAC-gated as Secrets Manager on AWS.
-  # checkov:skip=CKV_AZURE_189:Public endpoint by default (Terraform and External Secrets reach it); key_vault.allowed_ips and private_endpoint_enabled restrict it.
+  # checkov:skip=CKV_AZURE_109:Firewall is an input (key_vault.allowed_ips); RBAC-gated by default, as on AWS.
+  # checkov:skip=CKV_AZURE_189:Public by default for Terraform and External Secrets; inputs restrict it.
   # checkov:skip=CKV2_AZURE_32:The private endpoint is an input (key_vault.private_endpoint_enabled).
   name                = local.key_vault_name
   location            = var.location
@@ -18,8 +14,7 @@ resource "azurerm_key_vault" "this" {
 
   public_network_access_enabled = true
 
-  # With allowed_ips, only those addresses (plus the cluster's NAT IP, so External Secrets can read)
-  # reach the vault. Empty: open, still RBAC-gated.
+  # The NAT IP lets External Secrets through when allowed_ips is set.
   network_acls {
     bypass         = "AzureServices"
     default_action = length(var.key_vault.allowed_ips) > 0 ? "Deny" : "Allow"
@@ -29,15 +24,13 @@ resource "azurerm_key_vault" "this" {
   tags = var.tags
 }
 
-# Lets the identity running Terraform write the secrets.
 resource "azurerm_role_assignment" "deployer_secrets_officer" {
   scope                = azurerm_key_vault.this.id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = var.deployer_object_id
 }
 
-# Role assignments take a while to reach the Key Vault data plane; writing a secret right after
-# granting the role fails with 403.
+# Role assignments take a while to reach the data plane; writing secrets sooner gets 403.
 resource "time_sleep" "key_vault_rbac" {
   create_duration = "60s"
 

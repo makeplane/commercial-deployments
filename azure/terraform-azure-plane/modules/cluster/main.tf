@@ -1,13 +1,10 @@
-# AKS with Entra ID + Azure RBAC (no local accounts), Workload Identity, Azure CNI Overlay with Cilium,
-# egress through the NAT gateway, and one autoscaled node pool. Adapted from azure/terraform/modules/aks.
-
 locals {
-  # Whoever runs Terraform administers the cluster (the EKS cluster-creator equivalent), plus the extra admins.
+  # The deployer administers the cluster (as the EKS cluster creator).
   cluster_admins = toset(concat([var.deployer_object_id], var.cluster_admin_object_ids))
 }
 
-# Control-plane identity. User-assigned, so it can be granted Network Contributor before the cluster
-# exists: with a bring-your-own subnet and a user-assigned NAT gateway, cluster creation fails without it.
+# User-assigned so it gets Network Contributor before the cluster exists; with a BYO subnet and
+# NAT gateway, cluster creation fails otherwise.
 resource "azurerm_user_assigned_identity" "control_plane" {
   name                = "${var.name}-aks-control-plane"
   location            = var.location
@@ -16,8 +13,7 @@ resource "azurerm_user_assigned_identity" "control_plane" {
   tags = var.tags
 }
 
-# Network Contributor on the resource group covers the subnet join and lets the cloud provider attach
-# the module's static public IPs (they live in this resource group, not the node resource group).
+# Resource-group scope: the static public IPs live here, not in the node resource group.
 resource "azurerm_role_assignment" "control_plane_network" {
   scope                = var.resource_group_id
   role_definition_name = "Network Contributor"
@@ -25,7 +21,7 @@ resource "azurerm_role_assignment" "control_plane_network" {
   principal_type       = "ServicePrincipal"
 }
 
-# A new role assignment takes a minute to propagate; creating the cluster at once fails its subnet check.
+# Role assignments take a minute to propagate; otherwise the cluster's subnet check fails.
 resource "time_sleep" "control_plane_rbac" {
   create_duration = "60s"
 
@@ -33,15 +29,15 @@ resource "time_sleep" "control_plane_rbac" {
 }
 
 resource "azurerm_kubernetes_cluster" "this" {
-  # checkov:skip=CKV_AZURE_4:Azure Monitor (Container Insights) wiring is the customer's choice; not in v0.1.
-  # checkov:skip=CKV_AZURE_6:API access is restricted with api_server_authorized_ip_ranges; open by default as on AWS (Terraform and Helm need it).
-  # checkov:skip=CKV_AZURE_115:Public API endpoint (restrictable); a private cluster needs Terraform inside the VNet. Later option.
+  # checkov:skip=CKV_AZURE_4:Container Insights is the customer's choice.
+  # checkov:skip=CKV_AZURE_6:Restrictable via api_server_authorized_ip_ranges; open by default as on AWS.
+  # checkov:skip=CKV_AZURE_115:A private cluster needs Terraform inside the VNet; later option.
   # checkov:skip=CKV_AZURE_116:Azure Policy add-on is the customer's choice.
-  # checkov:skip=CKV_AZURE_117:Platform-managed disk encryption in v0.1; a disk encryption set (CMK) is a later option.
-  # checkov:skip=CKV_AZURE_226:Managed OS disks (128 GB) as the Azure guide; ephemeral disks depend on the VM size's cache.
-  # checkov:skip=CKV_AZURE_227:Encryption at host needs a subscription feature registration; a later option.
-  # checkov:skip=CKV_AZURE_172:The Secrets Store CSI driver isn't used: External Secrets syncs Key Vault.
-  # checkov:skip=CKV_AZURE_232:One node pool runs system and Plane pods (sized for parity with AWS).
+  # checkov:skip=CKV_AZURE_117:Platform-managed disk encryption; CMK is a later option.
+  # checkov:skip=CKV_AZURE_226:Ephemeral OS disks depend on the VM size's cache.
+  # checkov:skip=CKV_AZURE_227:Encryption at host needs a subscription feature registration.
+  # checkov:skip=CKV_AZURE_172:External Secrets syncs Key Vault, not the Secrets Store CSI driver.
+  # checkov:skip=CKV_AZURE_232:One node pool runs system and Plane pods (parity with AWS).
   # checkov:skip=CKV_AZURE_168:Azure CNI Overlay defaults to 250 pods per node.
   name                = var.name
   location            = var.location
@@ -54,12 +50,9 @@ resource "azurerm_kubernetes_cluster" "this" {
   automatic_upgrade_channel = "patch"
   node_os_upgrade_channel   = "NodeImage"
 
-  # Workload Identity: pods exchange their ServiceAccount token for an Entra token (the IRSA / Pod
-  # Identity equivalent). External Secrets and Plane use it; nothing holds a client secret.
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
 
-  # Entra ID authentication, Azure RBAC authorization, no static admin kubeconfig.
   local_account_disabled            = true
   role_based_access_control_enabled = true
   run_command_enabled               = false
@@ -74,7 +67,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     identity_ids = [azurerm_user_assigned_identity.control_plane.id]
   }
 
-  # One system-mode pool, without the critical-addons taint, for the system add-ons and Plane.
+  # No critical-addons taint: Plane runs on the system pool too.
   default_node_pool {
     name                        = "system"
     vm_size                     = var.node_pool.vm_size
@@ -112,12 +105,10 @@ resource "azurerm_kubernetes_cluster" "this" {
     dns_service_ip      = var.dns_service_ip
   }
 
-  # Node pools as configured here (no Node Auto Provisioning / Karpenter).
   node_provisioning_profile {
     mode = "Manual"
   }
 
-  # Azure Disk CSI for the in-cluster RabbitMQ and OpenSearch volumes; nothing else.
   storage_profile {
     disk_driver_enabled         = true
     file_driver_enabled         = false
@@ -138,7 +129,7 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   lifecycle {
     ignore_changes = [
-      # Managed by the cluster autoscaler after creation.
+      # Owned by the cluster autoscaler.
       default_node_pool[0].node_count,
     ]
   }
@@ -152,8 +143,7 @@ resource "azurerm_role_assignment" "cluster_admin" {
   principal_id         = each.value
 }
 
-# Azure RBAC for Kubernetes reaches the API server a few minutes after the assignment; Helm's first
-# call fails with 403 before that.
+# Azure RBAC takes minutes to reach the API server; Helm gets 403 before that.
 resource "time_sleep" "cluster_rbac" {
   create_duration = "120s"
 

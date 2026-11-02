@@ -1,6 +1,4 @@
-# From the repo root:
-#   pre-commit run -c azure/terraform-azure-plane/.pre-commit-config.yaml --all-files
-# Scoped to this module so the older azure/terraform module is left alone.
+# From the repo root: pre-commit run -c azure/terraform-azure-plane/.pre-commit-config.yaml --all-files
 files: ^azure/terraform-azure-plane/
 repos:
   - repo: https://github.com/antonbabenko/pre-commit-terraform

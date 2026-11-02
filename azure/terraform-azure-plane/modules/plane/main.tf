@@ -1,7 +1,4 @@
-# Plane itself: one Helm release of plane-enterprise. The SecretStores, ExternalSecrets, the
-# StorageClass of the in-cluster services and (path A) the certificates travel in the chart's own
-# extraObjects, so there is no module-side chart and no kubernetes provider. Copied from the AWS
-# module and adapted (no shared plane-k8s layer yet).
+# In-cluster objects ride in the chart's extraObjects, so there's no kubernetes provider.
 
 locals {
   # Release name and namespace feed MACHINE_SIGNATURE (the licence identity): never change them.
@@ -10,35 +7,24 @@ locals {
   service_account = "${local.release}-srv-account"
   cluster_domain  = "cluster.local"
 
-  ##############################################################################
-  # AZURE BLOB STORAGE: CHART CONTRACT (ASSUMED, NOT YET RELEASED)
-  #
-  # Plane's native Azure Blob support (api, silo and the plane-enterprise chart; plan B1-B3, B5) is
-  # being built by Plane engineering. These are the planned chart values, proxy-only: uploads and
-  # downloads go through Plane's API (use_storage_proxy), so the account needs no SAS and no CORS,
-  # and Plane authenticates with its workload identity (no keys). When the real contract lands,
-  # adjust this block only (tests/plane.tftest.hcl pins it, so it fails until updated too), and
-  # bump plane_version / chart_version.
-  ##############################################################################
+  # AZURE BLOB STORAGE: assumed chart contract, pending Plane's Blob support (see README).
+  # tests/plane.tftest.hcl pins it; update both together.
   blob_env = {
     storage_provider      = "AZURE"
     azure_storage_account = var.data.storage_account_name
     azure_container       = var.data.storage_container_name
-    # Optional in the contract (sovereign clouds, custom endpoints); the account's own endpoint.
+    # Optional in the contract (sovereign clouds, custom endpoints).
     azure_blob_endpoint = var.data.storage_blob_endpoint
     use_storage_proxy   = true
-    # The generic bucket name the chart always renders (AWS_S3_BUCKET_NAME); kept equal to the container.
+    # The chart always renders AWS_S3_BUCKET_NAME from this.
     docstore_bucket = var.data.storage_container_name
   }
   blob_service_account = {
     annotations = { "azure.workload.identity/client-id" = azurerm_user_assigned_identity.plane.client_id }
     podLabels   = { "azure.workload.identity/use" = "true" }
   }
-  # No bundled MinIO: Blob is the only object store.
   blob_minio = { local_setup = false }
-  ##############################################################################
 
-  # Path A, Let's Encrypt: cert-manager issues the web certificate (HTTP-01 through Traefik).
   issue_cert = var.ingress_enabled && var.acme_email != null
 
   hook = {
@@ -46,8 +32,7 @@ locals {
     secrets = { "helm.sh/hook" = "pre-install,pre-upgrade", "helm.sh/hook-weight" = "-5", "helm.sh/hook-delete-policy" = "before-hook-creation" }
   }
 
-  # The module's Key Vault. No auth block: the External Secrets controller uses its own workload
-  # identity (no serviceAccountRef).
+  # No auth block: the External Secrets controller uses its own workload identity.
   secret_store = "azure-key-vault"
   secret_store_object = {
     apiVersion = "external-secrets.io/v1"
@@ -64,9 +49,7 @@ locals {
     }
   }
 
-  # Customer certificates (path A web; email in any path) from Key Vault, by versionless ID, synced
-  # into kubernetes.io/tls Secrets before Plane's pods start. One SecretStore per vault; the Key Vault
-  # DNS suffix comes from the module's own vault, so sovereign clouds work too.
+  # One SecretStore per certificate vault; the DNS suffix comes from the module's vault (sovereign clouds).
   key_vault_dns_suffix = regex("^https://[^.]+\\.([^/]+)", var.data.key_vault_uri)[0]
   certificate_stores   = { for v in distinct([for c in values(var.certificates) : c.vault]) : v => "key-vault-${v}" }
   certificate_store_objects = [
@@ -91,8 +74,7 @@ locals {
     web  = { name = "${local.release}-web-tls", secret = var.tls_secret_name }
     mail = { name = "${local.release}-mail-tls", secret = local.email_tls_secret }
   }
-  # A Key Vault certificate's backing secret holds the key and the chain: PEM as imported, or a
-  # base64 PFX. The template handles both.
+  # The certificate's backing secret is PEM as imported or a base64 PFX; the template handles both.
   customer_certificates = {
     for k, c in var.certificates : local.certificate_targets[k].name => {
       apiVersion = "external-secrets.io/v1"
@@ -118,16 +100,14 @@ locals {
     }
   }
 
-  # Every workload that reads a Secret gets the Reloader annotation, so a rotated credential
-  # rolls the pods (Reloader reads it on the workload, which the chart sets from
-  # services.<name>.annotations).
+  # Reloader annotation on every workload that reads a Secret, so a rotated credential rolls the pods.
   reloaded_services = [
     "api", "worker", "beatworker", "worker_importers", "external_api", "outbox_poller",
     "automation_consumer", "webhook_consumer", "agent_consumer", "live", "live_exporter",
     "silo", "pi", "pi_worker", "pi_beat_worker", "mcp_server", "runner", "email_service", "argus",
   ]
 
-  # Key Vault secrets mirrored as they are (JSON keys = the chart's external_secrets.* keys).
+  # Mirrored as is: the JSON keys are the chart's external_secrets.* keys.
   external_secret = {
     for name, key in {
       "plane-db"       = var.data.postgres_secret_name
@@ -139,7 +119,6 @@ locals {
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        # Nothing here rotates on its own; Reloader rolls the pods when a value changes.
         refreshInterval = "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
@@ -149,9 +128,7 @@ locals {
     }
   }
 
-  # The in-cluster OpenSearch reads its credentials from a whole Secret (opensearch_existingSecret) whose
-  # keys mirror the chart's own <release>-opensearch-secrets; the module templates it from Key Vault.
-  # The key list is chart-internal: re-check it on every chart bump.
+  # Keys mirror the chart-internal <release>-opensearch-secrets: re-check them on every chart bump.
   opensearch_secret = "${local.release}-opensearch-creds"
   opensearch_external_secret = {
     apiVersion = "external-secrets.io/v1"
@@ -180,8 +157,7 @@ locals {
     }
   }
 
-  # Zone-redundant disks for the in-cluster RabbitMQ and OpenSearch, so their pods can move to
-  # another zone. Helm installs a StorageClass before the StatefulSets.
+  # Zone-redundant disks, so the RabbitMQ and OpenSearch pods can move to another zone.
   storage_class_name = "plane-${lower(replace(var.persistent_volume_sku, "_", "-"))}"
   storage_class_object = {
     apiVersion           = "storage.k8s.io/v1"
@@ -194,7 +170,7 @@ locals {
     volumeBindingMode    = "WaitForFirstConsumer"
   }
 
-  # Issuer + certificate only in path A with Let's Encrypt; slice keeps the tuple type stable.
+  # Path A with Let's Encrypt only; slice keeps the tuple type stable.
   certificate_objects = slice([
     {
       apiVersion = "cert-manager.io/v1"
@@ -205,8 +181,7 @@ locals {
           server              = var.acme_server
           email               = var.acme_email
           privateKeySecretRef = { name = "plane-letsencrypt-account" }
-          # HTTP-01: cert-manager's challenge Ingress, served by Traefik on port 80. The module
-          # touches no DNS, so no DNS-01.
+          # HTTP-01 through Traefik: the module touches no DNS.
           solvers = [{ http01 = { ingress = { ingressClassName = "traefik" } } }]
         }
       }
@@ -223,27 +198,17 @@ locals {
     },
   ], 0, local.issue_cert ? 2 : 0)
 
-  # Managed PostgreSQL and Redis; Blob instead of MinIO. Azure has no managed RabbitMQ (AMQP 0-9-1)
-  # or OpenSearch, so both run in the cluster from the chart, with their credentials from Key Vault.
+  # Azure has no managed RabbitMQ (AMQP 0-9-1) or OpenSearch, so both run in the cluster.
   data_services = {
     postgres = { local_setup = false }
     redis    = { local_setup = false }
     minio    = local.blob_minio
-    # Bundled broker and the apps read one Secret (external_secrets.rabbitmq, chart 3.11.5+).
+    # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.11.5+).
     rabbitmq   = { local_setup = true, volumeSize = "${var.rabbitmq.volume_size_gb}Gi" }
     opensearch = { local_setup = var.opensearch.enabled, volumeSize = "${var.opensearch.volume_size_gb}Gi" }
   }
 
-  # Background services the paid features depend on, on as in today's managed deployment
-  # (the chart defaults them off): Automations needs outbox_poller (it fills the event stream),
-  # automation_consumer and the script runner; agent runs and event-stream webhooks need their
-  # consumers; live's link previews call iframely; imports run on worker_importers (its queue is
-  # wired below). external_api stays off: the chart points silo at the api.
-  # Email service (chart 3.11.3+). On by default with its own load balancer on the module's static
-  # public IP (email.load_balancer; without it, a ClusterIP Service). The chart renders
-  # externalTrafficPolicy: Local, which keeps the sender's IP (SPF). Certificate: the customer's, from
-  # Key Vault (email.certificate_secret_id); otherwise none, and the email app generates a self-signed
-  # one at startup (fine for mail servers on port 25, which use opportunistic TLS).
+  # Chart 3.11.3+. Without a certificate the email app self-signs (fine for port 25's opportunistic TLS).
   email_service = {
     enabled = var.email.enabled
     service = var.email.load_balancer ? {
@@ -260,6 +225,7 @@ locals {
     generateCert    = false
   }
 
+  # Off in the chart, on as in today's managed deployment. external_api stays off: silo uses the api.
   core_services = {
     for s in [
       "outbox_poller", "automation_consumer", "runner", "agent_consumer", "webhook_consumer",
@@ -267,9 +233,7 @@ locals {
     ] : s => { enabled = true }
   }
 
-  # Two replicas for the user-facing and busiest workloads, spread across nodes, so a node drain or
-  # node-image upgrade doesn't take Plane down. The PodDisruptionBudgets only apply to multi-replica
-  # workloads.
+  # Two replicas spread across nodes, so a node drain or image upgrade doesn't take Plane down.
   replica_services = {
     for s in ["api", "worker", "web", "live"] : s => {
       replicas                  = 2
@@ -332,7 +296,7 @@ locals {
       pgdb_name     = var.data.postgres_db
       pg_pi_db_name = "plane_pi"
 
-      # In-cluster OpenSearch: endpoint and credentials come from opensearch_existingSecret.
+      # Endpoint and credentials come from opensearch_existingSecret.
       opensearch_index_prefix = var.opensearch.enabled ? var.opensearch.index_prefix : ""
 
       # silo publishes imports to worker_importers' queue (chart default: the main worker's).
@@ -340,17 +304,16 @@ locals {
 
       email_service_envs = { smtp_domain = var.email.enabled && var.email.smtp_domain != null ? var.email.smtp_domain : "" }
 
-      # Azure Managed Redis: TLS only, on port 10000.
+      # Azure Managed Redis is TLS only.
       redis_host = var.data.redis_host
       redis_port = tostring(var.data.redis_port)
       redis_ssl  = true
 
-      # In-cluster RabbitMQ: plain AMQP inside the cluster.
       rabbitmq_port  = "5672"
       rabbitmq_ssl   = false
       rabbitmq_vhost = "/"
 
-      # As today's managed deployment: any attachment type can be uploaded.
+      # As in today's managed deployment.
       allow_all_attachment_types = true
     }, local.blob_env)
 
@@ -362,12 +325,11 @@ locals {
       opensearch_existingSecret = var.opensearch.enabled ? local.opensearch_secret : ""
     }
 
-    # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). With Azure CNI
-    # Overlay the client connection reaches the api from Traefik's pod IP, so the pod CIDR is the
-    # trusted proxy range (the Azure load balancer keeps the client IP: externalTrafficPolicy Local).
+    # No chart value for TRUSTED_PROXIES yet (C-8). With CNI Overlay, requests reach the api from
+    # Traefik's pod IP, so the pod CIDR is the trusted proxy range.
     extraEnv = [
       { name = "TRUSTED_PROXIES", value = var.pod_cidr },
-      # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
+      # The chart doesn't set this for the api.
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
     ]
 

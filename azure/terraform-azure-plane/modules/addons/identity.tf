@@ -1,7 +1,3 @@
-# External Secrets' Workload Identity: a user-assigned identity trusted for exactly the controller's
-# ServiceAccount, allowed to read secrets from the module's Key Vault and the customer's certificates.
-# Adapted from azure/terraform/modules/identity (ESO half).
-
 resource "azurerm_user_assigned_identity" "external_secrets" {
   name                = "${var.name}-external-secrets"
   location            = var.location
@@ -25,7 +21,7 @@ resource "azurerm_role_assignment" "external_secrets_key_vault" {
   principal_type       = "ServicePrincipal"
 }
 
-# The customer's certificates (path A web, email), each scoped to its own backing secret.
+# Each scoped to the certificate's own backing secret.
 resource "azurerm_role_assignment" "external_secrets_certificates" {
   for_each = toset(var.certificate_scopes)
 

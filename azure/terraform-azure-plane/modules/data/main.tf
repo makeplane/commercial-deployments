@@ -1,7 +1,4 @@
-# Managed data services, the Key Vault with the generated secrets, and the uploads storage.
-# Platform-managed encryption keys everywhere in this release (customer-managed keys come later).
-
-# PostgreSQL, Redis, Key Vault and storage account names are global (DNS), so they carry a suffix.
+# These names are global (DNS), so they carry a suffix.
 resource "random_id" "suffix" {
   byte_length = 4
 }

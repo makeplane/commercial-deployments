@@ -1,7 +1,4 @@
-# Key Vault secrets, in the JSON shape the plane-enterprise chart reads through External Secrets
-# (dataFrom.extract mirrors the keys with no templating).
-
-# Generated credentials. Alphanumeric where the value ends up inside a connection URL.
+# Alphanumeric: the value ends up inside a connection URL.
 resource "random_password" "rabbitmq" {
   length  = 32
   special = false
@@ -18,10 +15,8 @@ resource "random_password" "opensearch" {
   min_special      = 1
 }
 
-# Signing and encryption keys shared by api, live, silo and pi (chart external_secrets.app_keys_existingSecret),
-# the same list as on AWS. SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data: they are generated
-# once and must never change, or existing ciphertext becomes unreadable without any error. ignore_changes
-# keeps an edited length or character set from regenerating a key.
+# SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data and must never change, so
+# ignore_changes keeps an edited length or charset from regenerating them.
 resource "random_password" "app_keys" {
   for_each = {
     SECRET_KEY             = 50
@@ -53,13 +48,13 @@ locals {
     "plane-redis"    = jsonencode({ password = azurerm_managed_redis.this.default_database[0].primary_access_key })
     "plane-rabbitmq" = jsonencode({ username = "plane", password = random_password.rabbitmq.result })
     "plane-app-keys" = jsonencode({ for k, v in random_password.app_keys : k => v.result })
-    # The in-cluster OpenSearch's admin and Plane user share this password, as the chart does.
+    # Admin and Plane user share this password, as in the chart.
     "plane-opensearch" = jsonencode({ username = "plane", password = random_password.opensearch.result })
   }
 }
 
 resource "azurerm_key_vault_secret" "this" {
-  # checkov:skip=CKV_AZURE_41:Generated credentials and app keys don't expire; the app keys must never rotate.
+  # checkov:skip=CKV_AZURE_41:Generated credentials don't expire; app keys must never rotate.
   for_each = toset(local.secret_names)
 
   name         = each.value

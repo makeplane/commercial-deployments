@@ -57,8 +57,7 @@ output "plane_inputs" {
     storage_blob_endpoint  = azurerm_storage_account.this.primary_blob_endpoint
   }
 
-  # Plane's pods must be able to reach every service (private endpoints and DNS in place, both
-  # databases created, TLS enforced) before they start.
+  # Every service must be reachable before Plane's pods start.
   depends_on = [
     azurerm_postgresql_flexible_server_configuration.require_secure_transport,
     azurerm_postgresql_flexible_server_database.this,

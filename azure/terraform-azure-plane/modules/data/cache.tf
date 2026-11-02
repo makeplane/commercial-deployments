@@ -1,6 +1,4 @@
-# Azure Managed Redis (the successor to Azure Cache for Redis): TLS only on port 10000, private
-# endpoint, no public access. Access-key auth: Plane's clients send a password only (REDIS_PASSWORD),
-# so Entra auth (object ID + hourly token) isn't possible yet. Adapted from azure/terraform/modules/redis.
+# Access-key auth: Plane's clients send only a password, so Entra auth isn't possible yet.
 
 resource "azurerm_managed_redis" "this" {
   name                      = local.redis_name

@@ -1,15 +1,11 @@
-# Azure Database for PostgreSQL Flexible Server, VNet-integrated (no public access), TLS required,
-# zone-redundant HA. Plane connects with a password (no Entra token support in Plane), generated
-# here and stored in Key Vault. Both databases (plane, plane_pi) are created here, so unlike AWS
-# there is no DB-init Job. Adapted from azure/terraform/modules/postgres.
+# Password auth: Plane has no Entra token support. Both databases are created here (no DB-init Job).
 
 resource "random_password" "postgres" {
   length  = 40
   special = false
 }
 
-# The private DNS zone of a VNet-integrated server must end in .postgres.database.azure.com;
-# prefixing it with the server name keeps it unique.
+# Must end in .postgres.database.azure.com; the server-name prefix keeps it unique.
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "${local.postgres_name}.private.postgres.database.azure.com"
   resource_group_name = var.resource_group_name
@@ -27,8 +23,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 }
 
 resource "azurerm_postgresql_flexible_server" "this" {
-  # checkov:skip=CKV_AZURE_136:Geo-redundant backups are an input (postgres.geo_redundant_backup_enabled); off by default, as RDS on AWS.
-  # checkov:skip=CKV2_AZURE_57:VNet-integrated (delegated subnet, no public access) instead of a private endpoint.
+  # checkov:skip=CKV_AZURE_136:Geo-redundant backups are an input; off by default, as on AWS.
+  # checkov:skip=CKV2_AZURE_57:VNet-integrated (delegated subnet) instead of a private endpoint.
   name                = local.postgres_name
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -39,7 +35,6 @@ resource "azurerm_postgresql_flexible_server" "this" {
   storage_mb        = var.postgres.storage_mb
   auto_grow_enabled = true
 
-  # Private access only: an address in the delegated subnet, reachable from the VNet (AKS pods).
   delegated_subnet_id           = var.postgres_subnet_id
   private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
   public_network_access_enabled = false
@@ -63,7 +58,7 @@ resource "azurerm_postgresql_flexible_server" "this" {
     }
   }
 
-  # Mon 04:00 UTC, as the RDS maintenance window on AWS.
+  # Mon 04:00 UTC, as on AWS.
   maintenance_window {
     day_of_week  = 1
     start_hour   = 4
@@ -83,7 +78,7 @@ resource "azurerm_postgresql_flexible_server" "this" {
   }
 }
 
-# On by default on Flexible Server; set explicitly so a drift shows in the plan.
+# Already the default; set so drift shows in the plan.
 resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
   name      = "require_secure_transport"
   server_id = azurerm_postgresql_flexible_server.this.id
@@ -99,8 +94,7 @@ resource "azurerm_postgresql_flexible_server_database" "this" {
   collation = "en_US.utf8"
 }
 
-# Deletion protection (the RDS deletion_protection equivalent): set postgres.deletion_protection = false
-# and apply before a destroy.
+# Set postgres.deletion_protection = false and apply before a destroy.
 resource "azurerm_management_lock" "postgres" {
   count = var.postgres.deletion_protection ? 1 : 0
 

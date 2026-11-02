@@ -1,5 +1,4 @@
-# Every in-cluster add-on is a Helm release with a pinned chart version. AKS ships metrics-server and
-# its own cloud load balancer integration, so unlike AWS there is no LB controller or metrics-server.
+# AKS ships metrics-server and LB integration, so unlike AWS neither is installed here.
 
 locals {
   external_secrets_namespace = "external-secrets"
@@ -7,8 +6,7 @@ locals {
   cert_manager_namespace     = "cert-manager"
   cert_manager_sa            = "cert-manager"
 
-  # cert-manager runs only when the module issues the web certificate (path A, Let's Encrypt).
-  # HTTP-01 through Traefik: it needs no Azure access and touches no DNS.
+  # HTTP-01 through Traefik: cert-manager needs no Azure access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
 
   chart_versions = {
@@ -18,9 +16,7 @@ locals {
     reloader         = "2.2.19"
   }
 
-  # Traefik's Service: a static public IP from the module (internet-facing), or a fixed private IP
-  # in the AKS subnet (internal). The Azure load balancer's default idle timeout (4 minutes) would cut
-  # live's websockets, hence 30.
+  # The default 4-minute LB idle timeout would cut live's websockets.
   traefik_service_annotations = merge(
     { "service.beta.kubernetes.io/azure-load-balancer-tcp-idle-timeout" = "30" },
     var.load_balancer_scheme == "internal" ? {
@@ -33,7 +29,6 @@ locals {
   )
 }
 
-# Every release waits for the node pool and the deployer's cluster role through this gate.
 resource "terraform_data" "cluster_ready" {
   input = var.cluster_ready
 }
@@ -49,12 +44,10 @@ resource "helm_release" "external_secrets" {
 
   values = [yamlencode({
     installCRDs = true
-    # Keep the CRDs on uninstall (as cert-manager does). Plane's ExternalSecrets are Helm hooks,
-    # which Helm doesn't delete, and their cleanup finalizer needs the controller: deleting the
-    # CRDs with the controller leaves them stuck and the destroy times out.
+    # Keep CRDs: Plane's hook ExternalSecrets outlive the release, and deleting CRDs with the
+    # controller leaves their finalizers stuck and the destroy times out.
     crds = { annotations = { "helm.sh/resource-policy" = "keep" } }
-    # Workload Identity: the webhook injects a token for this identity into the controller, and the
-    # SecretStores use the controller's own identity (no serviceAccountRef).
+    # SecretStores use this controller identity (no serviceAccountRef).
     serviceAccount = {
       create = true
       name   = local.external_secrets_sa
@@ -108,9 +101,7 @@ resource "helm_release" "reloader" {
   depends_on = [terraform_data.cluster_ready]
 }
 
-# Path A only: Traefik behind an Azure Standard load balancer. The load balancer only passes TCP;
-# Traefik terminates TLS. externalTrafficPolicy: Local keeps the client IP (no proxy protocol needed),
-# and AKS writes loadBalancerSourceRanges into the nodes' network security group.
+# externalTrafficPolicy: Local keeps the client IP (no proxy protocol needed).
 resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 
@@ -153,7 +144,7 @@ resource "helm_release" "traefik" {
         }
       }
       websecure = {
-        # Long-lived websockets (live) and large uploads: no read deadline on the entrypoint.
+        # No read deadline: live's websockets and large uploads.
         transport = {
           respondingTimeouts = {
             readTimeout = 0
