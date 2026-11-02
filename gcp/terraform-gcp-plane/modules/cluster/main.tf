@@ -17,6 +17,7 @@ resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_65:Google Groups for RBAC needs a Workspace groups domain; customer choice.
   # checkov:skip=CKV_GCP_12:Network policy enforcement is built into Dataplane V2 (ADVANCED_DATAPATH).
   # checkov:skip=CKV_GCP_18:The public endpoint is restricted by master_authorized_networks.
+  # checkov:skip=CKV_GCP_21:Labels always set (root adds plane-deployment, managed-by); checkov can't always resolve them.
   # checkov:skip=CKV_GCP_61:The subnet has flow logs; intranode visibility adds cost, customer choice.
   project        = var.project_id
   name           = var.name
