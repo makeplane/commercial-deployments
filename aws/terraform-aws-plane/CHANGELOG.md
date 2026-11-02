@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
+  `app_keys_secret_arn` (bring the existing app keys from a Secrets Manager secret; nothing generated, the keys never
+  pass through Terraform, every key required by name) and `machine_signature` (a Plane 3.x installation's signature,
+  so Plane 4 can move its licences to the new instance key). The app-keys ExternalSecret now maps each key by name for
+  generated keys too.
 - `deployment_mode = "eks"`: VPC, EKS (fixed-size managed node group), RDS PostgreSQL Multi-AZ DB cluster,
   ElastiCache Valkey (TLS + AUTH + at-rest encryption), Amazon MQ for RabbitMQ, S3, KMS and Secrets Manager.
 - In-cluster add-ons as Helm releases: AWS Load Balancer Controller (2.x), External Secrets, Reloader, metrics-server;

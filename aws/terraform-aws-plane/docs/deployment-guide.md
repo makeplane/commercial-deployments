@@ -6,6 +6,9 @@ a few DNS records and, depending on the option you choose, finish the ingress se
 
 Plan for about two hours. Most of that is waiting for AWS to create resources.
 
+Moving an existing installation (made with the older `aws/terraform` module and the `kustomize/` manifests)? Follow
+the [migration guide](migration-guide.md) instead: it uses this guide's steps, in a different order.
+
 ## Contents
 
 1. [What gets deployed](#1-what-gets-deployed)
@@ -344,8 +347,9 @@ before applying.
 | Backups | RDS keeps automated backups for 14 days, and takes a final snapshot if the database is deleted. S3 keeps old versions of files for 30 days. |
 | Secrets | Cache and queue credentials and Plane's app keys are in Secrets Manager under `plane/<name>/`. The database password is a secret managed and rotated by RDS. |
 
-**Never change** `name` or `domain` after installation, and never delete or change the `plane/<name>/app-keys` secret:
-Plane uses those keys to encrypt data, and the licence is bound to the domain.
+**Never change** `name` or `domain` after installation, and never delete or change the `plane/<name>/app-keys` secret
+(or the secret you gave in `app_keys_secret_arn`): Plane uses those keys to encrypt data, and the licence is bound to
+the domain.
 
 **Node count note:** Terraform sets the node count only when it creates the node group. To scale an existing
 installation, change it in AWS:

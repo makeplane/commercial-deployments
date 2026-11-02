@@ -54,7 +54,8 @@ module "plane" {
 ```
 
 A full example is in [`examples/complete`](examples/complete). For a step-by-step installation, see the
-[deployment guide](docs/deployment-guide.md).
+[deployment guide](docs/deployment-guide.md). To move an installation made with the older `aws/terraform` module and
+`kustomize/` onto this module, see the [migration guide](docs/migration-guide.md).
 
 ## Prerequisites
 
@@ -184,14 +185,16 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 
 ## Things to know
 
-- **New installs only in this release.** The module generates new app keys (`SECRET_KEY`, `AES_SECRET_KEY`, `AES_SALT`)
-  and a new licence identity, and has no inputs for an existing database snapshot, bucket or keys. Moving an existing
-  installation's data onto it would leave encrypted fields unreadable and need the licence re-activated.
+- **Moving an existing installation** (older `aws/terraform` + `kustomize/`): follow the
+  [migration guide](docs/migration-guide.md). The module creates a new database and bucket, which you fill with a
+  database dump and a file copy; `app_keys_secret_arn` brings the existing app keys (by reference: they never pass
+  through Terraform) and, for Plane 3.x, `machine_signature` lets Plane move the licences to its new instance key.
+  There are no inputs to adopt the old database, bucket or other services in place.
 - **Never change `domain`.** Plane's licence is bound to it. The release and namespace are fixed to `plane`; the chart
   also derives `MACHINE_SIGNATURE` from the licence server, domain, namespace and release, which Plane v4 only uses to
   carry over an older install's licence identity (new installs get a key pair stored in the database).
-- **App keys are generated once and never rotated** (`plane/<name>/app-keys`). Changing them makes stored encrypted
-  data unreadable.
+- **App keys are generated once and never rotated** (`plane/<name>/app-keys`), unless you bring your own
+  (`app_keys_secret_arn`, set on the first apply only). Changing them makes stored encrypted data unreadable.
 - **Nodes:** 2 by default, range 2–4 (`node_group.min_size` / `max_size` / `desired_size`). There's no node autoscaler
   yet, and Terraform sets the node count only when it creates the group. Scale by hand with
   `aws eks update-nodegroup-config --cluster-name <name> --nodegroup-name <group> --scaling-config desiredSize=3`
@@ -242,6 +245,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | Name | Type |
 | ---- | ---- |
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/availability_zones) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
@@ -253,6 +257,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | acme\_email | Path A (ingress.mode = "automated"), variant A.1: the Let's Encrypt account email. cert-manager issues the web<br/>certificate with HTTP-01 through Traefik: Plane must be public on port 80, and the certificate is issued once your<br/>DNS record for domain points at load\_balancer\_dns\_name. Leave null for your own certificates<br/>(ingress.tls\_certificate\_secret\_arn, variant A.2) or for path B. | `string` | `null` | no |
 | acme\_server | ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits. | `string` | `"https://acme-v02.api.letsencrypt.org/directory"` | no |
 | addon\_versions | EKS managed add-on versions. null for an add-on means the most recent version for kubernetes\_version. | <pre>object({<br/>    vpc_cni                = optional(string, "v1.23.2-eksbuild.8")<br/>    coredns                = optional(string, "v1.14.7-eksbuild.22")<br/>    kube_proxy             = optional(string, "v1.36.0-eksbuild.58")<br/>    eks_pod_identity_agent = optional(string, "v1.4.1-eksbuild.3")<br/>    aws_ebs_csi_driver     = optional(string, "v1.67.2-eksbuild.1")<br/>  })</pre> | `{}` | no |
+| app\_keys\_secret\_arn | Use existing app keys instead of generating them: for moving an existing Plane installation, whose stored data<br/>and settings are encrypted with its keys. The full ARN of a Secrets Manager secret in the same account and region,<br/>encrypted with the default aws/secretsmanager key, holding a JSON object with all eight keys: SECRET\_KEY,<br/>AES\_SECRET\_KEY, AES\_SALT, LIVE\_SERVER\_SECRET\_KEY, PI\_INTERNAL\_SECRET, SILO\_HMAC\_SECRET\_KEY, CURSOR\_WEBHOOK\_SECRET<br/>and RUNNER\_HMAC\_SECRET\_KEY. Plane doesn't start until the secret holds every key. The keys never pass through<br/>Terraform. Set it on the first apply only: adding or removing it later deletes or replaces the keys in use. | `string` | `null` | no |
 | az\_count | Availability zones to use. The RDS Multi-AZ DB cluster needs at least 3. | `number` | `3` | no |
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
@@ -266,6 +271,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | ingress | How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind an NLB, Plane's routes and<br/>the certificates (Let's Encrypt via acme\_email, or your own via tls\_certificate\_secret\_arn). mode = "none" (path B,<br/>default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and<br/>DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns\_records output).<br/>Path A only: allowed\_cidrs (who can reach Plane), scheme (internet-facing or internal) and<br/>tls\_certificate\_secret\_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted<br/>with the default aws/secretsmanager key or this module's KMS key). | <pre>object({<br/>    mode                       = optional(string, "none")<br/>    allowed_cidrs              = optional(list(string), ["0.0.0.0/0"])<br/>    scheme                     = optional(string, "internet-facing")<br/>    tls_certificate_secret_arn = optional(string)<br/>  })</pre> | `{}` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |
+| machine\_signature | Only when moving a Plane 3.x installation: its MACHINE\_SIGNATURE. On its first start, Plane 4 moves the licences<br/>to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave<br/>null otherwise: the chart derives one from the licence server, domain, namespace and release. | `string` | `null` | no |
 | node\_group | The managed node group: starts at desired\_size nodes and can range from min\_size to max\_size (2 to 4 by default, as<br/>today). No node autoscaler in this release, so it stays at desired\_size until scaled by hand (aws eks<br/>update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired\_size<br/>only at creation and leaves later changes alone. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    min_size       = optional(number, 2)<br/>    max_size       = optional(number, 4)<br/>    desired_size   = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
 | opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). The<br/>chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |

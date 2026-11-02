@@ -120,6 +120,10 @@ domain = "plane.example.com" # never change after install
 
 # acme_email = null # Let's Encrypt account email (path A, A.1)
 
+# Moving an existing installation (docs/migration-guide.md); set on the first apply only:
+# app_keys_secret_arn = null # your existing app keys in Secrets Manager; null = generate new ones
+# machine_signature   = null # a Plane 3.x installation's MACHINE_SIGNATURE
+
 # Test install you will destroy:
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }

@@ -66,6 +66,11 @@ variable "rabbitmq" {
   })
 }
 
+variable "app_keys_secret_arn" {
+  description = "Existing app keys in Secrets Manager (null = generate them)."
+  type        = string
+}
+
 variable "bucket_force_destroy" {
   description = "Let destroy delete a non-empty bucket."
   type        = bool

@@ -260,3 +260,26 @@ variable "bucket_force_destroy" {
   type        = bool
   default     = null
 }
+
+variable "app_keys_secret_arn" {
+  description = <<-EOT
+    Use existing app keys instead of generating them: for moving an existing Plane installation, whose stored data
+    and settings are encrypted with its keys. The full ARN of a Secrets Manager secret in the same account and region,
+    encrypted with the default aws/secretsmanager key, holding a JSON object with all eight keys: SECRET_KEY,
+    AES_SECRET_KEY, AES_SALT, LIVE_SERVER_SECRET_KEY, PI_INTERNAL_SECRET, SILO_HMAC_SECRET_KEY, CURSOR_WEBHOOK_SECRET
+    and RUNNER_HMAC_SECRET_KEY. Plane doesn't start until the secret holds every key. The keys never pass through
+    Terraform. Set it on the first apply only: adding or removing it later deletes or replaces the keys in use.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "machine_signature" {
+  description = <<-EOT
+    Only when moving a Plane 3.x installation: its MACHINE_SIGNATURE. On its first start, Plane 4 moves the licences
+    to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave
+    null otherwise: the chart derives one from the licence server, domain, namespace and release.
+  EOT
+  type        = string
+  default     = null
+}

@@ -1,5 +1,7 @@
 data "aws_region" "current" {}
 
+data "aws_caller_identity" "current" {}
+
 data "aws_availability_zones" "available" {
   # checkov:skip=CKV_AWS_394:The module takes the first az_count zones by name; zones AWS adds later sort after them, so the set doesn't shift.
   state = "available"
@@ -68,6 +70,7 @@ module "data" {
   rabbitmq                  = var.rabbitmq
   opensearch                = var.opensearch
   bucket_force_destroy      = var.bucket_force_destroy
+  app_keys_secret_arn       = var.app_keys_secret_arn
   tags                      = local.tags
 }
 
@@ -129,6 +132,7 @@ module "plane" {
   acme_server       = var.acme_server
 
   tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
+  machine_signature          = var.machine_signature
   helm_timeout               = var.helm_timeout
   plane_values               = var.plane_values
   data                       = module.data.plane_inputs

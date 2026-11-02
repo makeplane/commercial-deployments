@@ -50,4 +50,6 @@ module "plane" {
   opensearch                           = var.opensearch
   email                                = var.email
   bucket_force_destroy                 = var.bucket_force_destroy
+  app_keys_secret_arn                  = var.app_keys_secret_arn
+  machine_signature                    = var.machine_signature
 }

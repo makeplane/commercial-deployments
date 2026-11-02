@@ -84,6 +84,7 @@ override_module {
       rabbitmq_port          = 5671
       rabbitmq_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rabbitmq"
       app_keys_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:app-keys"
+      app_key_names          = ["SECRET_KEY", "AES_SECRET_KEY"]
       opensearch_enabled     = true
       opensearch_endpoint    = "opensearch.mock"
       opensearch_domain_name = "plane-test"

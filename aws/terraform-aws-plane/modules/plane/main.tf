@@ -53,7 +53,6 @@ locals {
       "plane-db"       = var.data.postgres_secret_arn
       "plane-redis"    = var.data.redis_secret_arn
       "plane-rabbitmq" = var.data.rabbitmq_secret_arn
-      "plane-app-keys" = var.data.app_keys_secret_arn
       } : name => {
       apiVersion = "external-secrets.io/v1"
       kind       = "ExternalSecret"
@@ -67,6 +66,22 @@ locals {
         target   = { name = name, creationPolicy = "Orphan" }
         dataFrom = [{ extract = { key = arn } }]
       }
+    }
+  }
+
+  # Generated, or an existing installation's (app_keys_secret_arn). Each key is mapped by name, so a
+  # secret missing one fails to sync rather than Plane starting without it.
+  app_keys_external_secret = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = "plane-app-keys", annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = "plane-app-keys", creationPolicy = "Orphan" }
+      data = [
+        for k in var.data.app_key_names : { secretKey = k, remoteRef = { key = var.data.app_keys_secret_arn, property = k } }
+      ]
     }
   }
 
@@ -284,15 +299,20 @@ locals {
 
     # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). Traefik sits
     # behind the NLB inside the VPC, so the VPC CIDR is the trusted proxy range.
-    extraEnv = [
+    extraEnv = concat([
       { name = "TRUSTED_PROXIES", value = var.vpc_cidr },
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
-    ]
+      ],
+      # A moved 3.x installation's signature (env beats the chart's derived one): Plane needs it
+      # once, to move the licences to the instance key it creates on first start.
+      var.machine_signature == null ? [] : [{ name = "MACHINE_SIGNATURE", value = var.machine_signature }],
+    )
 
     extraObjects = concat(
       [local.secret_store_object],
       values(local.external_secret),
+      [local.app_keys_external_secret],
       # Plane AI's database, only when pi is on.
       var.enable_components.pi ? [local.db_init_job] : [],
       local.certificate_objects,

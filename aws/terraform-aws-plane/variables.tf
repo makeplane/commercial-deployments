@@ -346,3 +346,44 @@ variable "bucket_force_destroy" {
   default     = false
   nullable    = false
 }
+
+################################################################################
+# Moving an existing installation (docs/migration-guide.md)
+################################################################################
+
+variable "app_keys_secret_arn" {
+  description = <<-EOT
+    Use existing app keys instead of generating them: for moving an existing Plane installation, whose stored data
+    and settings are encrypted with its keys. The full ARN of a Secrets Manager secret in the same account and region,
+    encrypted with the default aws/secretsmanager key, holding a JSON object with all eight keys: SECRET_KEY,
+    AES_SECRET_KEY, AES_SALT, LIVE_SERVER_SECRET_KEY, PI_INTERNAL_SECRET, SILO_HMAC_SECRET_KEY, CURSOR_WEBHOOK_SECRET
+    and RUNNER_HMAC_SECRET_KEY. Plane doesn't start until the secret holds every key. The keys never pass through
+    Terraform. Set it on the first apply only: adding or removing it later deletes or replaces the keys in use.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.app_keys_secret_arn == null || can(regex("^arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+-[A-Za-z0-9]{6}$", var.app_keys_secret_arn))
+    error_message = "app_keys_secret_arn must be the full ARN of a Secrets Manager secret (arn:aws:secretsmanager:<region>:<account>:secret:<name>-<6 characters>), as aws secretsmanager create-secret prints it."
+  }
+  validation {
+    condition     = var.app_keys_secret_arn == null || try(split(":", var.app_keys_secret_arn)[3] == data.aws_region.current.region && split(":", var.app_keys_secret_arn)[4] == data.aws_caller_identity.current.account_id, false)
+    error_message = "app_keys_secret_arn must be in the same AWS account and region as Plane."
+  }
+}
+
+variable "machine_signature" {
+  description = <<-EOT
+    Only when moving a Plane 3.x installation: its MACHINE_SIGNATURE. On its first start, Plane 4 moves the licences
+    to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave
+    null otherwise: the chart derives one from the licence server, domain, namespace and release.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.machine_signature == null || can(regex("^[A-Za-z0-9]{16,128}$", var.machine_signature))
+    error_message = "machine_signature must be the existing installation's value as is: letters and digits only."
+  }
+}

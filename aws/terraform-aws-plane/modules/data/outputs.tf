@@ -29,7 +29,7 @@ output "secret_arns" {
     postgres = aws_rds_cluster.postgres.master_user_secret[0].secret_arn
     redis    = aws_secretsmanager_secret.valkey.arn
     rabbitmq = aws_secretsmanager_secret.rabbitmq.arn
-    app_keys = aws_secretsmanager_secret.app_keys.arn
+    app_keys = local.app_keys_secret_arn
   }
 }
 
@@ -54,7 +54,8 @@ output "plane_inputs" {
     rabbitmq_port       = 5671
     rabbitmq_secret_arn = aws_secretsmanager_secret.rabbitmq.arn
 
-    app_keys_secret_arn = aws_secretsmanager_secret.app_keys.arn
+    app_keys_secret_arn = local.app_keys_secret_arn
+    app_key_names       = keys(local.app_key_lengths)
 
     opensearch_enabled     = local.opensearch_enabled
     opensearch_endpoint    = local.opensearch_enabled ? aws_opensearch_domain.this[0].endpoint : null

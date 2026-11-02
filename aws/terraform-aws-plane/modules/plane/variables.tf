@@ -119,6 +119,7 @@ variable "data" {
     rabbitmq_port       = number
     rabbitmq_secret_arn = string
     app_keys_secret_arn = string
+    app_key_names       = list(string)
 
     opensearch_enabled     = bool
     opensearch_endpoint    = string
@@ -126,6 +127,11 @@ variable "data" {
     opensearch_domain_arn  = string
     opensearch_prefix      = string
   })
+}
+
+variable "machine_signature" {
+  description = "A moved 3.x installation's MACHINE_SIGNATURE (null = the chart's)."
+  type        = string
 }
 
 variable "addons_ready" {
