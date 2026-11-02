@@ -202,7 +202,6 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Restrict who reaches Plane (A.2) | `ingress = { mode = "automated", tls_certificate_secret_arn = "…", allowed_cidrs = ["10.0.0.0/8"] }` | Load balancer accepts only these ranges |
 | Internal load balancer (A.2) | `ingress = { …, scheme = "internal" }` | Plane reachable only from inside the VPC or connected networks |
 | More nodes | `node_group = { desired_size = 3 }` | 3 nodes instead of 2 (range 2–4) |
-| Cache failover | `redis = { replicas = 1 }` | A second cache node with automatic failover (the default is one node) |
 | Different email domain | `email = { smtp_domain = "mail.example.com" }` | Intake addresses use this domain |
 | Email without a public endpoint | `email = { load_balancer = false }` | The email service runs, but can't receive mail from the internet |
 | No email | `email = { enabled = false }` | No email service and no email load balancer |

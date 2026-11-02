@@ -9,7 +9,8 @@
   so Plane 4 can move its licences to the new instance key). The app-keys ExternalSecret now maps each key by name for
   generated keys too.
 - `deployment_mode = "eks"`: VPC, EKS (fixed-size managed node group), RDS PostgreSQL Multi-AZ DB cluster,
-  ElastiCache Valkey (TLS + AUTH + at-rest encryption), Amazon MQ for RabbitMQ, S3, KMS and Secrets Manager.
+  ElastiCache Valkey (TLS + AUTH + at-rest encryption, primary + replica with Multi-AZ failover), Amazon MQ for
+  RabbitMQ, S3, KMS and Secrets Manager.
 - In-cluster add-ons as Helm releases: AWS Load Balancer Controller (2.x), External Secrets, Reloader, metrics-server;
   in path A also Traefik, and cert-manager when `acme_email` is set.
 - Plane (plane-enterprise chart) with secrets from Secrets Manager through External Secrets and keyless S3 through

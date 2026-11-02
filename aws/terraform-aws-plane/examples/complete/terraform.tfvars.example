@@ -77,7 +77,7 @@ domain = "plane.example.com" # never change after install
 # redis = {
 #   engine_version = "8.2"
 #   node_type      = "cache.t3.medium"
-#   replicas       = 0
+#   replicas       = 1
 # }
 
 # rabbitmq = {
@@ -128,3 +128,4 @@ domain = "plane.example.com" # never change after install
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }
 #   bucket_force_destroy = true
+#   redis                = { replicas = 0 } # one cache node, no failover

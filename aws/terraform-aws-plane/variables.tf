@@ -273,11 +273,11 @@ variable "postgres" {
 }
 
 variable "redis" {
-  description = "ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache."
+  description = "ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. replicas = 1 (default) adds a replica in another AZ with automatic failover; 0 is a single node."
   type = object({
     engine_version = optional(string, "8.2")
     node_type      = optional(string, "cache.t3.medium")
-    replicas       = optional(number, 0)
+    replicas       = optional(number, 1)
   })
   default  = {}
   nullable = false
