@@ -237,8 +237,7 @@ variable "opensearch" {
     instance_type  = optional(string)
     instance_count = optional(number)
     volume_size_gb = optional(number)
-    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install
-    # needs the indexes created again and re-filled (manage_search_index index create + document index).
+    # Changing it on a running install needs the indexes created again and re-filled.
     index_prefix = optional(string)
   })
   default = null

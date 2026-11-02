@@ -1,9 +1,4 @@
-# One SSM Command document carries the scripts and the non-secret configuration (base64, written to
-# /usr/local/lib/plane and /etc/plane) and runs plane-converge.sh in one of three modes:
-#   converge  install or upgrade Plane to the configured state; Terraform waits for it (association below)
-#   backup    nightly pg_dump and MinIO mirror to the backups bucket
-#   certs     daily copy of the certificates from Secrets Manager (only with your own certificates)
-# Secret values are never in the document: the script reads them with the instance role.
+# The document embeds the scripts and non-secret config; the script reads secrets with the instance role.
 
 locals {
   plane_conf = {
@@ -24,11 +19,9 @@ locals {
     SETUP_TIMEOUT_SECONDS   = var.docker.setup_timeout_minutes * 60
   }
 
-  # Shell assignments, single-quoted (sourced by the script).
   plane_conf_text = join("", [
     for k in sort(keys(local.plane_conf)) : "${k}='${replace(tostring(local.plane_conf[k]), "'", "'\\''")}'\n"
   ])
-  # KEY=value lines, merged into plane.env by the script.
   plane_env_text = join("", [for k in sort(keys(local.plane_env)) : "${k}=${local.plane_env[k]}\n"])
 
   instance_files = {
@@ -39,7 +32,7 @@ locals {
     "/etc/plane/managed.env"                 = local.plane_env_text
   }
 
-  # POSIX sh: SSM may run the commands with /bin/sh.
+  # POSIX sh: SSM may run these with /bin/sh.
   run_command = concat(
     ["set -eu", "umask 077", "install -d -m 0700 /usr/local/lib/plane /etc/plane"],
     flatten([for path, content in local.instance_files : [
@@ -82,8 +75,7 @@ resource "aws_ssm_document" "this" {
   tags = var.tags
 }
 
-# Install, upgrade or reconfigure. Re-created whenever the document or the instance changes, so every change
-# runs once and Terraform waits for it (the provider waits on create only).
+# Re-created on any document or instance change: the provider waits for success on create only.
 resource "aws_ssm_association" "converge" {
   name                             = aws_ssm_document.this.name
   association_name                 = "${var.name}-plane-converge"

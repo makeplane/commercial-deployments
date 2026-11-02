@@ -1,5 +1,3 @@
-# One customer-managed key for the volumes, the secrets and the backups bucket (same policy as modules/data).
-
 data "aws_iam_policy_document" "kms" {
   # checkov:skip=CKV_AWS_109:Key policy (resource is the key itself); this is the AWS default statement that delegates to IAM.
   # checkov:skip=CKV_AWS_111:Key policy (resource is the key itself); this is the AWS default statement that delegates to IAM.

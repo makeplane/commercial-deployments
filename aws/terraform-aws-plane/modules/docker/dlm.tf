@@ -1,4 +1,4 @@
-# Daily snapshots of the data volume (crash-consistent; the nightly pg_dump in S3 is the consistent copy).
+# Crash-consistent snapshots; the nightly pg_dump is the consistent copy.
 resource "aws_dlm_lifecycle_policy" "data" {
   description        = "Plane ${var.name} data volume"
   execution_role_arn = aws_iam_role.dlm.arn

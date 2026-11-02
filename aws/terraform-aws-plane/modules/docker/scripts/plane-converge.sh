@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # plane-converge.sh <converge|backup|certs>: run by SSM as root (see ssm.tf). Idempotent.
-#   converge  bring the instance to the configured state: data volume, Docker, compose assets, plane.env, stack
-#   backup    pg_dump of Plane's databases and a mirror of MinIO's data to the backups store
-#   certs     copy your certificates from the secrets store; restart the services using them
 set -euo pipefail
-set +x # the output is stored (SSM): never trace commands that handle secrets
+set +x # SSM stores the output: never trace commands that handle secrets
 umask 077
 export PATH="$PATH:/usr/local/sbin:/usr/local/bin:/snap/bin"
 
@@ -35,7 +32,6 @@ converge() {
   release="$PLANE_DIR/releases/$PLANE_VERSION"
   restart=$(sync_certs)
 
-  # plane.env = Plane's variables.env + the module's settings + the generated secrets (later lines win).
   # Globals, so the EXIT trap can remove them.
   overrides=$(mktemp /run/plane-overrides.XXXXXX)
   new_env=$(mktemp "$PLANE_DIR/.plane.env.XXXXXX")
@@ -50,7 +46,6 @@ converge() {
   docker compose -p "$COMPOSE_PROJECT" --project-directory "$PLANE_DIR" -f "$release/docker-compose.yml" \
     --env-file "$new_env" config -q || die "the rendered Compose configuration is invalid"
 
-  # Upgrade: a database dump first (the DLM snapshots are the other safety net).
   [ -f "$PLANE_STATE_DIR/version" ] && previous=$(<"$PLANE_STATE_DIR/version")
   if [ -n "$previous" ] && [ "$previous" != "$PLANE_VERSION" ] && [ -f "$PLANE_DIR/docker-compose.yml" ]; then
     log "upgrading Plane $previous -> $PLANE_VERSION"

@@ -16,13 +16,12 @@ locals {
   eks    = var.deployment_mode == "eks"
   docker = var.deployment_mode == "docker"
 
-  # Path A: the module serves Plane (EKS: Traefik, Plane's routes and the certificates; Docker: the stack's Caddy
-  # proxy). Path B: you bring the ingress. The default depends on the mode.
+  # Path A: the module serves Plane (Traefik on EKS, Caddy on Docker). Path B: you bring the ingress.
   ingress      = merge(var.ingress, { mode = coalesce(var.ingress.mode, local.docker ? "automated" : "none") })
   automated    = local.ingress.mode == "automated"
   lets_encrypt = local.automated && var.acme_email != null
 
-  # Docker path A internet-facing: the instance sits in a public subnet with an Elastic IP, so no NAT gateway.
+  # The instance gets a public subnet and an Elastic IP, so no NAT gateway.
   docker_public = local.docker && local.automated && var.ingress.scheme == "internet-facing"
 
   # Plane's email intake domain: a subdomain, so its MX record never collides with a CNAME on domain.
@@ -191,12 +190,11 @@ module "docker" {
   source = "./modules/docker"
   count  = local.docker ? 1 : 0
 
-  name          = var.name
-  domain        = var.domain
-  plane_version = var.plane_version
-  vpc_id        = module.network.vpc_id
-  vpc_cidr      = var.vpc_cidr
-  # Path A internet-facing: a public subnet (Elastic IP). Internal and path B: a private one.
+  name              = var.name
+  domain            = var.domain
+  plane_version     = var.plane_version
+  vpc_id            = module.network.vpc_id
+  vpc_cidr          = var.vpc_cidr
   subnet_id         = local.docker_public ? module.network.public_subnet_ids[0] : module.network.private_subnet_ids[0]
   availability_zone = local.azs[0]
 

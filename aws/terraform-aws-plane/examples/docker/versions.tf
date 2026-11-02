@@ -1,8 +1,7 @@
 terraform {
   required_version = ">= 1.10"
 
-  # Exact versions here (same as examples/complete); the module itself only sets lower bounds. Docker mode
-  # configures only the AWS provider: the module also requires helm and time, which it doesn't use in this mode.
+  # The module requires helm and time too, though Docker mode doesn't use them.
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -22,7 +21,6 @@ terraform {
     }
   }
 
-  # State holds generated secrets (app keys, database, queue and MinIO passwords): keep it in an encrypted,
-  # private S3 bucket. terraform init -backend-config=backend.hcl (see ../complete/backend.hcl.example).
+  # State holds generated secrets: use an encrypted, private bucket (see ../complete/backend.hcl.example).
   backend "s3" {}
 }

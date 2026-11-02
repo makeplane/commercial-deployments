@@ -1,8 +1,4 @@
-# Security group: never port 22 (shell access is through SSM Session Manager).
-#   Path A internet-facing: 80/443 from ingress.allowed_cidrs (80 serves ACME HTTP-01 and the HTTPS redirect).
-#   Path A internal:        80/443 from ingress.allowed_cidrs.
-#   Path B:                 80 from the VPC (the customer's load balancer terminates TLS).
-#   Email:                  25/465/587 (see local.smtp_cidrs).
+# Never port 22 (shell access is through SSM). On path A, port 80 serves ACME HTTP-01 and the HTTPS redirect.
 
 locals {
   web_rules = local.automated ? flatten([
@@ -47,7 +43,7 @@ resource "aws_vpc_security_group_egress_rule" "all" {
   tags = var.tags
 }
 
-# Path A internet-facing: a stable address for the customer's A record that survives instance replacement.
+# A stable address for the customer's A record across instance replacement.
 resource "aws_eip" "this" {
   count = local.public ? 1 : 0
 

@@ -1,5 +1,4 @@
-# Ubuntu 24.04 LTS (amd64) from Canonical's public SSM parameter; the SSM agent is preinstalled. A newer AMI
-# never replaces the instance (unattended-upgrades patches it in place).
+# A newer AMI never replaces the instance (ignore_changes): unattended-upgrades patches it in place.
 data "aws_ssm_parameter" "ami" {
   name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
@@ -15,7 +14,7 @@ resource "aws_instance" "this" {
   monitoring                  = true
   ebs_optimized               = true
 
-  # No key pair and no user data: setup runs through SSM, and nothing secret is ever passed at launch.
+  # No key pair or user data: setup runs through SSM.
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
@@ -38,8 +37,7 @@ resource "aws_instance" "this" {
   }
 }
 
-# Everything Plane stores lives here (/opt/plane): Postgres, MinIO, RabbitMQ, Valkey, Caddy's certificates,
-# plane.env. Separate from the instance, so replacing the instance keeps the data.
+# All of Plane's data (/opt/plane), separate so replacing the instance keeps it.
 resource "aws_ebs_volume" "data" {
   availability_zone = var.availability_zone
   type              = "gp3"
@@ -57,6 +55,6 @@ resource "aws_volume_attachment" "data" {
   volume_id   = aws_ebs_volume.data.id
   instance_id = aws_instance.this.id
 
-  # Stop the instance before detaching, so Postgres shuts down cleanly on replace or destroy.
+  # So Postgres shuts down cleanly on replace or destroy.
   stop_instance_before_detaching = true
 }

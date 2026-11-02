@@ -1,6 +1,4 @@
-# Backups bucket: nightly pg_dump files (backups/postgres/), the MinIO data mirror (backups/minio/) and the SSM
-# command output (ssm/). Private, KMS, versioned (a MinIO object deleted in Plane stays recoverable for
-# backup_retention_days).
+# Versioned, so a MinIO object deleted in Plane stays recoverable for backup_retention_days.
 
 resource "random_id" "bucket_suffix" {
   byte_length = 4

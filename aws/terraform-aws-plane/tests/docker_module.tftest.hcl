@@ -1,4 +1,4 @@
-# modules/docker on its own: instance hardening, encryption, security group, SSM, IAM. Mock providers.
+# modules/docker on its own, with mock providers.
 
 mock_provider "aws" {
   mock_data "aws_iam_policy_document" {

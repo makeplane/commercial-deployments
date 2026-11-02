@@ -1,7 +1,6 @@
-# Every secret the Compose stack reads, generated once. Each secret's JSON maps plane.env keys to values, so the
-# converge script writes them as they are. Values never reach user data, the SSM document or outputs.
+# Each secret's JSON maps plane.env keys to values; the converge script writes them as they are.
 
-# Signing and encryption keys. SECRET_KEY and AES_SECRET_KEY encrypt stored data: never rotate them.
+# SECRET_KEY and AES_SECRET_KEY encrypt stored data: never rotate them.
 resource "random_password" "app_keys" {
   for_each = {
     SECRET_KEY               = 50
@@ -42,8 +41,7 @@ resource "aws_secretsmanager_secret_version" "app_keys" {
   ))
 }
 
-# Bundled Postgres, RabbitMQ and MinIO. They take these at first initialisation; every URL that carries a
-# password is set too, so no default (plane:plane, access-key/secret-key) survives anywhere.
+# Every URL carrying a password is set too, so no default credential (plane:plane) survives anywhere.
 resource "random_password" "bundled" {
   for_each = {
     postgres       = 32

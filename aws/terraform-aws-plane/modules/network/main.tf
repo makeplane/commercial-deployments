@@ -15,7 +15,7 @@ module "vpc" {
   private_subnets = local.private_subnets
   public_subnets  = local.public_subnets
 
-  # Public subnets hold only load balancers, NAT gateways and (Docker mode, path A) the instance with its Elastic IP.
+  # Public subnets hold only load balancers, NAT gateways and the Docker mode instance (path A).
   map_public_ip_on_launch = false
 
   # Off only for Docker mode path A internet-facing: the instance egresses through its Elastic IP.

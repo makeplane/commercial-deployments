@@ -3,8 +3,7 @@ provider "aws" {
 }
 
 # The module has no provider blocks. Helm talks to the cluster the module creates, with a
-# short-lived token from the AWS CLI (no static credentials). In Docker mode there's no cluster: the
-# cluster outputs are null and Helm is never used.
+# short-lived token from the AWS CLI (no static credentials). In Docker mode Helm is never used.
 provider "helm" {
   kubernetes = {
     host                   = module.plane.cluster_endpoint

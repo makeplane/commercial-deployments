@@ -1,5 +1,4 @@
-# Docker mode through the root module: paths, outputs, EKS layers off, input rules. Mock providers: no AWS
-# credentials needed. Run: terraform init && terraform test
+# Docker mode through the root module, with mock providers (no AWS credentials needed).
 
 mock_provider "aws" {
   mock_data "aws_availability_zones" {
@@ -66,7 +65,7 @@ variables {
 
 # Input rules below run in path B, so the email-certificate warning (path A) stays out of the way.
 
-# The Quickstart: ingress defaults to path A in Docker mode; Let's Encrypt; email on.
+# The Quickstart: path A by default, Let's Encrypt, email on.
 run "a1_quickstart" {
   variables {
     acme_email = "ops@example.com"

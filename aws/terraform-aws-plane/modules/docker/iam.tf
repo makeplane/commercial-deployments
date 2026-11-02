@@ -1,5 +1,4 @@
-# Instance role: SSM (Session Manager, Run Command), its own secrets and certificates, the backups bucket.
-# No EC2 or IAM permissions, no access keys. IMDSv2 with hop limit 1 keeps it away from the containers.
+# Instance role: deliberately no EC2 or IAM permissions.
 
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
@@ -88,8 +87,6 @@ resource "aws_iam_instance_profile" "instance" {
   tags = var.tags
 }
 
-# Data Lifecycle Manager: daily snapshots of the data volume.
-
 data "aws_iam_policy_document" "dlm_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -113,7 +110,7 @@ resource "aws_iam_role_policy_attachment" "dlm" {
   policy_arn = "arn:${local.partition}:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
 }
 
-# Snapshots of a volume encrypted with the module key.
+# DLM needs the module key to snapshot the encrypted volume.
 data "aws_iam_policy_document" "dlm_kms" {
   statement {
     actions   = ["kms:Decrypt", "kms:DescribeKey", "kms:GenerateDataKeyWithoutPlaintext", "kms:ReEncrypt*"]
