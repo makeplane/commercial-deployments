@@ -88,6 +88,10 @@ variables {
 
 run "path_b_default" {
   assert {
+    condition     = var.redis.transit_encryption
+    error_message = "Memorystore TLS must be on by default."
+  }
+  assert {
     condition     = output.load_balancer_ip == null && output.dns_records.web == null
     error_message = "Path B must not have a Traefik load balancer or a web record."
   }

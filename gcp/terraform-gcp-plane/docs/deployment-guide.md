@@ -66,7 +66,7 @@ To write: setup wizard, licence activation, `/god-mode` settings.
 ## 10. Day-2 operations
 
 To write: upgrading Plane and the chart, node pool sizing, Cloud SQL backups and PITR restore, disk snapshots for the
-in-cluster RabbitMQ and OpenSearch, renewing your certificates, Redis TLS opt-in.
+in-cluster RabbitMQ and OpenSearch, renewing your certificates, turning Redis TLS off.
 
 ## 11. Removing the installation
 

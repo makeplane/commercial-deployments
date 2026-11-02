@@ -7,7 +7,7 @@
   project APIs, then builds a VPC (one subnet with GKE's ranges, Cloud NAT, private services access, flow logs), GKE
   Standard (regional, private nodes, Workload Identity, Dataplane V2, shielded nodes, release channel, cluster
   autoscaler: 3 zones × 1–2 `n2d-standard-4`), Cloud SQL for PostgreSQL 15 (regional HA, private IP, TLS required,
-  backups + PITR, databases `plane` and `plane_pi`), Memorystore for Redis 7.2 (STANDARD_HA, AUTH, optional TLS),
+  backups + PITR, databases `plane` and `plane_pi`), Memorystore for Redis 7.2 (STANDARD_HA, AUTH, TLS),
   a GCS uploads bucket and Secret Manager secrets (regional replication).
 - RabbitMQ and OpenSearch run in the cluster from the chart (GCP has neither as a managed service), on
   `standard-rwo` persistent disks, with generated credentials in Secret Manager synced by External Secrets. Needs

@@ -80,7 +80,7 @@ domain = "plane.example.com" # never change after install
 #   version            = "REDIS_7_2"
 #   tier               = "STANDARD_HA" # or BASIC
 #   memory_size_gb     = 4
-#   transit_encryption = false # TLS; on once the chart trusts Memorystore's CA in every Node.js service
+#   transit_encryption = true # TLS (port 6378); false = AUTH over the private network only
 # }
 
 # rabbitmq = {

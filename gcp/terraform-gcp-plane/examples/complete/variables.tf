@@ -207,9 +207,9 @@ variable "postgres" {
 variable "redis" {
   description = <<-EOT
     Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD_HA
-    keeps a replica in another zone with automatic failover. transit_encryption = true turns on TLS (port 6378) with
-    Memorystore's server CA trusted through the chart's customCA; off by default until every Plane Node.js service can
-    trust that CA (plane-enterprise chart change pending: live-exporter has no customCA support).
+    keeps a replica in another zone with automatic failover. transit_encryption (default true) turns on TLS (port 6378)
+    with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.11.5+);
+    false keeps AUTH over the private network without TLS.
   EOT
   type = object({
     version            = optional(string)
