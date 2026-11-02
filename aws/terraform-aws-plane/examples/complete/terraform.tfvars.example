@@ -1,0 +1,126 @@
+# Copy to terraform.tfvars. Set name and domain, pick how traffic reaches Plane, and uncomment anything else you want
+# to change. Commented values are the defaults. For objects, set only the fields you change.
+
+name   = "plane"             # never change after install
+domain = "plane.example.com" # never change after install
+
+################################################################################
+# How traffic reaches Plane: pick ONE block and uncomment it.
+# The module configures no DNS. After the apply, create the records shown by:  terraform output dns_records
+################################################################################
+
+# Path A: automated. The module installs Traefik, Plane's routes and the certificates.
+
+# A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
+# ingress    = { mode = "automated" }
+# acme_email = "ops@example.com"
+# email      = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; else self-signed
+
+# A.2  Your own certificates, stored in Secrets Manager before the apply (JSON keys "tls.crt" and "tls.key")
+# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/web-tls" }
+# email   = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; same ARN if it covers both names
+
+# Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
+# apply Plane's routes, add your certificate and DNS records.
+
+################################################################################
+# Everything else (defaults)
+################################################################################
+
+# region = "us-east-1"
+# tags   = {}
+
+# ingress = {
+#   mode                       = "none"            # automated (path A) | none (path B)
+#   allowed_cidrs              = ["0.0.0.0/0"]     # path A: who can reach Plane
+#   scheme                     = "internet-facing" # path A: or internal (not with Let's Encrypt)
+#   tls_certificate_secret_arn = null              # path A: your web certificate (A.2)
+# }
+# acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
+# tls_secret_name = "plane-tls"
+
+# cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"] # who can reach the EKS API
+# cluster_admin_principal_arns         = []
+
+# vpc_cidr           = "10.60.0.0/16"
+# az_count           = 3
+# single_nat_gateway = true
+
+# kubernetes_version = "1.36"
+
+# node_group = {
+#   instance_types = ["m7a.xlarge"]
+#   min_size       = 2
+#   max_size       = 4
+#   desired_size   = 2
+#   disk_size_gb   = 50
+# }
+
+# addon_versions = {
+#   vpc_cni                = "v1.23.2-eksbuild.8"
+#   coredns                = "v1.14.7-eksbuild.22"
+#   kube_proxy             = "v1.36.0-eksbuild.58"
+#   eks_pod_identity_agent = "v1.4.1-eksbuild.3"
+#   aws_ebs_csi_driver     = "v1.67.2-eksbuild.1"
+# }
+
+# postgres = {
+#   engine_version        = "15.19"
+#   instance_class        = "db.m6gd.large"
+#   allocated_storage_gb  = 100
+#   storage_type          = "io1"
+#   iops                  = 1000
+#   backup_retention_days = 14
+#   deletion_protection   = true
+# }
+
+# redis = {
+#   engine_version = "8.2"
+#   node_type      = "cache.t3.medium"
+#   replicas       = 0
+# }
+
+# rabbitmq = {
+#   engine_version  = "3.13"
+#   instance_type   = "mq.m7g.medium"
+#   deployment_mode = "CLUSTER_MULTI_AZ" # or SINGLE_INSTANCE
+# }
+
+# opensearch = {
+#   enabled        = true
+#   engine_version = "OpenSearch_2.19"
+#   instance_type  = "r7g.large.search"
+#   instance_count = 2
+#   volume_size_gb = 10
+#   index_prefix   = "plane"
+# }
+
+# email = {
+#   enabled                = true
+#   smtp_domain            = null # default: intake.<domain>
+#   load_balancer          = true
+#   certificate_secret_arn = null # your email certificate; else self-signed
+# }
+
+# enable_components = {
+#   silo   = true
+#   drawio = true
+#   pi     = false
+# }
+
+# bucket_force_destroy = false
+
+# plane_version    = "v4.0.1"
+# chart_version    = "3.11.3"
+# chart_repository = "https://helm.plane.so/"
+# chart_name       = "plane-enterprise"
+# helm_timeout     = 3600
+# plane_values     = "" # extra chart values (YAML), no secrets
+# deployment_mode  = "eks"
+
+# acme_email = null # Let's Encrypt account email (path A, A.1)
+
+# Test install you will destroy:
+#   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
+#   postgres             = { deletion_protection = false }
+#   bucket_force_destroy = true

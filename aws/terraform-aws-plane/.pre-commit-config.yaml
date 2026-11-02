@@ -1,0 +1,15 @@
+# From the repo root:
+#   pre-commit run -c aws/terraform-aws-plane/.pre-commit-config.yaml --all-files
+# Scoped to this module so the older aws/terraform module is left alone.
+files: ^aws/terraform-aws-plane/
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.109.3
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+        args: ["--hook-config=--retry-once-with-cleanup=true"]
+      - id: terraform_tflint
+        args: ["--args=--config=__GIT_WORKING_DIR__/aws/terraform-aws-plane/.tflint.hcl"]
+      - id: terraform_docs
+        args: ["--args=--config=.terraform-docs.yml"]
