@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars.
+name       = "plane"             # never change after install
+domain     = "plane.example.com" # never change after install
+acme_email = "ops@example.com"
+
+# Until Plane publishes the release files at its default URL: upload the release's docker-compose.yml and
+# variables.env to <url>/<plane_version>/ (S3 or HTTPS) and pin their checksums.
+# compose_assets_url    = "s3://my-bucket/plane-assets"
+# compose_assets_sha256 = { "docker-compose.yml" = "<sha256>", "variables.env" = "<sha256>" }

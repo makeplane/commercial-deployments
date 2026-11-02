@@ -15,10 +15,11 @@ module "vpc" {
   private_subnets = local.private_subnets
   public_subnets  = local.public_subnets
 
-  # Public subnets hold only load balancers and NAT gateways.
+  # Public subnets hold only load balancers, NAT gateways and (Docker mode, path A) the instance with its Elastic IP.
   map_public_ip_on_launch = false
 
-  enable_nat_gateway     = true
+  # Off only for Docker mode path A internet-facing: the instance egresses through its Elastic IP.
+  enable_nat_gateway     = var.enable_nat_gateway
   single_nat_gateway     = var.single_nat_gateway
   one_nat_gateway_per_az = !var.single_nat_gateway
 

@@ -6,6 +6,10 @@ a few DNS records and, depending on the option you choose, finish the ingress se
 
 Plan for about two hours. Most of that is waiting for AWS to create resources.
 
+**Smaller installations:** `deployment_mode = "docker"` runs Plane on one EC2 instance with Docker Compose and the
+bundled data services instead (about 30 minutes). Sections 2 and 4 apply as they are; the rest is in
+[section 13](#13-docker-mode).
+
 ## Contents
 
 1. [What gets deployed](#1-what-gets-deployed)
@@ -20,6 +24,7 @@ Plan for about two hours. Most of that is waiting for AWS to create resources.
 10. [Day-2 operations](#10-day-2-operations)
 11. [Removing the installation](#11-removing-the-installation)
 12. [Troubleshooting](#12-troubleshooting)
+13. [Docker mode](#13-docker-mode)
 
 ## 1. What gets deployed
 
@@ -399,3 +404,149 @@ because those names are still taken.
 
 For help, contact Plane support with the output of `terraform version`, the failing command's error, and
 `kubectl -n plane get pods`.
+
+## 13. Docker mode
+
+`deployment_mode = "docker"` runs Plane's published Docker Compose stack on one EC2 instance (Ubuntu 24.04), with the
+bundled Postgres, Valkey, RabbitMQ and MinIO. Everything Plane stores is on a separate encrypted EBS volume mounted at
+`/opt/plane`. There's no SSH: Terraform sets the instance up through AWS Systems Manager (SSM) and waits until Plane
+is healthy, and you get a shell with Session Manager. It's one instance in one Availability Zone: restore from backups
+is the recovery path (below).
+
+### 13.1 Configure
+
+In `examples/complete/terraform.tfvars` (or the smaller `examples/docker`), set:
+
+```hcl
+name            = "plane"
+domain          = "plane.example.com"
+deployment_mode = "docker"
+
+# Path A.1: Plane's own proxy (Caddy) on an Elastic IP, Let's Encrypt certificate
+acme_email = "ops@example.com"
+
+# Path A.2 instead: your certificate from Secrets Manager (same format as section 3)
+# ingress = { tls_certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/web-tls-..." }
+# Private instance, reachable only from your network (A.2 only): add scheme = "internal", allowed_cidrs = [...]
+# Path B: your own load balancer in front (private instance, plain HTTP on port 80)
+# ingress = { mode = "none" }
+```
+
+`ingress` defaults to path A in Docker mode. The EKS settings (`node_group`, `postgres`, `redis`, `rabbitmq`,
+`opensearch`, `chart_*`, `plane_values`) don't apply; Docker settings go in the `docker` object (see
+`terraform.tfvars.example`). Search indexing is off in Docker mode (no OpenSearch).
+
+**Plane's release files.** The instance downloads `<docker.compose_assets_url>/<plane_version>/docker-compose.yml` and
+`variables.env`. The default is Plane's public URL; if Plane hasn't published that release there yet, the apply stops
+with "returned HTML". Then upload both files of the release to an S3 bucket in the same region (or any HTTPS server)
+and set:
+
+```hcl
+docker = {
+  compose_assets_url    = "s3://<bucket>/plane-assets"  # files at s3://<bucket>/plane-assets/v4.0.1/...
+  compose_assets_sha256 = { "docker-compose.yml" = "<sha256sum>", "variables.env" = "<sha256sum>" }
+}
+```
+
+### 13.2 Deploy and create the DNS records
+
+```bash
+terraform init -backend-config=backend.hcl
+terraform apply              # 20-30 minutes; ends when Plane is healthy
+terraform output dns_records
+```
+
+| Path | Records |
+|---|---|
+| A, internet-facing | `domain` **A** → the Elastic IP; with email, `intake.<domain>` **MX 10** `domain`. DNS-only (no proxy) |
+| A, internal | `domain` **A** → the private IP, in your internal DNS |
+| B | `domain` → your load balancer; its target is `instance_private_ip`, port 80 (HTTP), health check `/`. Forward 25/465/587 too if you want inbound email |
+
+With Let's Encrypt, the certificate is issued a minute or two after the A record resolves; until then the browser
+shows a certificate error. Then sign in as in section 9.
+
+### 13.3 What the setup does
+
+The SSM document `<name>-plane` holds the setup scripts and the non-secret settings. Its `converge` run, as root:
+mounts the data volume (formats it only when it's blank), installs Docker Engine and Compose at the pinned versions,
+downloads the release files, writes `/opt/plane/plane.env` (mode 0600) from Plane's `variables.env` plus the module's
+settings plus the secrets it reads from Secrets Manager (`plane/<name>/app-keys`, `plane/<name>/bundled-services`),
+then `docker compose pull` and `up -d`, and waits for the database migrations, the API and the proxy. Every
+password and key is generated per installation; none of Plane's shipped defaults is left. The settings the module
+manages are in `terraform output plane_env`; add others with `docker.extra_env` (not for secrets).
+
+### 13.4 Day-2 operations
+
+| Task | How |
+|---|---|
+| Shell | `$(terraform output -raw ssm_session_command)` (needs the Session Manager plugin), then `sudo -i`; `cd /opt/plane` |
+| Logs | `docker compose -p plane --project-directory /opt/plane --env-file /opt/plane/plane.env -f /opt/plane/docker-compose.yml logs -f api` (alias it); setup logs in `/var/log/plane/` and under `terraform output ssm_output_s3_uri` |
+| Upgrade Plane | Raise `plane_version`, apply. The setup dumps the database to S3 first, pulls the new images and runs the migrations. Downgrades are refused |
+| Change settings | Change `email`, `enable_components`, `docker.extra_env`, …, apply: the setup runs again and recreates what changed |
+| Re-run the setup | `$(terraform output -raw rerun_setup_command)` |
+| Renew your certificate (A.2, email) | Update the secret's value; a daily job copies it and restarts the proxy/email (or re-run the setup) |
+| Bigger instance | Change `docker.instance_type`, apply (the instance stops and starts; data and IP stay) |
+| Bigger disk | Raise `docker.data_volume_gb`, apply; the next setup run grows the file system |
+| Backups | Daily EBS snapshots of the data volume (Data Lifecycle Manager) and, each night at `docker.backup_time` (UTC), a `pg_dump` of each database to `s3://<backup bucket>/backups/postgres/<time>-nightly/` and a mirror of MinIO's data to `backups/minio/uploads/` (the bucket is versioned). Both kept `docker.backup_retention_days` (14) |
+
+### 13.5 Replace the instance
+
+If the instance is broken (or to move to a fresh OS image), replace it; the data volume and the Elastic IP move to the
+new one:
+
+```bash
+terraform apply -replace='module.plane.module.docker[0].aws_instance.this'
+```
+
+Terraform stops the old instance (Postgres shuts down cleanly), detaches the volume, creates a new instance, attaches
+the volume and runs the setup, which finds the existing data and starts Plane on it. The licence identity is stored
+in the database, so it carries over.
+
+### 13.6 Restore
+
+**From a snapshot** (the whole data volume, as of the snapshot time):
+
+1. Pick a snapshot: `aws ec2 describe-snapshots --owner-ids self --filters Name=tag:plane.so/deployment,Values=<name> Name=tag:plane.so/volume,Values=data`.
+2. Set `docker = { data_volume_snapshot_id = "snap-..." }` and apply with the instance replaced, so the new volume is
+   attached to a fresh instance:
+   `terraform apply -replace='module.plane.module.docker[0].aws_instance.this'`.
+   The current volume is replaced (AWS keeps a final snapshot of it). Changing the snapshot without replacing the
+   instance leaves the instance stopped and the setup times out.
+3. Keep `data_volume_snapshot_id` set afterwards (removing it would replace the volume again).
+
+**From the S3 backups** (database dump + MinIO mirror), on the instance:
+
+```bash
+cd /opt/plane; c() { docker compose -p plane --project-directory /opt/plane --env-file plane.env -f docker-compose.yml "$@"; }
+c stop                                       # everything
+aws s3 sync --delete s3://<backup bucket>/backups/minio/uploads/ data/minio/uploads/
+c up -d plane-db && sleep 10
+aws s3 cp s3://<backup bucket>/backups/postgres/<time>-nightly/plane.dump /tmp/plane.dump
+c exec -T plane-db dropdb -U plane --force plane
+c exec -T plane-db createdb -U plane plane
+c exec -T plane-db pg_restore -U plane -d plane --no-owner < /tmp/plane.dump
+c up -d                                       # the migrator brings the schema to the installed version
+```
+
+Restore a dump only into the same or a newer `plane_version` than the one that wrote it, and on the same installation
+(the app keys in `plane/<name>/app-keys` decrypt the stored data).
+
+### 13.7 Removing a Docker installation
+
+Set `bucket_force_destroy = true` if the backups bucket isn't empty (it usually isn't), apply, then
+`terraform destroy`. The data volume leaves a final snapshot, and the daily snapshots stay too; all are encrypted with the installation's KMS key, which AWS deletes 30 days after the destroy: copy any
+snapshot you need with another key before then. Delete your DNS records. To reinstall with the same `name`, delete
+the `plane/<name>/*` secrets for good first (as in section 11).
+
+### 13.8 Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Apply fails on `aws_ssm_association.converge` | The setup failed or timed out | Read the output under `ssm_output_s3_uri` (`converge/<command id>/<instance>/.../stdout`), or `/var/log/plane/converge.log` on the instance. Fix, then apply again (or `rerun_setup_command`) |
+| "returned HTML, not docker-compose.yml" | Plane hasn't published that release at `compose_assets_url` | See 13.1, "Plane's release files" |
+| "doesn't match docker.compose_assets_sha256" | The files changed or the checksum is wrong | Check `sha256sum` of the files you uploaded |
+| "the domain can't change" | `domain` differs from the one this data volume was installed with | Put `domain` back; a new domain is a new installation |
+| "downgrading ... isn't supported" | `plane_version` is lower than the installed one | Restore from a backup taken before the upgrade instead |
+| Timeout waiting for health, migrator still running | A large database migration | Raise `docker.setup_timeout_minutes`, apply again |
+| Browser certificate warning (A.1) | DNS doesn't point at the Elastic IP yet, or the record is proxied | `dig <domain>`; `docker compose ... logs proxy` shows the ACME attempts |
+| Instance not managed by SSM | No outbound internet (path B/internal: the NAT gateway) or the agent isn't running | Check the route tables; EC2 console → instance → Connect → Session Manager |

@@ -49,6 +49,9 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: shellcheck (Docker mode scripts)
+        run: shellcheck -x modules/docker/scripts/*.sh
+
       - uses: terraform-linters/setup-tflint@v6
       - name: tflint
         env:
