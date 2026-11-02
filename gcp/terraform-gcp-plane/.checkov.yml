@@ -1,6 +1,5 @@
 framework:
   - terraform
-# The module calls no Registry modules; nothing external to download.
 download-external-modules: false
 compact: true
 quiet: true

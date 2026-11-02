@@ -1,16 +1,11 @@
-# Cloud SQL for PostgreSQL: private IP only (private services access), TLS required, regional HA, backups with
-# point-in-time recovery. Terraform creates both databases (plane, and plane_pi for Plane AI), so unlike AWS no
-# DB-init Job is needed. Plane connects as the built-in user "plane", whose generated password is in Secret Manager.
-
-# Cloud SQL instance names can't be reused for about a week after deletion: a suffix lets a reinstall with the same
-# name go ahead.
+# Cloud SQL instance names can't be reused for about a week after deletion.
 resource "random_id" "postgres_suffix" {
   byte_length = 2
 }
 
 resource "google_sql_database_instance" "postgres" {
-  # checkov:skip=CKV_GCP_6:TLS is required through ssl_mode = ENCRYPTED_ONLY (require_ssl is deprecated); checkov reads only require_ssl.
-  # checkov:skip=CKV_GCP_79:The database version is an input (postgres.database_version); POSTGRES_15 by decision.
+  # checkov:skip=CKV_GCP_6:TLS is enforced by ssl_mode; checkov only reads the deprecated require_ssl.
+  # checkov:skip=CKV_GCP_79:The version is an input (postgres.database_version).
   project          = var.project_id
   name             = "${var.name}-pg-${random_id.postgres_suffix.hex}"
   region           = var.region
@@ -31,7 +26,7 @@ resource "google_sql_database_instance" "postgres" {
       ipv4_enabled       = false
       private_network    = var.network_id
       allocated_ip_range = var.private_service_range
-      # TLS required; clients needn't present a certificate (Plane's libpq and Node clients connect with sslmode).
+      # Clients needn't present a certificate.
       ssl_mode = "ENCRYPTED_ONLY"
     }
 
@@ -59,7 +54,7 @@ resource "google_sql_database_instance" "postgres" {
       record_application_tags = false
     }
 
-    # Low-volume operational logging. Statement logging stays off: it risks capturing personal data.
+    # Statement logging stays off: it can capture personal data.
     database_flags {
       name  = "log_checkpoints"
       value = "on"
@@ -111,6 +106,6 @@ resource "google_sql_user" "plane" {
   name     = "plane"
   password = random_password.postgres.result
 
-  # The user owns objects in plane's databases, so Postgres refuses to drop it; the instance takes it with it.
+  # Postgres refuses to drop a user that owns objects; the instance takes it with it.
   deletion_policy = "ABANDON"
 }

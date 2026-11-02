@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Same terraform-docs version as local runs, so the generated README matches exactly.
+      # Same version as local runs, so the generated README matches.
       - name: Install terraform-docs
         run: |
           curl -sSLo /tmp/terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-linux-amd64.tar.gz
@@ -80,9 +80,7 @@ jobs:
       - name: Check README
         working-directory: gcp/terraform-gcp-plane
         run: /tmp/terraform-docs --config .terraform-docs.yml --output-check .
-      # examples/complete is the one place customers set inputs (terraform.tfvars): it must declare
-      # every module input, under the same name, and nothing else (project_id and region are module
-      # inputs here, so there is nothing to exclude).
+      # examples/complete must declare every module input, under the same name, and nothing else.
       - name: Example declares every module input
         working-directory: gcp/terraform-gcp-plane
         run: |

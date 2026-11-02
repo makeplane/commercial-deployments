@@ -1,5 +1,4 @@
-# Every module input, same names and types. Unset (null) means the module default: set only what you need in
-# terraform.tfvars (see terraform.tfvars.example for every default). Generated to match the module; CI checks the names.
+# Every module input, same names and types; null means the module default. CI checks the names.
 
 variable "name" {
   description = "Prefix for every resource the module creates. Lowercase letters, digits and hyphens, at most 20 characters."

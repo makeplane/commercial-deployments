@@ -44,8 +44,7 @@ variable "plane_version" {
 variable "chart_version" {
   description = "plane-enterprise Helm chart version. 3.11.5 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret)."
   type        = string
-  # 3.11.5 is pending release (helm-charts#370: bundled RabbitMQ with external_secrets.rabbitmq). 3.11.3 refuses to render this module's
-  # values ("externalized credentials cannot authenticate against the bundled RabbitMQ").
+  # 3.11.5 is pending release (helm-charts#370); 3.11.3 refuses to render this module's values.
   default  = "3.11.5"
   nullable = false
 }

@@ -3,8 +3,7 @@ locals {
   automated    = var.ingress.mode == "automated"
   lets_encrypt = local.automated && var.acme_email != null
 
-  # Plane's email intake domain: a subdomain, so its A and MX records never collide with your records on domain.
-  # No load balancer without the email service.
+  # A subdomain, so its A and MX records never collide with the customer's records on domain.
   email = merge(var.email, {
     smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")
     load_balancer = var.email.enabled && var.email.load_balancer
@@ -16,8 +15,7 @@ locals {
   })
 }
 
-# The network module also enables the project APIs. Every other module takes project_id from it, so nothing is
-# created before its API is on.
+# Other modules take project_id from network, so nothing is created before its API is enabled.
 module "network" {
   source = "./modules/network"
 
@@ -62,8 +60,7 @@ module "data" {
   labels                = local.labels
 }
 
-# Reserved static IPs for the load balancers GKE creates for Traefik (path A) and the email service. Reserved before
-# the add-ons and Plane, so the IPs (and dns_records) never change with the Services. The module creates no DNS records.
+# Reserved before the add-ons and Plane, so the IPs (and dns_records) never change with the Services.
 module "edge" {
   source = "./modules/edge"
 
@@ -93,8 +90,7 @@ module "addons" {
   ])
   secret_ids = module.data.secret_ids
 
-  # Helm releases need the node pool, not only the control plane. An explicit signal instead of a module-level
-  # depends_on, which would defer every data source inside the module and make plans noisy.
+  # Waits for the node pool. A module-level depends_on would defer every data source and make plans noisy.
   cluster_ready = module.cluster.ready
 }
 
@@ -125,13 +121,11 @@ module "plane" {
   plane_values           = var.plane_values
   data                   = module.data.plane_inputs
 
-  # The chart's extraObjects need the External Secrets and cert-manager CRDs and webhooks; on destroy, Plane must go
-  # before Traefik and the add-ons.
+  # extraObjects need the add-ons' CRDs and webhooks; on destroy, Plane goes first.
   addons_ready = module.addons.ready
 }
 
-# Path A without an email certificate still works (the email app self-signs, fine for receiving mail); ask for one
-# without blocking the apply.
+# A warning, not an error: without a certificate the email app self-signs, which is fine for receiving mail.
 check "email_certificate" {
   assert {
     condition     = !local.automated || !local.email.enabled || !local.email.load_balancer || local.email.certificate_secret != null

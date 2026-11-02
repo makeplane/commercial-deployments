@@ -1,6 +1,4 @@
-# Every in-cluster add-on is a Helm release with a pinned chart version. GKE already runs metrics-server, the
-# Persistent Disk CSI driver and the load balancer integration, so unlike AWS there's no LB controller or
-# metrics-server release.
+# GKE already runs metrics-server, the PD CSI driver and the load balancer integration.
 
 locals {
   external_secrets_namespace = "external-secrets"
@@ -8,8 +6,7 @@ locals {
   cert_manager_namespace     = "cert-manager"
   cert_manager_sa            = "cert-manager"
 
-  # cert-manager runs only when the module issues the web certificate (path A, Let's Encrypt). HTTP-01 through
-  # Traefik: it needs no GCP access and touches no DNS.
+  # HTTP-01 through Traefik: cert-manager needs no GCP access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
 
   chart_versions = {
@@ -19,8 +16,6 @@ locals {
     reloader         = "2.2.19"
   }
 
-  # Traefik's Service: a GKE passthrough network load balancer on the reserved address (edge module), external or
-  # internal. externalTrafficPolicy Local keeps the client's IP without proxy protocol.
   traefik_service_annotations = merge(
     { "networking.gke.io/load-balancer-ip-addresses" = var.web_address_name },
     var.load_balancer_scheme == "internal" ? { "networking.gke.io/load-balancer-type" = "Internal" } : {},
@@ -43,14 +38,12 @@ resource "helm_release" "external_secrets" {
 
   values = [yamlencode({
     installCRDs = true
-    # Keep the CRDs on uninstall (as cert-manager does). Plane's ExternalSecrets are Helm hooks, which Helm doesn't
-    # delete, and their cleanup finalizer needs the controller: deleting the CRDs with the controller leaves them
-    # stuck and the destroy times out.
+    # Keep the CRDs: Plane's ExternalSecret hooks outlive the release and their finalizer needs the controller,
+    # so deleting the CRDs with it hangs the destroy.
     crds = { annotations = { "helm.sh/resource-policy" = "keep" } }
     serviceAccount = {
-      create = true
-      name   = local.external_secrets_sa
-      # GKE Workload Identity: the controller acts as the module's External Secrets service account.
+      create      = true
+      name        = local.external_secrets_sa
       annotations = { "iam.gke.io/gcp-service-account" = google_service_account.external_secrets.email }
     }
   })]
@@ -97,8 +90,7 @@ resource "helm_release" "reloader" {
   depends_on = [terraform_data.cluster_ready]
 }
 
-# Path A only: Traefik behind a GKE passthrough network load balancer on the reserved static IP. The load balancer only
-# passes TCP; Traefik terminates TLS.
+# Path A only. The passthrough load balancer only passes TCP; Traefik terminates TLS.
 resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 

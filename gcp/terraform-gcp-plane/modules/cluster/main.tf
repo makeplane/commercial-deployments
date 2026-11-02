@@ -1,7 +1,4 @@
-# GKE Standard, regional: private nodes (no public IPs) in one node pool across the region's zones, a public API
-# endpoint restricted by master_authorized_networks (as on AWS), Workload Identity, Dataplane V2 and shielded nodes.
-
-# The nodes' own identity: logging, monitoring and image pulls only. Plane's pods never use it (Workload Identity).
+# Node identity only; Plane's pods use Workload Identity.
 resource "google_service_account" "nodes" {
   project      = var.project_id
   account_id   = "${var.name}-nodes"
@@ -19,14 +16,13 @@ resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_66:Binary Authorization needs an attestation policy per organisation; customer choice.
   # checkov:skip=CKV_GCP_65:Google Groups for RBAC needs a Workspace groups domain; customer choice.
   # checkov:skip=CKV_GCP_12:Network policy enforcement is built into Dataplane V2 (ADVANCED_DATAPATH).
-  # checkov:skip=CKV_GCP_18:The public endpoint is restricted by master_authorized_networks (default open, as on AWS).
-  # checkov:skip=CKV_GCP_61:The subnet has flow logs; intranode visibility adds log volume and cost, customer choice.
+  # checkov:skip=CKV_GCP_18:The public endpoint is restricted by master_authorized_networks.
+  # checkov:skip=CKV_GCP_61:The subnet has flow logs; intranode visibility adds cost, customer choice.
   project        = var.project_id
   name           = var.name
   location       = var.region
   node_locations = length(var.zones) > 0 ? var.zones : null
 
-  # The default pool is replaced by the managed pool below.
   remove_default_node_pool = true
   initial_node_count       = 1
 
@@ -39,7 +35,6 @@ resource "google_container_cluster" "this" {
     services_secondary_range_name = var.services_range_name
   }
 
-  # Private nodes; the control plane keeps a public endpoint, reachable only from master_authorized_networks.
   private_cluster_config {
     enable_private_nodes    = true
     enable_private_endpoint = false
@@ -55,7 +50,6 @@ resource "google_container_cluster" "this" {
     }
   }
 
-  # No client certificates: access is through IAM only.
   master_auth {
     client_certificate_config {
       issue_client_certificate = false
@@ -88,7 +82,7 @@ resource "google_container_cluster" "this" {
     }
   }
 
-  # The temporary default pool also runs as the node service account, never the Compute Engine default one.
+  # The temporary default pool must not run as the Compute Engine default service account.
   node_config {
     service_account = google_service_account.nodes.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -105,7 +99,7 @@ resource "google_container_cluster" "this" {
 
   resource_labels = var.labels
 
-  # As on AWS: Plane's data is protected by Cloud SQL's deletion protection and the bucket, not the cluster.
+  # Plane's data is protected by Cloud SQL's deletion protection, not the cluster's.
   deletion_protection = false
 
   timeouts {
@@ -128,7 +122,7 @@ resource "google_container_node_pool" "this" {
   location = var.region
   cluster  = google_container_cluster.this.name
 
-  # Per zone. GKE's cluster autoscaler scales between the bounds.
+  # Per zone.
   initial_node_count = var.node_pool.min_per_zone
   autoscaling {
     min_node_count = var.node_pool.min_per_zone
@@ -140,7 +134,6 @@ resource "google_container_node_pool" "this" {
     auto_upgrade = true
   }
 
-  # Replace one node at a time, adding the new one first.
   upgrade_settings {
     max_surge       = 1
     max_unavailable = 0
@@ -153,7 +146,7 @@ resource "google_container_node_pool" "this" {
     spot         = var.node_pool.spot
     image_type   = "COS_CONTAINERD"
 
-    # Scopes are legacy: access is limited by the service account's IAM roles.
+    # Scopes are legacy; the service account's IAM roles limit access.
     service_account = google_service_account.nodes.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -185,7 +178,7 @@ resource "google_container_node_pool" "this" {
   }
 }
 
-# GKE's admin role is project-wide (another reason to give Plane its own project).
+# GKE's admin role is project-wide.
 resource "google_project_iam_member" "cluster_admin" {
   for_each = toset(var.cluster_admin_members)
 

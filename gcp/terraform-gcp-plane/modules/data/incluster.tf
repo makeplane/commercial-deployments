@@ -1,5 +1,4 @@
-# Credentials for the RabbitMQ and OpenSearch the chart runs in the cluster (GCP has neither as a managed service).
-# Both sides (the bundled server and Plane's apps) read them from one Secret synced by External Secrets.
+# The bundled servers and Plane's apps read these from the same Secret.
 
 # The password goes into AMQP URLs: no special characters.
 resource "random_password" "rabbitmq" {
@@ -7,8 +6,7 @@ resource "random_password" "rabbitmq" {
   special = false
 }
 
-# The bundled OpenSearch's security plugin requires a strong admin password (upper, lower, digit, special). Special
-# characters limited to ones that are safe in the chart's shell init script and in YAML.
+# OpenSearch requires upper, lower, digit and special; specials limited to ones safe in shell and YAML.
 resource "random_password" "opensearch" {
   count = var.opensearch.enabled ? 1 : 0
 

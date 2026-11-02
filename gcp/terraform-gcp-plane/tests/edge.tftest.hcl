@@ -17,8 +17,7 @@ mock_provider "helm" {}
 mock_provider "random" {}
 mock_provider "time" {}
 
-# The edge logic lives in the root wiring and the edge, addons and plane modules: the network, cluster and data
-# layers are replaced by fixed outputs.
+# The network, cluster and data layers are replaced by fixed outputs.
 override_module {
   target = module.network
   outputs = {

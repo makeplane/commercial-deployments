@@ -40,12 +40,12 @@ output "plane_inputs" {
     redis_host = google_redis_instance.this.host
     redis_port = google_redis_instance.this.port
     redis_tls  = var.redis.transit_encryption
-    # Memorystore's server CA (public certificate), trusted by Plane's Node.js services through the chart's customCA.
+    # A public certificate, not a secret.
     redis_ca = var.redis.transit_encryption ? join("\n", [for c in google_redis_instance.this.server_ca_certs : c.cert]) : null
 
     opensearch_enabled = var.opensearch.enabled
 
-    # Secret IDs (short form) for External Secrets' SecretStore, which is scoped to project_id.
+    # Short IDs: the SecretStore is scoped to project_id.
     secret_names = { for k, s in google_secret_manager_secret.this : k => s.secret_id }
   }
 

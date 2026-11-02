@@ -1,5 +1,4 @@
-# Consumers (Traefik's and the email Service's annotations) depend on the cleanup wait, so on destroy they go first,
-# then the wait, then the addresses.
+# Consumers depend on the cleanup wait, so destroy runs: consumers, the wait, the addresses.
 
 output "web_address_name" {
   description = "Name of the reserved address for Traefik's load balancer (null in path B)."

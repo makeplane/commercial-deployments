@@ -1,6 +1,4 @@
-# Plane itself: one Helm release of plane-enterprise. Secrets and (path A) the certificates travel in the chart's own
-# extraObjects, so there is no module-side chart and no kubernetes provider. RabbitMQ and OpenSearch run in the
-# cluster from the chart (GCP has neither as a managed service).
+# Secrets and certificates travel in the chart's extraObjects, so there is no kubernetes provider.
 
 locals {
   # Release name and namespace feed MACHINE_SIGNATURE (the licence identity): never change them.
@@ -13,19 +11,15 @@ locals {
   opensearch_url  = "http://${local.release}-opensearch.${local.namespace}.svc.${local.cluster_domain}:9200"
   redis_ca_secret = "${local.release}-redis-ca"
 
-  # The SecretStore reads Secret Manager in project_id. No auth block: the External Secrets controller uses its own
-  # Workload Identity (addons module), as on AWS.
+  # No auth block: the External Secrets controller uses its own Workload Identity.
   secret_store = "gcp-secret-manager"
   secret_store_spec = {
     provider = { gcpsm = { projectID = var.project_id } }
   }
 
-  # Path A, Let's Encrypt: cert-manager issues the web certificate (HTTP-01 through Traefik).
   issue_cert = var.ingress_enabled && var.acme_email != null
 
-  # Customer certificates (path A web; email in any path) from Secret Manager: a secret whose value is JSON with the
-  # keys "tls.crt" and "tls.key", synced into a kubernetes.io/tls Secret before Plane's pods start. The root module
-  # checks the secret is in project_id, so the short name is the key.
+  # Customer certificates: Secret Manager JSON with "tls.crt" and "tls.key". The root module checks the project.
   email_tls_secret = "${local.release}-mail-tls-secret"
   customer_certificates = {
     for name, c in {
@@ -45,8 +39,7 @@ locals {
     } if c.secret != null
   }
 
-  # Every workload that reads a Secret gets the Reloader annotation, so a changed credential rolls the pods (Reloader
-  # reads it on the workload, which the chart sets from services.<name>.annotations).
+  # Reloader rolls these workloads when a Secret they read changes.
   reloaded_services = [
     "api", "worker", "beatworker", "worker_importers", "external_api", "outbox_poller",
     "automation_consumer", "webhook_consumer", "agent_consumer", "live", "live_exporter",
@@ -69,8 +62,7 @@ locals {
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        # None of these rotate on their own (the Cloud SQL password is the module's): an hourly re-read picks up a
-        # manual change, and Reloader then rolls the pods.
+        # Nothing rotates on its own; an hourly re-read picks up manual changes.
         refreshInterval = "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
@@ -80,8 +72,7 @@ locals {
     }
   }
 
-  # The bundled OpenSearch reads everything from one Secret (external_secrets.opensearch_existingSecret): the chart
-  # needs all seven OPENSEARCH_* keys, rendered here from the {username, password} secret.
+  # The chart needs all seven OPENSEARCH_* keys in one Secret.
   opensearch_secret = "plane-opensearch"
   opensearch_external_secret = {
     apiVersion = "external-secrets.io/v1"
@@ -117,7 +108,6 @@ locals {
     spec       = local.secret_store_spec
   }
 
-  # Memorystore's server CA (a public certificate) for Plane's Node.js services (customCA), when Redis TLS is on.
   redis_ca_object = {
     apiVersion = "v1"
     kind       = "Secret"
@@ -126,7 +116,7 @@ locals {
     stringData = { "ca.crt" = coalesce(var.data.redis_ca, "-") }
   }
 
-  # Issuer + certificate only in path A with Let's Encrypt; slice keeps the tuple type stable.
+  # slice, not a conditional, keeps the tuple type stable.
   certificate_objects = slice([
     {
       apiVersion = "cert-manager.io/v1"
@@ -137,8 +127,7 @@ locals {
           server              = var.acme_server
           email               = var.acme_email
           privateKeySecretRef = { name = "plane-letsencrypt-account" }
-          # HTTP-01: cert-manager's challenge Ingress, served by Traefik on port 80. The module touches no DNS, so no
-          # DNS-01.
+          # HTTP-01 through Traefik: the module touches no DNS.
           solvers = [{ http01 = { ingress = { ingressClassName = "traefik" } } }]
         }
       }
@@ -155,7 +144,6 @@ locals {
     },
   ], 0, local.issue_cert ? 2 : 0)
 
-  # GCP-specific: RabbitMQ and OpenSearch run in the cluster, on persistent disks of the GKE standard-rwo class.
   data_services = {
     postgres = { local_setup = false }
     redis    = { local_setup = false }
@@ -170,10 +158,7 @@ locals {
     )
   }
 
-  # Background services the paid features depend on, on as in today's managed deployment (the chart defaults them
-  # off): Automations needs outbox_poller (it fills the event stream), automation_consumer and the script runner;
-  # agent runs and event-stream webhooks need their consumers; live's link previews call iframely; imports run on
-  # worker_importers (its queue is wired below). external_api stays off: the chart points silo at the api.
+  # Paid features need these; the chart defaults them off. external_api stays off: silo uses the api.
   core_services = {
     for s in [
       "outbox_poller", "automation_consumer", "runner", "agent_consumer", "webhook_consumer",
@@ -181,11 +166,7 @@ locals {
     ] : s => { enabled = true }
   }
 
-  # Email service. On by default with its own internet-facing passthrough load balancer on the reserved static IP
-  # (email.load_balancer; without it, a ClusterIP Service, like today's managed deployment). The chart renders
-  # externalTrafficPolicy: Local, which keeps the sender's IP (SPF). Certificate: the customer's, from Secret Manager
-  # (email.certificate_secret); otherwise none, and the email app generates a self-signed one at startup (fine for mail
-  # servers on port 25, which use opportunistic TLS).
+  # The chart sets externalTrafficPolicy Local (sender IP kept for SPF). No certificate: the email app self-signs.
   email_service = {
     enabled = var.email.enabled
     service = var.email.load_balancer ? {
@@ -199,8 +180,7 @@ locals {
     generateCert    = false
   }
 
-  # Two replicas for the user-facing and busiest workloads, spread across nodes, so a node drain or upgrade doesn't
-  # take Plane down. The PodDisruptionBudgets (below) only apply to multi-replica workloads.
+  # Two replicas across nodes, so a drain or upgrade doesn't take Plane down (PDBs need more than one).
   replica_services = {
     for s in ["api", "worker", "web", "live"] : s => {
       replicas                  = 2
@@ -225,7 +205,6 @@ locals {
 
     license = { licenseDomain = var.domain }
 
-    # Path A: Plane's Traefik routes. Path B: none; the customer applies their own routes.
     ingress = {
       enabled      = var.ingress_enabled
       controller   = "traefik"
@@ -234,7 +213,6 @@ locals {
 
     ssl = { tls_secret_name = var.tls_secret_name }
 
-    # GKE Workload Identity: Plane's pods act as the module's Plane service account (bucket access only).
     serviceAccount = {
       create        = true
       cloudIdentity = true
@@ -261,8 +239,7 @@ locals {
       # Fail the render rather than fall back to the chart's public example keys.
       requireExplicitSecrets = true
 
-      # GKE's default PD CSI class. Required: with it unset the chart's OpenSearch volume asks for storageClassName ""
-      # and never binds.
+      # Required: unset, the chart's OpenSearch volume asks for storageClassName "" and never binds.
       storageClass = "standard-rwo"
 
       pgdb_host     = var.data.postgres_host
@@ -281,19 +258,15 @@ locals {
       redis_port = tostring(var.data.redis_port)
       redis_ssl  = var.data.redis_tls
 
-      # In-cluster RabbitMQ: plaintext AMQP inside the cluster.
       rabbitmq_ssl   = false
       rabbitmq_vhost = "/"
 
-      # GCS through Application Default Credentials (Workload Identity): no key anywhere. Signed URLs are signed with
-      # the IAM signBlob API as the Plane service account.
       storage_provider  = "GCS"
       docstore_bucket   = var.data.bucket_name
       gcs_bucket_name   = var.data.bucket_name
       gcs_project_id    = var.project_id
       use_storage_proxy = var.use_storage_proxy
 
-      # As today's managed deployment: any attachment type can be uploaded.
       allow_all_attachment_types = true
     }
 
@@ -308,11 +281,10 @@ locals {
       var.data.opensearch_enabled ? { opensearch_existingSecret = local.opensearch_secret } : {},
     )
 
-    # Memorystore's server CA for the Node.js services (live, silo) when Redis TLS is on.
+    # Memorystore's server CA for the Node.js services (live, silo).
     customCA = { s3Secrets = var.data.redis_tls ? [{ name = local.redis_ca_secret, key = "ca.crt" }] : [] }
 
-    # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). With externalTrafficPolicy Local
-    # the load balancer hands the client IP straight to Traefik, which reaches the api from a pod IP.
+    # No chart value for TRUSTED_PROXIES yet (chart change C-8); Traefik reaches the api from a pod IP.
     extraEnv = [
       { name = "TRUSTED_PROXIES", value = var.pods_cidr },
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).

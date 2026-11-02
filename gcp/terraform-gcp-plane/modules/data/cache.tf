@@ -1,6 +1,3 @@
-# Memorystore for Redis over private services access, with an AUTH string. TLS (server authentication, port 6378) is
-# optional (redis.transit_encryption): Memorystore's server CA is then trusted through the chart's customCA.
-
 resource "google_redis_instance" "this" {
   project        = var.project_id
   name           = "${var.name}-redis"

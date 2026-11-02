@@ -1,6 +1,4 @@
-# The plane-enterprise values the module generates for GCP: GCS through Workload Identity, in-cluster RabbitMQ and
-# OpenSearch with credentials from Secret Manager, the gcpsm SecretStore, Memorystore TLS, and no secret values in the
-# generated values. Mock providers: no GCP credentials or cluster needed.
+# The plane-enterprise values the module generates. Mock providers: no GCP credentials or cluster needed.
 
 mock_provider "google" {
   mock_resource "google_compute_address" {
@@ -18,8 +16,7 @@ mock_provider "helm" {}
 mock_provider "random" {}
 mock_provider "time" {}
 
-# The edge logic lives in the root wiring and the edge, addons and plane modules: the network, cluster and data
-# layers are replaced by fixed outputs.
+# The network, cluster and data layers are replaced by fixed outputs.
 override_module {
   target = module.network
   outputs = {

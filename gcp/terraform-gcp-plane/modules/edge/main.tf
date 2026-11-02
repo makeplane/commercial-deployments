@@ -1,6 +1,4 @@
-# Reserved static IPs for the passthrough network load balancers GKE creates for Traefik's Service (path A) and the
-# email Service. Reserved by Terraform, so they survive a Service re-creation and give stable A records. The module
-# creates no DNS records: the customer points domain (and smtp_domain) at these IPs.
+# Reserved by Terraform, so the IPs survive a Service re-creation. The module creates no DNS records.
 
 resource "google_compute_address" "web" {
   count = var.install_traefik ? 1 : 0
@@ -26,9 +24,7 @@ resource "google_compute_address" "email" {
   labels       = var.labels
 }
 
-# On destroy, the Services that use these IPs are deleted first (Traefik in the addons module, email in the plane
-# module), and GKE removes their forwarding rules asynchronously. An address still in use can't be released, so
-# wait before deleting the addresses.
+# GKE removes the Services' forwarding rules asynchronously and an address in use can't be released.
 resource "time_sleep" "lb_cleanup" {
   destroy_duration = "90s"
 

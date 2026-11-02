@@ -1,6 +1,4 @@
-# Traefik's load balancer (path A) on GKE: the reserved address, external or internal, client IP kept with
-# externalTrafficPolicy Local, and the source ranges; External Secrets' identity and CRD handling. Runs the addons
-# module on its own with mock providers.
+# Traefik's load balancer (path A) and External Secrets. Runs the addons module alone with mock providers.
 
 mock_provider "google" {
   mock_resource "google_service_account" {

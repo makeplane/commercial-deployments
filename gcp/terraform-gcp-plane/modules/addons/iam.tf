@@ -1,8 +1,7 @@
-# External Secrets' identity: a Google service account bound to the controller's Kubernetes ServiceAccount through
-# GKE Workload Identity, allowed to read each module secret (and the customer's certificate secrets) and nothing else.
+# External Secrets reads the module's secrets and the customer's certificate secrets, nothing else.
 
 locals {
-  # Customer certificate secrets, "projects/<project>/secrets/<name>" (the root module checks the project).
+  # The root module checks the project, so the short name is enough.
   certificate_secret_names = toset([for s in var.certificate_secrets : regex("[^/]+$", s)])
 }
 

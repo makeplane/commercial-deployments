@@ -3,8 +3,7 @@ provider "google" {
   region  = var.region
 }
 
-# The module has no provider blocks. Helm talks to the cluster the module creates, with a short-lived token from
-# gke-gcloud-auth-plugin (installed with: gcloud components install gke-gcloud-auth-plugin). No static credentials.
+# The module has no provider blocks. Helm authenticates with a short-lived token from gke-gcloud-auth-plugin.
 provider "helm" {
   kubernetes = {
     host                   = module.plane.cluster_endpoint

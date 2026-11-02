@@ -1,6 +1,4 @@
-# From the repo root:
-#   pre-commit run -c gcp/terraform-gcp-plane/.pre-commit-config.yaml --all-files
-# Scoped to this module.
+# From the repo root: pre-commit run -c gcp/terraform-gcp-plane/.pre-commit-config.yaml --all-files
 files: ^gcp/terraform-gcp-plane/
 repos:
   - repo: https://github.com/antonbabenko/pre-commit-terraform

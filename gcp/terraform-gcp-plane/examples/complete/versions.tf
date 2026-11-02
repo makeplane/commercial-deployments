@@ -21,9 +21,7 @@ terraform {
     }
   }
 
-  # State holds generated secrets (database, RabbitMQ and OpenSearch passwords, the Redis AUTH string, app keys), so
-  # it lives in a private, versioned GCS bucket (the GCS backend locks natively). Settings come from backend.hcl (see
-  # backend.hcl.example):
+  # State holds generated secrets: keep it in a private, versioned bucket.
   #   terraform init -backend-config=backend.hcl
   backend "gcs" {}
 }

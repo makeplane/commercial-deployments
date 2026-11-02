@@ -1,7 +1,3 @@
-# The project APIs, one VPC with one subnet (GKE's pods and services ranges as secondary ranges), Cloud NAT for egress
-# from the private nodes, and private services access for Cloud SQL and Memorystore. No firewall rules: GKE creates
-# the ones its nodes, control plane and load balancers need.
-
 locals {
   apis = [
     "compute.googleapis.com",
@@ -20,7 +16,7 @@ locals {
   services_range = "${var.name}-services"
 }
 
-# "An empty project in one apply". Left on at destroy: other things in the project may use them.
+# Left on at destroy: other things in the project may use them.
 resource "google_project_service" "this" {
   for_each = var.enable_apis ? toset(local.apis) : toset([])
 
@@ -39,7 +35,7 @@ resource "time_sleep" "apis" {
 }
 
 resource "google_compute_network" "this" {
-  # checkov:skip=CKV2_GCP_18:No module firewall rules by design: GKE creates the rules its nodes, control plane and load balancers need.
+  # checkov:skip=CKV2_GCP_18:No module firewall rules: GKE creates the ones it needs.
   project                 = var.project_id
   name                    = var.name
   auto_create_subnetworks = false
@@ -95,7 +91,7 @@ resource "google_compute_router_nat" "this" {
   }
 }
 
-# Private services access: Cloud SQL and Memorystore get private IPs from this range, over a peering Google manages.
+# Cloud SQL and Memorystore get private IPs from this range.
 resource "google_compute_global_address" "private_services" {
   project       = var.project_id
   name          = "${var.name}-psa"
@@ -111,7 +107,6 @@ resource "google_service_networking_connection" "this" {
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_services.name]
 
-  # Deleting the peering fails while Cloud SQL and Memorystore are still releasing it, which blocks the destroy. The
-  # peering goes with the VPC instead.
+  # Deleting the peering fails while Cloud SQL and Memorystore still hold it; it goes with the VPC instead.
   deletion_policy = "ABANDON"
 }

@@ -1,5 +1,4 @@
-# Secret Manager entries, in the JSON shape the plane-enterprise chart reads through External Secrets. Replicated in
-# region only (data residency). Google-managed encryption in v0.1; customer-managed keys are a later option.
+# JSON in the shape the chart reads through External Secrets. Replicated in-region only (data residency).
 
 locals {
   secret_values = merge(
@@ -14,7 +13,7 @@ locals {
     } : {},
   )
 
-  # Secret IDs, e.g. "<name>-plane-db". Static keys, so for_each and IAM bindings are known at plan time.
+  # Static keys, so for_each and IAM bindings are known at plan time.
   secret_names = merge(
     {
       postgres = "${var.name}-plane-db"
@@ -50,9 +49,7 @@ resource "google_secret_manager_secret_version" "this" {
   secret_data = local.secret_values[each.key]
 }
 
-# Signing and encryption keys shared by api, live, silo and pi (chart external_secrets.app_keys_existingSecret).
-# SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data: they are generated once and must never change, or
-# existing ciphertext becomes unreadable without any error.
+# SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data: if they change, it becomes unreadable silently.
 resource "random_password" "app_keys" {
   for_each = {
     SECRET_KEY             = 50
