@@ -77,7 +77,7 @@ domain = "plane.example.com" # never change after install
 # redis = {
 #   engine_version = "8.2"
 #   node_type      = "cache.t3.medium"
-#   replicas       = 0
+#   replicas       = 1
 # }
 
 # rabbitmq = {

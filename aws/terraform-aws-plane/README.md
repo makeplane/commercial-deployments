@@ -199,8 +199,8 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 - **Scaling Plane:** api, worker, web and live run 2 replicas (today's kustomize default was 5 api / 5 worker). For more
   capacity, raise replicas through `plane_values`, e.g. `services: { api: { replicas: 4 }, worker: { replicas: 4 } }`,
   and add nodes to match. There are no autoscalers in this release.
-- **Cache:** Valkey is a single node by default (`redis.replicas = 0`), unlike the Multi-AZ database and queue. Set
-  `redis = { replicas = 1 }` for automatic failover.
+- **Cache:** Valkey runs a primary and a replica in another AZ with automatic failover (`redis.replicas = 1`), like the
+  Multi-AZ database and queue. `redis = { replicas = 0 }` gives a single node for test installs.
 - **Destroying:** RDS deletion protection is on. Set `postgres = { deletion_protection = false }` (and
   `bucket_force_destroy = true` unless the bucket is empty, old object versions included), apply, then destroy.
   Otherwise `terraform destroy` stops with an error.
@@ -272,7 +272,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | Amazon MQ for RabbitMQ. | <pre>object({<br/>    engine_version  = optional(string, "3.13")<br/>    instance_type   = optional(string, "mq.m7g.medium")<br/>    deployment_mode = optional(string, "CLUSTER_MULTI_AZ")<br/>  })</pre> | `{}` | no |
-| redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 0)<br/>  })</pre> | `{}` | no |
+| redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. replicas = 1 (default) adds a replica in another AZ with automatic failover; 0 is a single node. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 1)<br/>  })</pre> | `{}` | no |
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
 | tls\_secret\_name | Path A: name of the Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager (acme\_email) or by External Secrets from ingress.tls\_certificate\_secret\_arn. | `string` | `"plane-tls"` | no |
