@@ -33,6 +33,13 @@
   (`ingress.tls_certificate_secret_arn`); **none** (path B, default) installs no ingress controller or routes. The
   module configures no DNS: the `dns_records` output lists the records to create. Email certificate from Secrets
   Manager (`email.certificate_secret_arn`) in either path, else self-signed (a warning in path A).
+- Plane AI set up end to end when `enable_components.pi = true` (`pi` input): chat and semantic search. Default
+  `pi.provider = "bedrock"`, keyless: application inference profiles for Titan Text Embeddings V2 and Claude Sonnet 4.6
+  (global cross-Region inference), Plane's Pod Identity role allowed to invoke the chat profile, and a role OpenSearch
+  assumes to call the embeddings profile (pi creates the ML connector at startup). `pi.provider = "api_keys"`: OpenAI or
+  Anthropic chat and Cohere or OpenAI embeddings, keys from Secrets Manager through External Secrets. Plane AI needs
+  OpenSearch. Plane AI's models are no longer described as configured in the admin UI: pi reads them only from its
+  environment.
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
   input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
   defaulted input). `terraform.tfvars.example` shows every setting with its default, plus a few examples. CI checks that the example declares exactly the module's inputs.

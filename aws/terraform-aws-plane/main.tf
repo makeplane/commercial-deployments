@@ -1,4 +1,5 @@
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "available" {
   # checkov:skip=CKV_AWS_394:The module takes the first az_count zones by name; zones AWS adds later sort after them, so the set doesn't shift.
@@ -23,7 +24,39 @@ locals {
     smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")
     load_balancer = var.email.enabled && var.email.load_balancer
   })
-  region = data.aws_region.current.region
+  region     = data.aws_region.current.region
+  account_id = data.aws_caller_identity.current.account_id
+
+  # Plane AI's embedding models (pi/core/embedding_config.py) and their vector dimensions; Bedrock
+  # ones with the Bedrock model ID behind pi's key.
+  pi_embedding_dimensions = {
+    "bedrock/amazon.titan-embed-text-v1"   = 1536
+    "bedrock/amazon.titan-embed-text-v2"   = 1024
+    "bedrock/cohere.embed-english-v3"      = 1024
+    "bedrock/cohere.embed-multilingual-v3" = 1024
+    "cohere/embed-v4.0"                    = 1536
+    "cohere/embed-english-v3.0"            = 1024
+    "cohere/embed-english-v2.0"            = 4096
+    "openai/text-embedding-ada-002"        = 1536
+    "openai/text-embedding-3-small"        = 1536
+    "openai/text-embedding-3-large"        = 3072
+  }
+  pi_bedrock_embedding_models = {
+    "bedrock/amazon.titan-embed-text-v1"   = "amazon.titan-embed-text-v1"
+    "bedrock/amazon.titan-embed-text-v2"   = "amazon.titan-embed-text-v2:0"
+    "bedrock/cohere.embed-english-v3"      = "cohere.embed-english-v3"
+    "bedrock/cohere.embed-multilingual-v3" = "cohere.embed-multilingual-v3"
+  }
+  pi_mode = var.enable_components.pi ? var.pi.provider : null
+  pi_embedding_model = {
+    bedrock  = var.pi.bedrock.embedding_model
+    api_keys = var.pi.api_keys.embedding_model
+  }
+  # The env var pi reads each key from => the secret holding it.
+  pi_api_key_secrets = local.pi_mode == "api_keys" ? merge(
+    { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret_arn },
+    { "${upper(split("/", var.pi.api_keys.embedding_model)[0])}_API_KEY" = var.pi.api_keys.embedding_key_secret_arn },
+  ) : {}
 
   tags = merge(var.tags, {
     "plane.so/deployment" = var.name
@@ -85,10 +118,10 @@ module "addons" {
   allowed_cidrs        = var.ingress.allowed_cidrs
   load_balancer_scheme = var.ingress.scheme
   issue_certificate    = local.lets_encrypt
-  certificate_secret_arns = compact([
+  certificate_secret_arns = concat(compact([
     local.automated ? var.ingress.tls_certificate_secret_arn : null,
     local.email.enabled ? local.email.certificate_secret_arn : null,
-  ])
+  ]), distinct(values(local.pi_api_key_secrets)))
   secret_arns = module.data.secret_arns
   kms_key_arn = module.data.kms_key_arn
   tags        = local.tags
@@ -129,10 +162,19 @@ module "plane" {
   acme_server       = var.acme_server
 
   tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
-  helm_timeout               = var.helm_timeout
-  plane_values               = var.plane_values
-  data                       = module.data.plane_inputs
-  tags                       = local.tags
+  pi = {
+    mode                = local.pi_mode
+    embedding_model     = local.pi_mode == null ? null : local.pi_embedding_model[local.pi_mode]
+    embedding_dimension = local.pi_mode == null ? null : local.pi_embedding_dimensions[local.pi_embedding_model[local.pi_mode]]
+    bedrock = local.pi_mode != "bedrock" ? null : merge(var.pi.bedrock, {
+      embedding_model_id = local.pi_bedrock_embedding_models[var.pi.bedrock.embedding_model]
+    })
+    api_key_secrets = local.pi_api_key_secrets
+  }
+  helm_timeout = var.helm_timeout
+  plane_values = var.plane_values
+  data         = module.data.plane_inputs
+  tags         = local.tags
 
   # The chart's extraObjects need the External Secrets, cert-manager and Traefik CRDs and
   # webhooks; on destroy, Plane must go before Traefik and the LB controller.

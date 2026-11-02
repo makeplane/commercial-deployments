@@ -42,6 +42,23 @@ variable "enable_components" {
   })
 }
 
+variable "pi" {
+  description = "Plane AI's models. mode: null (pi off), \"bedrock\" or \"api_keys\". api_key_secrets: env var pi reads => Secrets Manager ARN."
+  type = object({
+    mode                = string
+    embedding_model     = string
+    embedding_dimension = number
+    bedrock = object({
+      embedding_model    = string
+      embedding_model_id = string
+      chat_model_id      = string
+      chat_model_name    = string
+      chat_max_tokens    = number
+    })
+    api_key_secrets = map(string)
+  })
+}
+
 variable "tls_secret_name" {
   description = "TLS Secret Traefik serves."
   type        = string

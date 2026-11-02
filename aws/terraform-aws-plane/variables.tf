@@ -82,7 +82,7 @@ variable "acme_server" {
 
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release."
+  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: Amazon Bedrock by default (keyless), or provider API keys from Secrets Manager."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -90,6 +90,83 @@ variable "enable_components" {
   })
   default  = {}
   nullable = false
+
+  validation {
+    condition     = !var.enable_components.pi || var.opensearch.enabled
+    error_message = "Plane AI (enable_components.pi) needs OpenSearch (opensearch.enabled = true): its search indexes and embeddings live there."
+  }
+}
+
+variable "pi" {
+  description = <<-EOT
+    Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
+    (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "bedrock" (default): keyless
+    Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each model
+    from bedrock.embedding_model (one of Plane AI's Bedrock embedding models) and bedrock.chat_model_id (an Anthropic
+    Claude model ID or cross-Region inference profile ID; Plane AI calls it with the Anthropic API). The models must be
+    available to the account in this region (Anthropic: submit the use case form once). provider = "api_keys": chat on
+    OpenAI or Anthropic (api_keys.chat_provider) and embeddings on Cohere or OpenAI (api_keys.embedding_model), with
+    each API key stored as a plain-text Secrets Manager secret in this account and region (full ARN; encrypted with
+    aws/secretsmanager or this module's KMS key; one secret for both when the provider is the same). Choose the
+    embedding model before Plane AI's first start: changing it later needs Plane AI's indexes recreated.
+  EOT
+  type = object({
+    provider = optional(string, "bedrock")
+    bedrock = optional(object({
+      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")
+      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")
+      chat_model_name = optional(string, "Claude (Amazon Bedrock)")
+      chat_max_tokens = optional(number, 64000)
+    }), {})
+    api_keys = optional(object({
+      chat_provider            = optional(string, "openai")
+      chat_key_secret_arn      = optional(string)
+      embedding_model          = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret_arn = optional(string)
+    }), {})
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = contains(["bedrock", "api_keys"], var.pi.provider)
+    error_message = "pi.provider must be \"bedrock\" or \"api_keys\"."
+  }
+  validation {
+    condition     = var.pi.provider != "bedrock" || contains(keys(local.pi_bedrock_embedding_models), var.pi.bedrock.embedding_model)
+    error_message = "pi.bedrock.embedding_model must be one of: ${join(", ", keys(local.pi_bedrock_embedding_models))}."
+  }
+  validation {
+    condition     = var.pi.provider != "bedrock" || can(regex("^((us|us-gov|eu|apac|au|jp|ca|in|global)\\.)?anthropic\\.claude-[a-z0-9.:-]+$", var.pi.bedrock.chat_model_id))
+    error_message = "pi.bedrock.chat_model_id must be an Anthropic Claude model ID or cross-Region inference profile ID, e.g. \"global.anthropic.claude-sonnet-4-6\"."
+  }
+  validation {
+    condition     = var.pi.provider != "bedrock" || (var.pi.api_keys.chat_key_secret_arn == null && var.pi.api_keys.embedding_key_secret_arn == null)
+    error_message = "pi.api_keys secrets are only used with pi.provider = \"api_keys\"."
+  }
+  validation {
+    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
+    error_message = "pi.provider = \"api_keys\" needs both pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
+  }
+  validation {
+    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+  }
+  validation {
+    condition     = contains([for m in keys(local.pi_embedding_dimensions) : m if !startswith(m, "bedrock/")], var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", [for m in keys(local.pi_embedding_dimensions) : m if !startswith(m, "bedrock/")])}."
+  }
+  validation {
+    condition = alltrue([
+      for arn in [var.pi.api_keys.chat_key_secret_arn, var.pi.api_keys.embedding_key_secret_arn] :
+      arn == null || can(regex("^arn:aws[a-z-]*:secretsmanager:${local.region}:${local.account_id}:secret:.+$", arn))
+    ])
+    error_message = "pi.api_keys secrets must be full ARNs of Secrets Manager secrets in this account and region."
+  }
+  validation {
+    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret_arn == var.pi.api_keys.embedding_key_secret_arn
+    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret ARN for both."
+  }
 }
 
 variable "tags" {

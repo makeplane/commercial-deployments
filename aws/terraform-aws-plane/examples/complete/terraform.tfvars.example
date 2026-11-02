@@ -108,6 +108,28 @@ domain = "plane.example.com" # never change after install
 #   pi     = false
 # }
 
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: Amazon Bedrock, keyless (the module creates
+# an inference profile per model; the models must be available in this region, Anthropic needs its use case form once).
+# pi = {
+#   provider = "bedrock"
+#   bedrock = {
+#     embedding_model = "bedrock/amazon.titan-embed-text-v2"
+#     chat_model_id   = "global.anthropic.claude-sonnet-4-6" # Claude model or cross-Region inference profile ID
+#     chat_model_name = "Claude (Amazon Bedrock)"
+#     chat_max_tokens = 64000
+#   }
+# }
+# Or provider API keys, each a plain-text Secrets Manager secret (same account and region):
+# pi = {
+#   provider = "api_keys"
+#   api_keys = {
+#     chat_provider            = "openai" # or "anthropic"
+#     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/openai-key-..."
+#     embedding_model          = "cohere/embed-v4.0"
+#     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/cohere-key-..."
+#   }
+# }
+
 # bucket_force_destroy = false
 
 # plane_version    = "v4.0.1"
