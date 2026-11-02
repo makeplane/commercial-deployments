@@ -1,0 +1,34 @@
+# Changelog
+
+## Unreleased
+
+> **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and the plane-enterprise
+> chart release that renders it, plus chart 3.11.5 (bundled RabbitMQ reading `external_secrets.rabbitmq`). The Blob
+> chart values are an **assumed contract** (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version`
+> (`v4.0.1`) and `chart_version` (`3.11.5`) defaults are placeholders until those releases exist. See README, "Requires".
+
+### Added
+- `deployment_mode = "aks"`: resource group (or an existing empty one), VNet with NAT gateway egress, AKS (Entra ID +
+  Azure RBAC, local accounts off, Workload Identity, Azure CNI Overlay with Cilium, one autoscaled node pool),
+  PostgreSQL Flexible Server 15 (VNet-integrated, TLS required, zone-redundant HA, delete lock, databases `plane` and
+  `plane_pi` created by Terraform: no DB-init Job), Azure Managed Redis (private endpoint, TLS), Key Vault (RBAC, purge
+  protection) with the generated secrets. Platform-managed encryption keys.
+- Native **Azure Blob** uploads storage: StorageV2 account without shared keys or public access, private endpoint,
+  ZRS, versioning and soft delete, delete lock (`storage`). Plane's pods use a user-assigned managed identity federated
+  to `plane/plane-srv-account` with Storage Blob Data Contributor on the container; proxy-only (no SAS, no CORS).
+- In-cluster RabbitMQ and OpenSearch from the chart (Azure has no managed equivalents) on a zone-redundant Premium SSD
+  StorageClass shipped as a chart extraObject (`persistent_volume_sku`); their credentials come from Key Vault through
+  External Secrets (no secret values in Helm values).
+- In-cluster add-ons as Helm releases: External Secrets (Workload Identity, CRDs kept on uninstall) and Reloader; in
+  path A also Traefik, and cert-manager when `acme_email` is set. AKS provides metrics-server and the load balancer
+  integration.
+- The same edge model as the AWS module: `ingress.mode` **automated** (path A: Traefik on a static public IP, or a
+  fixed private IP with `ingress.scheme = "internal"`; Let's Encrypt HTTP-01 or your Key Vault certificate via
+  `ingress.tls_certificate_secret_id`) or **none** (path B, default). No DNS records, no DNS-01, no zone input: the
+  `dns_records` output lists the A and MX records to create.
+- Email service on by default with its own static public IP (ports 25/465/587, sender IP preserved), certificate from
+  Key Vault (`email.certificate_secret_id`) or self-signed.
+- Plane AI (`enable_components.pi`) is rejected by a validation: it needs S3-compatible storage.
+- `examples/complete` declares every module input 1:1 (`terraform.tfvars.example` shows every default); mock-provider
+  tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values and the data layer; CI workflow
+  `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).

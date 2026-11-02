@@ -1,0 +1,10 @@
+framework:
+  - terraform
+# No third-party registry modules here, but keep the setting as on AWS: our calls are checked,
+# upstream module internals are not.
+download-external-modules: false
+compact: true
+quiet: true
+skip-check:
+  # Registry modules would be pinned to exact versions, the standard practice for Registry sources.
+  - CKV_TF_1
