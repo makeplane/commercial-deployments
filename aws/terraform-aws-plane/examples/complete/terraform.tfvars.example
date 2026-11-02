@@ -124,3 +124,4 @@ domain = "plane.example.com" # never change after install
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }
 #   bucket_force_destroy = true
+#   redis                = { replicas = 0 } # one cache node, no failover
