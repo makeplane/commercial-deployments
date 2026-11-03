@@ -7,17 +7,14 @@ locals {
   service_account = "${local.release}-srv-account"
   cluster_domain  = "cluster.local"
 
-  # AZURE BLOB STORAGE: assumed chart contract, pending Plane's Blob support (see README).
+  # AZURE BLOB STORAGE: the agreed chart contract, pending the chart and Plane releases (see README).
   # tests/plane.tftest.hcl pins it; update both together.
   blob_env = {
-    storage_provider      = "AZURE"
-    azure_storage_account = var.data.storage_account_name
-    azure_container       = var.data.storage_container_name
-    # Optional in the contract (sovereign clouds, custom endpoints).
-    azure_blob_endpoint = var.data.storage_blob_endpoint
-    use_storage_proxy   = true
-    # The chart always renders AWS_S3_BUCKET_NAME from this.
-    docstore_bucket = var.data.storage_container_name
+    storage_provider             = "AZURE"
+    azure_storage_account_name   = var.data.storage_account_name
+    azure_storage_container_name = var.data.storage_container_name
+    azure_storage_blob_endpoint  = var.data.storage_blob_endpoint
+    use_storage_proxy            = true
   }
   blob_service_account = {
     annotations = { "azure.workload.identity/client-id" = azurerm_user_assigned_identity.plane.client_id }
@@ -365,7 +362,6 @@ resource "helm_release" "plane" {
 
   depends_on = [
     terraform_data.addons_ready,
-    azurerm_federated_identity_credential.plane,
-    azurerm_role_assignment.plane_blob,
+    time_sleep.plane_identity,
   ]
 }

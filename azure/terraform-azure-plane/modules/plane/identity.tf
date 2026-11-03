@@ -23,3 +23,10 @@ resource "azurerm_role_assignment" "plane_blob" {
   principal_id         = azurerm_user_assigned_identity.plane.principal_id
   principal_type       = "ServicePrincipal"
 }
+
+# The role and federated credential take a while to propagate; Plane's first Blob calls would get 403.
+resource "time_sleep" "plane_identity" {
+  create_duration = "60s"
+
+  depends_on = [azurerm_federated_identity_credential.plane, azurerm_role_assignment.plane_blob]
+}

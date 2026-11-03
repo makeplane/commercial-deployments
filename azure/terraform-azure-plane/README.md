@@ -14,11 +14,11 @@ can't install a working Plane until they ship:
 
 | Needs | Why | Status |
 |---|---|---|
-| **Plane with native Azure Blob storage** (api, silo; proxy-only, Workload Identity) | Uploads go to Blob; Plane has no Azure storage backend today (S3 and GCS only) | Being built by Plane engineering. `plane_version` default (`v4.0.1`) is a **placeholder** for that release |
-| **plane-enterprise chart with the Azure Blob values** (`env.storage_provider: AZURE`, `env.azure_storage_account`, `env.azure_container`, `env.azure_blob_endpoint`, `env.use_storage_proxy: true`) | The module sets these values; the chart has to render them for the api and silo | **Assumed contract**, kept in one block in [`modules/plane/main.tf`](modules/plane/main.tf) ("AZURE BLOB STORAGE") and pinned by `tests/plane.tftest.hcl`. `chart_version` default is a **placeholder** for that release |
+| **Plane with native Azure Blob storage** (api, silo; proxy-only, Workload Identity) | Uploads go to Blob; Plane has no Azure storage backend today (S3 and GCS only) | Being built. `plane_version` default (`v4.0.1`) is a **placeholder** for that release |
+| **plane-enterprise chart with the Azure Blob values** (`env.storage_provider: AZURE`, `env.azure_storage_account_name`, `env.azure_storage_container_name`, `env.azure_storage_blob_endpoint`, `env.use_storage_proxy: true`) | The module sets these values; the chart has to render them for the api and silo | **Agreed contract**, kept in one block in [`modules/plane/main.tf`](modules/plane/main.tf) ("AZURE BLOB STORAGE") and pinned by `tests/plane.tftest.hcl`. `chart_version` default is a **placeholder** for that release |
 | **plane-enterprise chart 3.11.5**: bundled RabbitMQ reading `external_secrets.rabbitmq` | The broker and the apps read one Secret synced from Key Vault (no password in Helm values). 3.11.3 refuses this pairing at render time | Being built in parallel |
 
-When they ship: set the real versions as defaults, adjust the Blob block if the contract changed, and run
+When they ship: set the real versions as defaults, check the Blob block against the released chart, and run
 `terraform test` and `helm template` against the released chart.
 
 ## What it creates

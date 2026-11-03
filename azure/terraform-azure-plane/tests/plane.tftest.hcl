@@ -8,6 +8,7 @@ mock_provider "azurerm" {
   }
 }
 mock_provider "helm" {}
+mock_provider "time" {}
 
 variables {
   name                  = "plane-test"
@@ -63,16 +64,20 @@ run "blob_contract" {
 
   assert {
     condition = {
-      for k in ["storage_provider", "azure_storage_account", "azure_container", "azure_blob_endpoint", "use_storage_proxy"] :
+      for k in ["storage_provider", "azure_storage_account_name", "azure_storage_container_name", "azure_storage_blob_endpoint", "use_storage_proxy"] :
       k => yamldecode(output.helm_values).env[k]
       } == {
-      storage_provider      = "AZURE"
-      azure_storage_account = "planetestabcd1234"
-      azure_container       = "uploads"
-      azure_blob_endpoint   = "https://planetestabcd1234.blob.core.windows.net/"
-      use_storage_proxy     = true
+      storage_provider             = "AZURE"
+      azure_storage_account_name   = "planetestabcd1234"
+      azure_storage_container_name = "uploads"
+      azure_storage_blob_endpoint  = "https://planetestabcd1234.blob.core.windows.net/"
+      use_storage_proxy            = true
     }
-    error_message = "The chart's Azure Blob values must follow the assumed contract (storage_provider AZURE, account, container, endpoint, proxy-only)."
+    error_message = "The chart's Azure Blob values must follow the agreed contract (storage_provider AZURE, account, container, endpoint, proxy-only)."
+  }
+  assert {
+    condition     = !contains(keys(yamldecode(output.helm_values).env), "docstore_bucket")
+    error_message = "docstore_bucket must not be set on Azure: pi would read the bucket as S3."
   }
   assert {
     condition     = yamldecode(output.helm_values).serviceAccount.annotations["azure.workload.identity/client-id"] == "00000000-0000-0000-0000-00000000000c"

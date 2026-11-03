@@ -4,7 +4,7 @@
 
 > **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and the plane-enterprise
 > chart release that renders it, plus chart 3.11.5 (bundled RabbitMQ reading `external_secrets.rabbitmq`). The Blob
-> chart values are an **assumed contract** (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version`
+> chart values follow the **agreed contract** (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version`
 > (`v4.0.1`) and `chart_version` (`3.11.5`) defaults are placeholders until those releases exist. See README, "Requires".
 
 ### Added
