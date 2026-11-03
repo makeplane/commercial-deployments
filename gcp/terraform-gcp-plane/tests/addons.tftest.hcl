@@ -42,6 +42,10 @@ run "internet_facing_external_address" {
     error_message = "An internet-facing Traefik load balancer must not be internal."
   }
   assert {
+    condition     = yamldecode(helm_release.traefik[0].values[0]).service.spec.loadBalancerClass == "networking.gke.io/l4-regional-external"
+    error_message = "An external Traefik Service must use the backend service-based load balancer class, or GKE ignores its static IP."
+  }
+  assert {
     condition     = yamldecode(helm_release.traefik[0].values[0]).service.spec.externalTrafficPolicy == "Local"
     error_message = "Traefik's Service must keep the client IP (externalTrafficPolicy Local)."
   }
@@ -69,6 +73,10 @@ run "internal_address" {
     allowed_cidrs        = ["10.0.0.0/8"]
   }
 
+  assert {
+    condition     = !can(yamldecode(helm_release.traefik[0].values[0]).service.spec.loadBalancerClass)
+    error_message = "An internal Traefik Service must not use the external load balancer class."
+  }
   assert {
     condition     = yamldecode(helm_release.traefik[0].values[0]).service.annotations["networking.gke.io/load-balancer-type"] == "Internal"
     error_message = "An internal Traefik load balancer must carry the GKE Internal annotation."

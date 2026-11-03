@@ -162,6 +162,10 @@ run "secret_store_and_no_secret_values" {
     error_message = "The email Service must use the reserved email address."
   }
   assert {
+    condition     = yamldecode(output.plane_helm_values).services.email_service.service.loadBalancerClass == "networking.gke.io/l4-regional-external"
+    error_message = "The email Service must use the backend service-based load balancer class, or GKE ignores its static IP."
+  }
+  assert {
     condition     = yamldecode(output.plane_helm_values).services.pi.enabled == false
     error_message = "Plane AI stays off on GCP."
   }

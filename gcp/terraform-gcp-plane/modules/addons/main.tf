@@ -143,11 +143,13 @@ resource "helm_release" "traefik" {
     }
     service = {
       annotations = local.traefik_service_annotations
-      spec = {
+      # External: GKE honours the static-IP annotation only on a backend service-based load balancer, which this
+      # class selects (immutable). Internal: the annotation needs GKE subsetting, enabled on the cluster.
+      spec = merge({
         type                     = "LoadBalancer"
         externalTrafficPolicy    = "Local"
         loadBalancerSourceRanges = var.allowed_cidrs
-      }
+      }, var.load_balancer_scheme == "internal" ? {} : { loadBalancerClass = "networking.gke.io/l4-regional-external" })
     }
   })]
 

@@ -172,9 +172,12 @@ locals {
     service = var.email.load_balancer ? {
       type        = "LoadBalancer"
       annotations = { "networking.gke.io/load-balancer-ip-addresses" = var.email_address_name }
+      # Backend service-based load balancer: GKE honours the static-IP annotation only with this class (immutable).
+      loadBalancerClass = "networking.gke.io/l4-regional-external"
       } : {
-      type        = "ClusterIP"
-      annotations = {}
+      type              = "ClusterIP"
+      annotations       = {}
+      loadBalancerClass = ""
     }
     tls_secret_name = var.email.certificate_secret != null ? local.email_tls_secret : ""
     generateCert    = false

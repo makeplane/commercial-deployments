@@ -67,6 +67,8 @@ resource "google_container_cluster" "this" {
 
   datapath_provider     = "ADVANCED_DATAPATH"
   enable_shielded_nodes = true
+  # Internal LoadBalancer Services need GKE subsetting for their static-IP annotation (path A, scheme internal).
+  enable_l4_ilb_subsetting = true
 
   # Upgrades in a weekend night window (UTC).
   maintenance_policy {
