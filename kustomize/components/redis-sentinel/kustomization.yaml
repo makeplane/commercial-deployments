@@ -1,0 +1,233 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# ============================================================
+# REDIS SENTINEL (customer-run, bring your own)
+# ============================================================
+# Points Plane at a Redis primary that is managed by a Redis Sentinel set the
+# customer runs. Plane does NOT deploy Sentinel; this component only copies the
+# connection settings into the Secrets the Redis consumers read:
+#
+#   plane-app-secrets         api, workers, beat, consumers, migrator, silo, flux
+#   plane-live-secrets        live, live-exporter
+#   plane-silo-secrets        silo (also loaded by api/worker after app secrets)
+#   plane-flux-secrets        flux, flux-consumer (flux component only)
+#   plane-mcp-server-secrets  mcp-server (mcp-server component only)
+#
+# A target Secret that is not part of the overlay (flux, mcp-server) is skipped.
+# pi is not covered.
+#
+# Opt-in. To use it:
+#   1. Remove ../../components/redis from the overlay (Sentinel always means an
+#      external Redis).
+#   2. Add ALL ten REDIS_* keys below to secrets-vars.yaml (see the commented
+#      block in secrets-vars.yaml.example). They are replacement sources, so a
+#      missing key fails the WHOLE overlay render. Leave optional ones "".
+#   3. Set REDIS_URL: "" in secrets-vars.yaml (and leave ELASTICACHE_SECRET_ARN
+#      empty). Sentinel mode wins over both, but the services log a warning when
+#      both are set.
+#   4. Add - ../../components/redis-sentinel to the overlay's components.
+#
+# Requires a Plane release with Redis Sentinel support: older images ignore
+# these keys and, with REDIS_URL empty, have no Redis to connect to.
+# See kustomize/README.md, "Redis Sentinel".
+# ============================================================
+#
+# Keys (all from overlay-secret-vars / secrets-vars.yaml):
+#   REDIS_SENTINELS          host1:26379,host2:26379,host3:26379; non-empty turns on Sentinel mode
+#   REDIS_SENTINEL_MASTER    Sentinel master (service) name; required
+#   REDIS_SENTINEL_USERNAME  auth to the sentinels (optional)
+#   REDIS_SENTINEL_PASSWORD  auth to the sentinels (optional)
+#   REDIS_USERNAME           auth to the data nodes (optional, ACL user)
+#   REDIS_PASSWORD           auth to the data nodes (optional)
+#   REDIS_DB                 database index
+#   REDIS_SSL                TLS to the data nodes
+#   REDIS_SENTINEL_SSL       TLS to the sentinels; empty = same as REDIS_SSL
+#   REDIS_SSL_VERIFY         verify server certificates
+
+# Declare the keys as empty strings first (component patches run before
+# component replacements). Replacing into an existing string keeps it a string;
+# letting the replacement create the key would turn "" into null and "false"
+# into a YAML boolean, which a Secret rejects. A target Secret that is not in
+# the overlay matches nothing and is skipped.
+patches:
+  - target:
+      kind: Secret
+      name: ^plane-(app|live|silo|flux|mcp-server)-secrets$
+    patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: placeholder
+      stringData:
+        REDIS_SENTINELS: ""
+        REDIS_SENTINEL_MASTER: ""
+        REDIS_SENTINEL_USERNAME: ""
+        REDIS_SENTINEL_PASSWORD: ""
+        REDIS_USERNAME: ""
+        REDIS_PASSWORD: ""
+        REDIS_DB: ""
+        REDIS_SSL: ""
+        REDIS_SENTINEL_SSL: ""
+        REDIS_SSL_VERIFY: ""
+
+replacements:
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SENTINELS
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SENTINELS]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SENTINELS]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SENTINELS]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SENTINELS]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SENTINELS]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SENTINEL_MASTER
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_MASTER]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_MASTER]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_MASTER]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_MASTER]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_MASTER]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SENTINEL_USERNAME
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_USERNAME]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_USERNAME]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_USERNAME]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_USERNAME]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_USERNAME]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SENTINEL_PASSWORD
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_PASSWORD]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_PASSWORD]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_PASSWORD]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_PASSWORD]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_PASSWORD]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_USERNAME
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_USERNAME]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_USERNAME]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_USERNAME]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_USERNAME]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_USERNAME]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_PASSWORD
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_PASSWORD]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_PASSWORD]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_PASSWORD]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_PASSWORD]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_PASSWORD]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_DB
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_DB]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_DB]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_DB]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_DB]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_DB]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SSL
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SSL]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SSL]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SSL]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SSL]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SSL]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SENTINEL_SSL
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_SSL]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_SSL]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_SSL]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_SSL]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SENTINEL_SSL]
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_SSL_VERIFY
+    targets:
+      - select: { kind: Secret, name: plane-app-secrets }
+        fieldPaths: [stringData.REDIS_SSL_VERIFY]
+      - select: { kind: Secret, name: plane-live-secrets }
+        fieldPaths: [stringData.REDIS_SSL_VERIFY]
+      - select: { kind: Secret, name: plane-silo-secrets }
+        fieldPaths: [stringData.REDIS_SSL_VERIFY]
+      - select: { kind: Secret, name: plane-flux-secrets }
+        fieldPaths: [stringData.REDIS_SSL_VERIFY]
+      - select: { kind: Secret, name: plane-mcp-server-secrets }
+        fieldPaths: [stringData.REDIS_SSL_VERIFY]

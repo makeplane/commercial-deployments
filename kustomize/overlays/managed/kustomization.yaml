@@ -98,6 +98,13 @@ components:
   # - ../../components/minio
   # - ../../components/opensearch
 
+  # Optional: Redis Sentinel that you run, instead of a single Redis endpoint.
+  # Remove ../../components/redis (if enabled), set REDIS_URL: "" and add ALL
+  # REDIS_SENTINEL* keys in secrets-vars.yaml (see secrets-vars.yaml.example).
+  # Keep it after flux and mcp-server so their Secrets get the keys too.
+  # See kustomize/README.md, "Redis Sentinel".
+  # - ../../components/redis-sentinel
+
 # ============================================================
 # APPLICATION VERSION
 # ============================================================
