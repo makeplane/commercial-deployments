@@ -132,6 +132,32 @@ ServiceAccount) and hold *Storage Blob Data Contributor* on that container only.
 runs in **storage-proxy mode** (`use_storage_proxy`), so there is no SAS and no CORS, and the account is reached only
 through its private endpoint. Needs Plane's Blob support (see "Requires").
 
+### Why uploads go through Plane on Azure (and not on AWS or GCP)
+
+On AWS and GCP, clients upload **directly to storage**: Plane's api returns a signed POST form (a URL plus fields such as
+`key`, `policy` and a signature), and the client posts the file as a multipart form, copying every field it was given.
+The web app, Space and intake forms, the importers, exports and the email service all upload this way. S3 and GCS
+enforce the signed rules themselves, including the exact key, content type, expiry and the allowed size range.
+
+Azure Blob has no equivalent of that form upload:
+
+| What Plane's uploads rely on | S3 / GCS | Azure Blob |
+|---|---|---|
+| Browser upload with a signed POST form | Yes | No: uploads are an HTTP `PUT` with Azure headers to a SAS URL |
+| Size limit enforced by storage from the signature | Yes (`content-length-range`) | No: a SAS can't cap the upload size |
+| Signed URLs without account keys | Yes | Yes (user-delegation SAS, which needs an account-level role) |
+
+So on Azure Plane runs in storage-proxy mode: the signed form points at **Plane's api** instead of the storage account.
+Clients keep posting the same form; the api checks the signed policy (key, content type, file size, expiry) and writes
+the file to Blob over the private endpoint with its workload identity. Downloads go through the api the same way.
+
+**Trade-off:** every upload and download passes through the api pods. Size them for your file traffic, and keep the
+ingress body limit at least as large as the upload size limit.
+
+**Direct uploads on Azure** would be possible later, but they need more than configuration: an Azure `PUT` upload path
+in every Plane client, a size check after upload (deleting oversized files), browser access to the storage account
+(public network access or an allow-list) with CORS rules, and an account-level role for user-delegation SAS.
+
 ## Search (OpenSearch)
 
 On by default, as on AWS. Azure has no managed OpenSearch, so it runs in the cluster from the chart: one node on a
