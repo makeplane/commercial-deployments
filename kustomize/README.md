@@ -36,8 +36,7 @@ This repository provides a flexible, production-ready Kustomize configuration fo
 **Current Version**: `v2.3.4` (iframely: `v2.5.4`)
 
 **Core Services Deployed** (from `base/`):
-- 11 Deployments: api, web, space, admin, live, worker, beat-worker, iframely, outbox-poller, automation-consumer, silo
-- 1 StatefulSet: monitor
+- 12 Deployments: api, web, space, admin, live, live-exporter, worker, beat-worker, iframely, outbox-poller, automation-consumer, silo
 - 1 Job: migrator (database migrations)
 - 1 Ingress: path-based routing for all services
 
@@ -82,9 +81,6 @@ Core Plane application services and required components defined in `base/`:
 - `automation-consumer` - Automation task consumer
 - `silo` - Integrations
 
-**StatefulSets:**
-- `monitor` - Monitoring and metrics service
-
 **Jobs:**
 - `migrator` - Database migration job (runs on deployment)
 
@@ -93,10 +89,10 @@ Core Plane application services and required components defined in `base/`:
 - Paths: `/` (web), `/spaces/` (space), `/god-mode/` (admin), `/api/`, `/auth/`, `/live/`, `/silo/`
 
 **Services:**
-- Service definitions for api, web, space, admin, live, monitor, iframely, silo
+- Service definitions for api, web, space, admin, live, iframely, silo
 
 **ConfigMaps & Secrets:**
-- Application configuration, Live config, OpenSearch config, Monitor config, Silo config
+- Application configuration, Live config, OpenSearch config, Silo config
 - Database, Redis, RabbitMQ connection strings (populated by components or overlays)
 
 ### Components - Infrastructure (Required: Local OR External)
@@ -245,7 +241,6 @@ All Plane images are hosted at `artifacts.plane.so`. These are the images used:
 - `makeplane/space-commercial:v2.3.4` - Space frontend
 - `makeplane/admin-commercial:v2.3.4` - Admin panel
 - `makeplane/live-commercial:v2.3.4` - Live collaboration
-- `makeplane/monitor-commercial:v2.3.4` - Monitor service
 - `makeplane/silo-commercial:v2.3.4` - Silo service
 - `makeplane/email-commercial:v2.3.4` - Email service (optional)
 - `makeplane/iframely:v2.5.4` - URL preview service
@@ -754,6 +749,8 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
      SECRET_KEY: "GENERATE-A-RANDOM-50-CHARACTER-STRING"
      AES_SECRET_KEY: "GENERATE-A-RANDOM-32-CHARACTER-STRING"  
      LIVE_SERVER_SECRET_KEY: "GENERATE-A-RANDOM-42-CHARACTER-STRING"
+     # Shared by the api and node-runner; node-runner will not start without it
+     RUNNER_HMAC_SECRET_KEY: "GENERATE-A-RANDOM-64-HEX-STRING"
    ```
 
 ### Environment Variables Reference
@@ -774,9 +771,11 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
 - `OPENSEARCH_*` - OpenSearch configuration
 - `AWS_*` - S3/MinIO configuration
 - `SECRET_KEY`, `AES_SECRET_KEY`, `LIVE_SERVER_SECRET_KEY` - Application secrets
+- `RUNNER_HMAC_SECRET_KEY` - Signs the api's calls to node-runner; filled into both sides
 
 **Additional variables in base configs:**
-- `PRIME_HOST` - License server URL (in `plane-app-vars`)
+- `PRIME_HOST` - License server URL (in `plane-app-vars`); also the payment server (`PAYMENT_SERVER_BASE_URL`)
+- `FEATURE_FLAG_SERVER_BASE_URL` / `FEATURE_FLAG_SERVER_PATH` - the in-cluster api answers feature flags at `/services/feature-flags/` (the old monitor service is gone)
 - `ENABLE_EMAIL_PASSWORD` - Email/password auth (in `plane-app-vars`)
 - `ENABLE_MAGIC_LINK_LOGIN` - Magic link auth (in `plane-app-vars`)
 
@@ -795,7 +794,6 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
 | Space | 100m | 256Mi | 1-2 | Public space access |
 | Admin | 100m | 256Mi | 1 | Low traffic typically |
 | Live | 200m | 256Mi | 1-2 | WebSocket connections |
-| Monitor | 100m | 256Mi | 1 | StatefulSet, single replica |
 | Iframely | 100m | 256Mi | 1 | URL preview service |
 
 **Infrastructure (if using local components):**
@@ -887,6 +885,7 @@ For production, configure HA for critical components:
    openssl rand -hex 32  # For SECRET_KEY (64 chars)
    openssl rand -hex 16  # For AES_SECRET_KEY (32 chars)
    openssl rand -hex 21  # For LIVE_SERVER_SECRET_KEY (42 chars)
+   openssl rand -hex 32  # For RUNNER_HMAC_SECRET_KEY (64 chars)
    ```
 
 3. **Kubernetes Secrets Encryption at Rest**
@@ -979,6 +978,7 @@ stringData:
   SECRET_KEY: "xxxx-generated-secret-xxxx"
   AES_SECRET_KEY: "xxxx-generated-secret-xxxx"
   LIVE_SERVER_SECRET_KEY: "xxxx-generated-secret-xxxx"
+  RUNNER_HMAC_SECRET_KEY: "xxxx-generated-secret-xxxx"
 ```
 
 ### Example 2: Multi-Environment Setup
