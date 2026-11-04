@@ -25,7 +25,16 @@
 - Email service on by default with its own passthrough load balancer on a reserved static IP (ports 25/465/587), the
   sender's IP preserved, receiving mail for `intake.<domain>` by default. Email certificate from Secret Manager
   (`email.certificate_secret`) in either path, else self-signed (a warning in path A).
-- Plane AI (pi) is refused on GCP (it supports only S3 storage today).
+- Plane AI (pi) on GKE, off by default: `enable_components.pi = true` runs it on the GCS bucket (Plane's Workload
+  Identity, no new IAM) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). OpenAI chat and
+  Cohere embeddings (`cohere/embed-v4.0`) by default, or Anthropic chat (`pi.api_keys.chat_provider`) and another of
+  Plane AI's Cohere or OpenAI embedding models. The search indexes' dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows
+  `pi.api_keys.embedding_model`, with pi on or off (1536 by default). Both keys are
+  required, each a plain-text Secret Manager secret in `project_id` (one secret when OpenAI does both), copied by
+  External Secrets into the env var Plane AI reads (the keys never pass through Terraform). pi needs
+  `opensearch.enabled` and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known;
+  until then pi is refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise
+  chart 3.11.6.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything; the example declares every module
   input under the same name (`nullable = false` on every defaulted input). CI checks that it declares exactly the

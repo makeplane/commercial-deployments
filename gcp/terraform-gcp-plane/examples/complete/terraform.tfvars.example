@@ -103,7 +103,20 @@ domain = "plane.example.com" # never change after install
 # enable_components = {
 #   silo   = true
 #   drawio = true
-#   pi     = false # Plane AI needs S3; not available on GCP yet
+#   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with GCS support in pi)
+# }
+
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
+# a plain-text Secret Manager secret in project_id; both are required. embedding_model also sets the search indexes'
+# dimension, even with pi off: choose it before the first install.
+# pi = {
+#   api_keys = {
+#     chat_provider        = "openai" # or "anthropic"
+#     chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
+#     embedding_model      = "cohere/embed-v4.0" # or cohere/embed-english-v3.0, cohere/embed-english-v2.0,
+#                                                # openai/text-embedding-ada-002, -3-small or -3-large
+#     embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+#   }
 # }
 
 # use_storage_proxy    = false

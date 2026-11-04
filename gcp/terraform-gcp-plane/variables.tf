@@ -35,14 +35,24 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI (enable_components.pi) needs the first release whose pi supports GCS storage; the module checks it."
   type        = string
   default     = "v4.0.1"
   nullable    = false
+
+  validation {
+    # Releases (vX.Y.Z) compared as one number; other tags (preview or on-demand builds) aren't checked.
+    condition = !var.enable_components.pi || try(
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
+      true
+    )
+    error_message = "enable_components.pi needs plane_version ${local.pi_min_plane_version} or later (the first Plane release whose Plane AI supports GCS storage)."
+  }
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret)."
+  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
   type        = string
   # 3.11.6 is pending release (helm-charts#370); 3.11.5 and earlier refuse to render this module's values.
   default  = "3.11.6"
@@ -82,7 +92,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) supports only S3 storage today, so it can't be turned on on GCP yet."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -92,8 +102,55 @@ variable "enable_components" {
   nullable = false
 
   validation {
-    condition     = !var.enable_components.pi
-    error_message = "enable_components.pi must be false on GCP: Plane AI (pi) supports only S3 storage today, not GCS."
+    condition     = !var.enable_components.pi || var.opensearch.enabled
+    error_message = "enable_components.pi needs opensearch.enabled = true: Plane AI keeps its search and embeddings in OpenSearch."
+  }
+}
+
+variable "pi" {
+  description = <<-EOT
+    Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
+    (pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api_keys.chat_provider;
+    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or another Cohere or OpenAI
+    model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,
+    openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text
+    Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>" (one secret for both when OpenAI does
+    chat and embeddings). The search indexes take the embedding model's dimension even with pi off, so choose the model
+    before the first install, even if pi is enabled later: changing it later needs the search indexes recreated.
+  EOT
+  type = object({
+    api_keys = optional(object({
+      chat_provider        = optional(string, "openai")
+      chat_key_secret      = optional(string)
+      embedding_model      = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret = optional(string)
+    }), {})
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = !var.enable_components.pi || (var.pi.api_keys.chat_key_secret != null && var.pi.api_keys.embedding_key_secret != null)
+    error_message = "Plane AI needs both API keys: pi.api_keys.chat_key_secret and pi.api_keys.embedding_key_secret."
+  }
+  validation {
+    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+  }
+  validation {
+    condition     = contains(keys(local.pi_embedding_dimensions), var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", keys(local.pi_embedding_dimensions))}."
+  }
+  validation {
+    condition = alltrue([
+      for s in [var.pi.api_keys.chat_key_secret, var.pi.api_keys.embedding_key_secret] :
+      s == null || can(regex("^projects/${var.project_id}/secrets/[A-Za-z0-9_-]{1,255}$", s))
+    ])
+    error_message = "pi.api_keys secrets must be Secret Manager secrets in project_id, as \"projects/<project_id>/secrets/<name>\"."
+  }
+  validation {
+    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret == var.pi.api_keys.embedding_key_secret
+    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret for both."
   }
 }
 

@@ -51,6 +51,8 @@ locals {
     secrets = { "helm.sh/hook" = "pre-install,pre-upgrade", "helm.sh/hook-weight" = "-5", "helm.sh/hook-delete-policy" = "before-hook-creation" }
   }
 
+  ai_providers_secret = "plane-ai-providers"
+
   external_secret = {
     for name, key in {
       "plane-db"       = var.data.secret_names.postgres
@@ -69,6 +71,20 @@ locals {
         target   = { name = name, creationPolicy = "Orphan" }
         dataFrom = [{ extract = { key = key } }]
       }
+    }
+  }
+
+  # The customer's provider keys, each in the env var pi reads; the root module checks the project.
+  # pi puts the embedding key into the OpenSearch connector it creates.
+  pi_api_keys_object = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = local.ai_providers_secret, annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = local.ai_providers_secret, creationPolicy = "Orphan" }
+      data            = [for env, secret in var.pi.api_key_secrets : { secretKey = env, remoteRef = { key = regex("[^/]+$", secret) } }]
     }
   }
 
@@ -93,7 +109,7 @@ locals {
             OPENSEARCH_PASSWORD               = "{{ .password }}"
             OPENSEARCH_INITIAL_ADMIN_PASSWORD = "{{ .password }}"
             OPENSEARCH_INDEX_PREFIX           = var.opensearch.index_prefix
-            OPENSEARCH_EMBEDDING_DIMENSION    = "1536"
+            OPENSEARCH_EMBEDDING_DIMENSION    = tostring(var.pi.embedding_dimension)
           }
         }
       }
@@ -155,6 +171,8 @@ locals {
     opensearch = merge(
       { local_setup = var.data.opensearch_enabled },
       var.data.opensearch_enabled ? { volumeSize = "${var.opensearch.volume_size_gb}Gi" } : {},
+      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.11.6+).
+      var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
     )
   }
 
@@ -194,8 +212,14 @@ locals {
   component_services = {
     email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
-    # Plane AI needs S3 (no GCS support yet): the root module refuses pi = true.
-    pi     = { enabled = false }
+    pi = merge(
+      { enabled = var.enable_components.pi },
+      var.enable_components.pi ? {
+        ai_providers = {
+          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension }
+        }
+      } : {},
+    )
     drawio = { local_setup = var.enable_components.drawio }
   }
 
@@ -282,6 +306,7 @@ locals {
         app_keys_existingSecret = "plane-app-keys"
       },
       var.data.opensearch_enabled ? { opensearch_existingSecret = local.opensearch_secret } : {},
+      var.enable_components.pi ? { ai_providers_existingSecret = local.ai_providers_secret } : {},
     )
 
     # Memorystore's server CA for the Node.js services (live, silo).
@@ -298,6 +323,7 @@ locals {
       [local.secret_store_object],
       values(local.external_secret),
       var.data.opensearch_enabled ? [local.opensearch_external_secret] : [],
+      var.enable_components.pi ? [local.pi_api_keys_object] : [],
       var.data.redis_tls ? [local.redis_ca_object] : [],
       local.certificate_objects,
       values(local.customer_certificates),

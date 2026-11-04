@@ -17,13 +17,13 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI (enable_components.pi) needs the first release whose pi supports GCS storage; the module checks it."
   type        = string
   default     = null
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret)."
+  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
   type        = string
   default     = null
 }
@@ -58,11 +58,24 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) supports only S3 storage today, so it can't be turned on on GCP yet."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
     pi     = optional(bool)
+  })
+  default = null
+}
+
+variable "pi" {
+  description = "Plane AI's models (with enable_components.pi = true): OpenAI chat and Cohere embeddings by default, both keys required, each a plain-text Secret Manager secret in project_id. The embedding model also sets the search indexes' dimension with pi off: choose it before the first install."
+  type = object({
+    api_keys = optional(object({
+      chat_provider        = optional(string)
+      chat_key_secret      = optional(string)
+      embedding_model      = optional(string)
+      embedding_key_secret = optional(string)
+    }))
   })
   default = null
 }
