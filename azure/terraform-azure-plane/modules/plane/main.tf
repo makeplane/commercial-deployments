@@ -200,7 +200,7 @@ locals {
     postgres = { local_setup = false }
     redis    = { local_setup = false }
     minio    = local.blob_minio
-    # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.11.5+).
+    # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.11.6+).
     rabbitmq   = { local_setup = true, volumeSize = "${var.rabbitmq.volume_size_gb}Gi" }
     opensearch = { local_setup = var.opensearch.enabled, volumeSize = "${var.opensearch.volume_size_gb}Gi" }
   }

@@ -42,9 +42,9 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. Needs the bundled-RabbitMQ external secret (3.11.5) and the Azure Blob storage values (see README, \"Requires\")."
+  description = "plane-enterprise Helm chart version. Needs the bundled-RabbitMQ external secret (3.11.6) and the Azure Blob storage values (see README, \"Requires\")."
   type        = string
-  default     = "3.11.5"
+  default     = "3.11.6"
   nullable    = false
 }
 
