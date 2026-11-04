@@ -82,7 +82,7 @@ variable "acme_server" {
 
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: Amazon Bedrock by default (keyless), or provider API keys from Secrets Manager."
+  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: OpenAI and Cohere API keys from Secrets Manager by default, or Amazon Bedrock (keyless)."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -100,37 +100,38 @@ variable "enable_components" {
 variable "pi" {
   description = <<-EOT
     Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
-    (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "bedrock" (default): keyless
-    Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each model
-    from bedrock.embedding_model (one of Plane AI's Bedrock embedding models) and bedrock.chat_model_id (an Anthropic
-    Claude model ID or cross-Region inference profile ID; Plane AI calls it with the Anthropic API). The models must be
-    available to the account in this region (Anthropic: submit the use case form once). provider = "api_keys": chat on
-    OpenAI or Anthropic (api_keys.chat_provider) and embeddings on Cohere or OpenAI (api_keys.embedding_model), with
-    each API key stored as a plain-text Secrets Manager secret in this account and region (full ARN; encrypted with
-    aws/secretsmanager or this module's KMS key; one secret for both when the provider is the same). Choose the
-    embedding model before Plane AI's first start: changing it later needs Plane AI's indexes recreated.
+    (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api_keys" (default): chat on
+    OpenAI (api_keys.chat_provider; or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0;
+    or an OpenAI model). Both API keys are required: each is a plain-text Secrets Manager secret in this account and
+    region (full ARN; encrypted with aws/secretsmanager or this module's KMS key; one secret for both when the provider
+    is the same). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the
+    module creates an application inference profile for each model from bedrock.embedding_model (one of Plane AI's
+    Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude model ID or cross-Region inference profile
+    ID; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
+    (Anthropic: submit the use case form once). Choose the embedding model before Plane AI's first start: changing it
+    later needs Plane AI's indexes recreated.
   EOT
   type = object({
-    provider = optional(string, "bedrock")
-    bedrock = optional(object({
-      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")
-      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")
-      chat_model_name = optional(string, "Claude (Amazon Bedrock)")
-      chat_max_tokens = optional(number, 64000)
-    }), {})
+    provider = optional(string, "api_keys")
     api_keys = optional(object({
       chat_provider            = optional(string, "openai")
       chat_key_secret_arn      = optional(string)
       embedding_model          = optional(string, "cohere/embed-v4.0")
       embedding_key_secret_arn = optional(string)
     }), {})
+    bedrock = optional(object({
+      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")
+      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")
+      chat_model_name = optional(string, "Claude (Amazon Bedrock)")
+      chat_max_tokens = optional(number, 64000)
+    }), {})
   })
   default  = {}
   nullable = false
 
   validation {
-    condition     = contains(["bedrock", "api_keys"], var.pi.provider)
-    error_message = "pi.provider must be \"bedrock\" or \"api_keys\"."
+    condition     = contains(["api_keys", "bedrock"], var.pi.provider)
+    error_message = "pi.provider must be \"api_keys\" (default) or \"bedrock\"."
   }
   validation {
     condition     = var.pi.provider != "bedrock" || contains(keys(local.pi_bedrock_embedding_models), var.pi.bedrock.embedding_model)
@@ -146,7 +147,7 @@ variable "pi" {
   }
   validation {
     condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
-    error_message = "pi.provider = \"api_keys\" needs both pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
+    error_message = "Plane AI with provider API keys (the default) needs both pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
   }
   validation {
     condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)

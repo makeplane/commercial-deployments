@@ -67,7 +67,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: Amazon Bedrock by default (keyless), or provider API keys from Secrets Manager."
+  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: OpenAI and Cohere API keys from Secrets Manager by default, or Amazon Bedrock (keyless)."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
@@ -77,7 +77,7 @@ variable "enable_components" {
 }
 
 variable "pi" {
-  description = "Plane AI's models (with enable_components.pi = true): provider \"bedrock\" (default, keyless; the module creates inference profiles) or \"api_keys\" (OpenAI/Anthropic chat and Cohere/OpenAI embeddings, keys in Secrets Manager)."
+  description = "Plane AI's models (with enable_components.pi = true): provider \"api_keys\" (default: OpenAI chat and Cohere embeddings, both keys required, in Secrets Manager) or \"bedrock\" (keyless; the module creates inference profiles)."
   type = object({
     provider = optional(string)
     bedrock = optional(object({

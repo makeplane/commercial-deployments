@@ -1,4 +1,4 @@
-# Plane AI (enable_components.pi, pi): off by default; on, Bedrock (default) or provider API keys, and
+# Plane AI (enable_components.pi, pi): off by default; on, provider API keys (default) or Bedrock, and
 # the input rules. Mock providers: no AWS credentials or cluster needed.
 # Run: terraform init && terraform test
 
@@ -125,9 +125,33 @@ run "pi_off_unchanged" {
   }
 }
 
+run "pi_default_api_keys" {
+  variables {
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+  }
+
+  assert {
+    condition = (
+      yamldecode(output.plane_helm_values).services.pi.ai_providers.embedding_model.name == "cohere/embed-v4.0"
+      && yamldecode(output.plane_helm_values).external_secrets.ai_providers_existingSecret != null
+    )
+    error_message = "Without a provider, Plane AI must use the API keys: Cohere embeddings and OpenAI chat."
+  }
+}
+
+run "reject_pi_without_keys" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+  }
+  expect_failures = [var.pi]
+}
+
 run "pi_bedrock_defaults" {
   variables {
     enable_components = { pi = true }
+    pi                = { provider = "bedrock" }
   }
 
   assert {
@@ -178,7 +202,8 @@ run "pi_bedrock_custom_models" {
   variables {
     enable_components = { pi = true }
     pi = {
-      bedrock = { embedding_model = "bedrock/cohere.embed-multilingual-v3", chat_model_id = "eu.anthropic.claude-sonnet-4-6", chat_max_tokens = 32000 }
+      provider = "bedrock"
+      bedrock  = { embedding_model = "bedrock/cohere.embed-multilingual-v3", chat_model_id = "eu.anthropic.claude-sonnet-4-6", chat_max_tokens = 32000 }
     }
   }
 
@@ -248,6 +273,7 @@ run "reject_pi_without_opensearch" {
   variables {
     enable_components = { pi = true }
     opensearch        = { enabled = false }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
   }
   expect_failures = [var.enable_components]
 }
@@ -265,7 +291,7 @@ run "reject_bedrock_non_bedrock_embeddings" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { bedrock = { embedding_model = "cohere/embed-v4.0" } }
+    pi                = { provider = "bedrock", bedrock = { embedding_model = "cohere/embed-v4.0" } }
   }
   expect_failures = [var.pi]
 }
@@ -274,7 +300,7 @@ run "reject_bedrock_chat_not_claude" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { bedrock = { chat_model_id = "amazon.nova-pro-v1:0" } }
+    pi                = { provider = "bedrock", bedrock = { chat_model_id = "amazon.nova-pro-v1:0" } }
   }
   expect_failures = [var.pi]
 }
@@ -283,7 +309,7 @@ run "reject_mixed_modes" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_key_secret_arn = var.openai_key } }
+    pi                = { provider = "bedrock", api_keys = { chat_key_secret_arn = var.openai_key } }
   }
   expect_failures = [var.pi]
 }
