@@ -55,6 +55,11 @@ resource "random_password" "app_keys" {
 
   length  = each.value
   special = false
+
+  lifecycle {
+    # Never regenerate, even if the lengths above change in a later module version.
+    ignore_changes = all
+  }
 }
 
 resource "aws_secretsmanager_secret" "app_keys" {
