@@ -33,8 +33,8 @@ variable "issue_certificate" {
   type        = bool
 }
 
-variable "certificate_secrets" {
-  description = "Customer certificate secrets (web, email) External Secrets may read, as projects/<project>/secrets/<name>."
+variable "customer_secrets" {
+  description = "Customer secrets (web and email certificates, AI provider keys) External Secrets may read, as projects/<project>/secrets/<name>."
   type        = list(string)
 }
 

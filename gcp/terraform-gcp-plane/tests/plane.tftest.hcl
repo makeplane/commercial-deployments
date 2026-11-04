@@ -166,8 +166,15 @@ run "secret_store_and_no_secret_values" {
     error_message = "The email Service must use the backend service-based load balancer class, or GKE ignores its static IP."
   }
   assert {
-    condition     = yamldecode(output.plane_helm_values).services.pi.enabled == false
-    error_message = "Plane AI stays off on GCP."
+    condition = (
+      yamldecode(output.plane_helm_values).services.pi.enabled == false &&
+      !can(yamldecode(output.plane_helm_values).services.pi.ai_providers) &&
+      !can(yamldecode(output.plane_helm_values).external_secrets.ai_providers_existingSecret) &&
+      !can(yamldecode(output.plane_helm_values).services.opensearch.javaOpts) &&
+      !can(yamldecode(output.plane_helm_values).services.opensearch.memoryLimit) &&
+      !contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.name], "plane-ai-providers")
+    )
+    error_message = "Plane AI is off by default and renders nothing of its own."
   }
   assert {
     condition     = output.rabbitmq_endpoint == "plane-rabbitmq.plane.svc.cluster.local"
@@ -272,12 +279,100 @@ run "opensearch_off" {
   }
 }
 
-run "reject_pi" {
+run "pi_on_gcs" {
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).services.pi.enabled && yamldecode(output.plane_helm_values).env.storage_provider == "GCS"
+    error_message = "Plane AI must run, on the GCS bucket."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).services.pi.ai_providers.embedding_model == { enabled = true, name = "cohere/embed-v4.0", embedding_dimension = 1536 }
+    error_message = "Plane AI must embed with cohere/embed-v4.0 at 1536 dimensions by default."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
+    ]) == "1536"
+    error_message = "The OpenSearch Secret must carry the embedding model's dimension (1536)."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).external_secrets.ai_providers_existingSecret == "plane-ai-providers"
+    error_message = "The pi workloads must read the provider keys from the plane-ai-providers Secret."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec if o.kind == "ExternalSecret" && o.metadata.name == "plane-ai-providers"
+      ]) == {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = "gcp-secret-manager", kind = "SecretStore" }
+      target          = { name = "plane-ai-providers", creationPolicy = "Orphan" }
+      dataFrom        = [{ extract = { key = "acme-ai-keys" } }]
+    }
+    error_message = "An ExternalSecret must copy the customer's provider keys secret, by name, into plane-ai-providers."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).services.opensearch.javaOpts == "-Xms1536m -Xmx1536m" && yamldecode(output.plane_helm_values).services.opensearch.memoryLimit == "3Gi"
+    error_message = "With Plane AI, OpenSearch gets a 1.5 GB heap in a 3 GiB limit."
+  }
+}
+
+run "reject_pi_without_opensearch" {
   command = plan
   variables {
     enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+    opensearch        = { enabled = false }
   }
   expect_failures = [var.enable_components]
+}
+
+run "reject_pi_without_providers_secret" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+  }
+  expect_failures = [var.enable_components]
+}
+
+run "reject_pi_below_plane_version_floor" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+  }
+  expect_failures = [var.plane_version]
+}
+
+run "pi_on_preview_build_tag" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "preview-abc1234"
+    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+  }
+}
+
+run "reject_bad_embedding_model" {
+  command = plan
+  variables {
+    plane_ai = { embedding_model = "openai/text-embedding-3-large" }
+  }
+  expect_failures = [var.plane_ai]
+}
+
+run "reject_providers_secret_in_another_project" {
+  command = plan
+  variables {
+    plane_ai = { providers_secret = "projects/other-project/secrets/acme-ai-keys" }
+  }
+  expect_failures = [var.plane_ai]
 }
 
 run "reject_bad_zone" {
@@ -296,7 +391,7 @@ run "plane_identity" {
   variables {
     pods_cidr          = "10.61.0.0/16"
     plane_version      = "v4.0.1"
-    chart_version      = "3.11.6"
+    chart_version      = "3.11.7"
     chart_repository   = "https://helm.plane.so/"
     chart_name         = "plane-enterprise"
     enable_components  = { silo = true, drawio = true, pi = false }
@@ -307,6 +402,7 @@ run "plane_identity" {
     use_storage_proxy  = false
     rabbitmq           = { volume_size_gb = 10 }
     opensearch         = { enabled = true, volume_size_gb = 20, index_prefix = "plane" }
+    plane_ai           = { providers_secret = null, embedding_model = "cohere/embed-v4.0" }
     helm_timeout       = 3600
     plane_values       = ""
     addons_ready       = "ready"

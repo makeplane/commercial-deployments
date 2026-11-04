@@ -42,7 +42,8 @@ each as a single instance on a persistent disk. You operate them: back them up w
 zone holding one of their disks is unavailable, that service is down until the zone returns. Search is optional: set
 `opensearch = { enabled = false }` to turn it off.
 
-**Plane AI is not available on Google Cloud yet.** The module refuses `enable_components = { pi = true }`.
+**Plane AI is optional and off by default.** It needs an API key from an AI provider and a recent Plane release; see
+[Plane AI](#plane-ai-optional) in section 5.
 
 **Security defaults:**
 - The nodes have no public IPs. Only the load balancers and the Kubernetes API endpoint are public. The API endpoint is
@@ -52,7 +53,7 @@ zone holding one of their disks is unavailable, that service is down until the z
 - Data is encrypted at rest with Google-managed keys. Customer-managed keys (CMEK) are not supported in this release.
 - Plane reaches Cloud Storage, and External Secrets reaches Secret Manager, through GKE Workload Identity. There are no
   service account keys anywhere. Plane's identity can use the uploads bucket only; External Secrets can read only this
-  installation's secrets and the certificate secrets you name.
+  installation's secrets and the certificate and AI provider secrets you name.
 - The uploads bucket blocks public access. Browsers upload and download files with short-lived signed URLs.
 - Passwords and keys are generated for you and stored in Secret Manager, replicated in your region only.
 - GKE nodes are shielded VMs. GKE upgrades the cluster automatically within its release channel (`REGULAR`), in a
@@ -72,7 +73,7 @@ calculator for your region.
 | `gke-gcloud-auth-plugin` | any recent | Authentication to the cluster during the apply (`gcloud components install gke-gcloud-auth-plugin`) |
 | kubectl | any recent | Checking the installation |
 | Helm | 3 or later | Only if you bring your own ingress (option B) |
-| jq | any | Only if you store your own certificates in Secret Manager |
+| jq | any | Only if you store your own certificates or AI provider keys in Secret Manager |
 
 ### Google Cloud project
 
@@ -262,6 +263,55 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 When an object setting appears twice (for example two `email = { … }` lines), Terraform fails: combine the fields
 into one line.
 
+### Plane AI (optional)
+
+Plane AI runs on the same uploads bucket and in-cluster OpenSearch as Plane. It needs:
+
+- **Plane** at the first release whose Plane AI supports Cloud Storage (named in the module's release notes), and the
+  Plane Commercial Helm chart **3.11.7 or later** (the default). The module refuses Plane AI with an older
+  `plane_version`.
+- **Search on** (`opensearch.enabled`, the default). With Plane AI, OpenSearch gets a larger memory allowance (1.5 GB
+  heap, 3 GiB limit).
+- **An API key from your AI providers**, stored in Secret Manager before the apply.
+
+**1. Store the provider keys.** Create a secret in the **same project** as Plane (`project_id`), as a regular secret,
+whose value is JSON with the keys you have:
+
+| Key | Used for |
+|---|---|
+| `COHERE_API_KEY` | Embeddings (semantic search) with `cohere/embed-v4.0`, the default model |
+| `OPENAI_API_KEY` | The language model, and embeddings with `openai/text-embedding-3-small` or `openai/text-embedding-ada-002` |
+| `CLAUDE_API_KEY` | The language model (Anthropic) |
+| `GROQ_API_KEY` | Optional: Groq models |
+
+```bash
+jq -n --arg cohere "<cohere-key>" --arg claude "<anthropic-key>" \
+  '{COHERE_API_KEY: $cohere, CLAUDE_API_KEY: $claude}' |
+  gcloud secrets create plane-ai-providers --project <project-id> \
+    --replication-policy user-managed --locations <region> --data-file=-
+```
+
+The keys go straight to Secret Manager: they never appear in `terraform.tfvars` or the Terraform state. The module
+lets External Secrets read this secret and copies it into the cluster.
+
+**2. Turn Plane AI on** in `terraform.tfvars`:
+
+```hcl
+enable_components = { pi = true }
+plane_ai          = { providers_secret = "projects/my-plane-project/secrets/plane-ai-providers" }
+# plane_version = "<a release with Plane AI on Cloud Storage>" # if the module's default is older
+```
+
+**Embedding model.** `plane_ai.embedding_model` defaults to `cohere/embed-v4.0`. If you only have an OpenAI key, set
+`plane_ai = { …, embedding_model = "openai/text-embedding-3-small" }`. Only these 1536-dimension models are accepted,
+because Plane's page search uses the same index size. Without a key for the chosen model, Plane AI still works but
+falls back to keyword search (BM25) instead of semantic search. If you add the key later, the model is set up at the
+next Plane upgrade, when Plane AI's migrations run.
+
+**Outbound access.** Plane AI calls your providers' APIs over the internet through the module's Cloud NAT: the Plane AI
+pods call the language model, and the OpenSearch pod calls the embedding API. If your organisation restricts outbound
+traffic, allow HTTPS to the providers you use, for example `api.cohere.ai`, `api.openai.com` and `api.anthropic.com`.
+
 ## 6. Deploy
 
 ```bash
@@ -375,7 +425,7 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
 1. Open `https://<your domain>` and complete the setup: create the first admin account and your workspace.
 2. Activate your Plane licence key, following the activation steps in Plane's documentation.
 3. Configure outgoing email (SMTP), single sign-on and AI providers in the instance admin panel at
-   `https://<your domain>/god-mode/`.
+   `https://<your domain>/god-mode/`. Plane AI reads its keys from the secret you stored in section 5 instead.
 
 **Inbound email:** once the A and MX records resolve, mail sent to your intake addresses becomes work items. The email
 load balancer accepts mail from any sender on ports 25, 465 and 587, as a mail server must.
@@ -387,12 +437,13 @@ before applying.
 
 | Task | How |
 |---|---|
-| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.11.6 or later). Option B: regenerate and re-apply your routes. |
+| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.11.7 or later). Option B: regenerate and re-apply your routes. |
 | More capacity | Raise the node limit (`node_pool = { max_per_zone = 3 }`); the GKE cluster autoscaler adds nodes when pods need room. Add Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
 | Kubernetes upgrades | Automatic, within the release channel (`release_channel`, default `REGULAR`), on Saturdays and Sundays between 02:00 and 08:00 UTC. Nodes are replaced one at a time. Plane's api, worker, web and live run two replicas and stay up; RabbitMQ and OpenSearch restart briefly when their node is replaced. |
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | Cloud SQL keeps the last 14 daily backups and 7 days of logs for point-in-time recovery. The uploads bucket keeps old versions of files for 30 days. Back up RabbitMQ and OpenSearch with disk snapshots (below). |
 | Secrets | Database, cache, RabbitMQ and OpenSearch credentials and Plane's app keys are in Secret Manager as `<name>-plane-*` (`terraform output secret_ids`). |
+| Rotate AI provider keys | Add a new version of your provider keys secret with the full JSON (`gcloud secrets versions add plane-ai-providers --project <project-id> --data-file=-`). Plane picks it up within an hour and restarts the Plane AI services. |
 
 **Never change** `name` or `domain` after installation, and never delete or change the `<name>-plane-app-keys` secret:
 Plane uses those keys to encrypt data, and the licence is bound to the domain.
@@ -471,7 +522,7 @@ This deletes Plane and all its data.
 
 What stays:
 - The project APIs the module enabled (other resources in the project may use them).
-- Your state bucket, and your certificate secrets in Secret Manager.
+- Your state bucket, and your certificate and AI provider secrets in Secret Manager.
 - The disk snapshots you took.
 
 You can reinstall with the same `name`: the Cloud SQL instance and the uploads bucket get a random suffix, so Cloud
@@ -485,6 +536,8 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 | Browser certificate warning (A.2) | The certificate secret has the wrong keys or doesn't cover the domain | Keys must be `tls.crt` and `tls.key`; `kubectl -n plane describe externalsecret plane-web-tls` |
 | An ExternalSecret isn't `SecretSynced` | The secret doesn't exist in `project_id`, has no version, or isn't JSON with the expected keys | `kubectl -n plane describe externalsecret <name>`. Right after the first apply, Workload Identity can take a minute or two to work: the error clears on its own |
 | `Invalid value for variable "ingress"` | Option A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret`; with Let's Encrypt keep the load balancer internet-facing and open |
+| `Invalid value for variable "enable_components"`, `"plane_version"` or `"plane_ai"` | Plane AI is on without its provider keys secret or search, with a Plane release older than the minimum, or with an unsupported embedding model | Set `plane_ai.providers_secret`, keep `opensearch.enabled`, raise `plane_version`, or pick one of the three embedding models (section 5) |
+| Plane AI answers but search isn't semantic | No key for the embedding model in the provider keys secret, so Plane AI uses keyword search | Add `COHERE_API_KEY` (or `OPENAI_API_KEY` for an OpenAI model) to the secret; the model is set up at the next Plane upgrade |
 | `Warning: Check block assertion failed` (email certificate) | No email certificate given | Informational: the email service uses a self-signed certificate. Set `email.certificate_secret` for a trusted one |
 | Apply fails because an API "has not been used in project … or it is disabled" | A newly enabled API wasn't ready yet, or `enable_apis = false` and the API is off | Wait a few minutes and apply again, or enable the API (section 2) |
 | Apply fails with `Insufficient regional quota` or `QUOTA_EXCEEDED` | Quota too low (often N2D CPUs or external IPs) | Raise the quota (section 2) and apply again |

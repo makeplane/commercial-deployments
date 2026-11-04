@@ -35,17 +35,27 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI (enable_components.pi) needs the first release whose pi supports GCS storage; the module checks it."
   type        = string
   default     = "v4.0.1"
   nullable    = false
+
+  validation {
+    # Releases (vX.Y.Z) compared as one number; other tags (preview or on-demand builds) aren't checked.
+    condition = !var.enable_components.pi || try(
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
+      true
+    )
+    error_message = "enable_components.pi needs plane_version ${local.pi_min_plane_version} or later (the first Plane release whose Plane AI supports GCS storage)."
+  }
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret)."
+  description = "plane-enterprise Helm chart version. 3.11.7 or later (from 3.11.6 the bundled RabbitMQ reads its credentials from an External Secrets Secret; 3.11.7 sets the OpenSearch heap Plane AI needs)."
   type        = string
-  # 3.11.6 is pending release (helm-charts#370); 3.11.5 and earlier refuse to render this module's values.
-  default  = "3.11.6"
+  # 3.11.6 (helm-charts#370) and 3.11.7 are pending release; 3.11.5 and earlier refuse to render this module's values.
+  default  = "3.11.7"
   nullable = false
 }
 
@@ -82,7 +92,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) supports only S3 storage today, so it can't be turned on on GCP yet."
+  description = "Optional Plane workloads. pi (Plane AI) needs plane_ai.providers_secret, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -92,8 +102,37 @@ variable "enable_components" {
   nullable = false
 
   validation {
-    condition     = !var.enable_components.pi
-    error_message = "enable_components.pi must be false on GCP: Plane AI (pi) supports only S3 storage today, not GCS."
+    condition     = !var.enable_components.pi || var.opensearch.enabled
+    error_message = "enable_components.pi needs opensearch.enabled = true: Plane AI keeps its search and embeddings in OpenSearch."
+  }
+  validation {
+    condition     = !var.enable_components.pi || var.plane_ai.providers_secret != null
+    error_message = "enable_components.pi needs plane_ai.providers_secret: a Secret Manager secret holding the AI provider API keys (JSON)."
+  }
+}
+
+variable "plane_ai" {
+  description = <<-EOT
+    Plane AI (enable_components.pi). providers_secret: a Secret Manager secret in project_id, as
+    "projects/<project_id>/secrets/<name>", that you create before the apply; its value is JSON with the provider API
+    keys: COHERE_API_KEY or OPENAI_API_KEY (embeddings, matching embedding_model), OPENAI_API_KEY and/or CLAUDE_API_KEY
+    (the LLM), optionally GROQ_API_KEY. The keys never pass through Terraform. embedding_model: cohere/embed-v4.0,
+    openai/text-embedding-3-small or openai/text-embedding-ada-002 (1536 dimensions, shared with Plane's search index).
+  EOT
+  type = object({
+    providers_secret = optional(string)
+    embedding_model  = optional(string, "cohere/embed-v4.0")
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = var.plane_ai.providers_secret == null || can(regex("^projects/${var.project_id}/secrets/[A-Za-z0-9_-]{1,255}$", var.plane_ai.providers_secret))
+    error_message = "plane_ai.providers_secret must be a Secret Manager secret in project_id, as \"projects/<project_id>/secrets/<name>\"."
+  }
+  validation {
+    condition     = contains(["cohere/embed-v4.0", "openai/text-embedding-3-small", "openai/text-embedding-ada-002"], var.plane_ai.embedding_model)
+    error_message = "plane_ai.embedding_model must be cohere/embed-v4.0, openai/text-embedding-3-small or openai/text-embedding-ada-002: the search index uses 1536 dimensions."
   }
 }
 

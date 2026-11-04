@@ -1,8 +1,8 @@
-# External Secrets reads the module's secrets and the customer's certificate secrets, nothing else.
+# External Secrets reads the module's secrets and the customer's secrets (certificates, AI provider keys), nothing else.
 
 locals {
   # The root module checks the project, so the short name is enough.
-  certificate_secret_names = toset([for s in var.certificate_secrets : regex("[^/]+$", s)])
+  customer_secret_names = toset([for s in var.customer_secrets : regex("[^/]+$", s)])
 }
 
 resource "google_service_account" "external_secrets" {
@@ -20,8 +20,8 @@ resource "google_secret_manager_secret_iam_member" "external_secrets" {
   member    = google_service_account.external_secrets.member
 }
 
-resource "google_secret_manager_secret_iam_member" "external_secrets_certificates" {
-  for_each = local.certificate_secret_names
+resource "google_secret_manager_secret_iam_member" "external_secrets_customer" {
+  for_each = local.customer_secret_names
 
   project   = var.project_id
   secret_id = each.value

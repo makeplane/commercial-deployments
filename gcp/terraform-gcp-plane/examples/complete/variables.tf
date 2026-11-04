@@ -17,13 +17,13 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI (enable_components.pi) needs the first release whose pi supports GCS storage; the module checks it."
   type        = string
   default     = null
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret)."
+  description = "plane-enterprise Helm chart version. 3.11.7 or later (from 3.11.6 the bundled RabbitMQ reads its credentials from an External Secrets Secret; 3.11.7 sets the OpenSearch heap Plane AI needs)."
   type        = string
   default     = null
 }
@@ -58,11 +58,26 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) supports only S3 storage today, so it can't be turned on on GCP yet."
+  description = "Optional Plane workloads. pi (Plane AI) needs plane_ai.providers_secret, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
     pi     = optional(bool)
+  })
+  default = null
+}
+
+variable "plane_ai" {
+  description = <<-EOT
+    Plane AI (enable_components.pi). providers_secret: a Secret Manager secret in project_id, as
+    "projects/<project_id>/secrets/<name>", that you create before the apply; its value is JSON with the provider API
+    keys: COHERE_API_KEY or OPENAI_API_KEY (embeddings, matching embedding_model), OPENAI_API_KEY and/or CLAUDE_API_KEY
+    (the LLM), optionally GROQ_API_KEY. The keys never pass through Terraform. embedding_model: cohere/embed-v4.0,
+    openai/text-embedding-3-small or openai/text-embedding-ada-002 (1536 dimensions, shared with Plane's search index).
+  EOT
+  type = object({
+    providers_secret = optional(string)
+    embedding_model  = optional(string)
   })
   default = null
 }

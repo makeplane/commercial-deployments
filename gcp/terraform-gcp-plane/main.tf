@@ -9,6 +9,9 @@ locals {
     load_balancer = var.email.enabled && var.email.load_balancer
   })
 
+  # Placeholder until the Plane release carrying pi GCS support is known: it keeps pi refused until then.
+  pi_min_plane_version = "v99.0.0"
+
   labels = merge(var.labels, {
     "plane-deployment" = var.name
     "managed-by"       = "terraform-gcp-plane"
@@ -84,9 +87,10 @@ module "addons" {
   load_balancer_scheme = var.ingress.scheme
   web_address_name     = module.edge.web_address_name
   issue_certificate    = local.lets_encrypt
-  certificate_secrets = compact([
+  customer_secrets = compact([
     local.automated ? var.ingress.tls_certificate_secret : null,
     local.email.enabled ? local.email.certificate_secret : null,
+    var.enable_components.pi ? var.plane_ai.providers_secret : null,
   ])
   secret_ids = module.data.secret_ids
 
@@ -115,6 +119,7 @@ module "plane" {
   use_storage_proxy  = var.use_storage_proxy
   rabbitmq           = var.rabbitmq
   opensearch         = var.opensearch
+  plane_ai           = var.plane_ai
 
   tls_certificate_secret = var.ingress.tls_certificate_secret
   helm_timeout           = var.helm_timeout

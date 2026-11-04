@@ -108,6 +108,14 @@ variable "opensearch" {
   })
 }
 
+variable "plane_ai" {
+  description = "Plane AI: the customer's provider keys secret (projects/<project>/secrets/<name>) and the embedding model."
+  type = object({
+    providers_secret = string
+    embedding_model  = string
+  })
+}
+
 variable "helm_timeout" {
   description = "Seconds to wait for the release."
   type        = number

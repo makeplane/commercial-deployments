@@ -103,14 +103,21 @@ domain = "plane.example.com" # never change after install
 # enable_components = {
 #   silo   = true
 #   drawio = true
-#   pi     = false # Plane AI needs S3; not available on GCP yet
+#   pi     = false # Plane AI: also set plane_ai below (needs opensearch and a plane_version with GCS support in pi)
+# }
+
+# Plane AI. Create the secret first: JSON with COHERE_API_KEY or OPENAI_API_KEY (embeddings),
+# OPENAI_API_KEY and/or CLAUDE_API_KEY (the LLM), optionally GROQ_API_KEY.
+# plane_ai = {
+#   providers_secret = null                # e.g. "projects/my-plane-project/secrets/plane-ai-providers"
+#   embedding_model  = "cohere/embed-v4.0" # or openai/text-embedding-3-small, openai/text-embedding-ada-002
 # }
 
 # use_storage_proxy    = false
 # bucket_force_destroy = false
 
 # plane_version    = "v4.0.1"
-# chart_version    = "3.11.6"
+# chart_version    = "3.11.7"
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"
 # helm_timeout     = 3600

@@ -19,7 +19,7 @@ variables {
   load_balancer_scheme = "internet-facing"
   web_address_name     = "plane-test-web"
   issue_certificate    = false
-  certificate_secrets  = []
+  customer_secrets     = []
   secret_ids = {
     app_keys = "projects/plane-test-project/secrets/plane-test-plane-app-keys"
     postgres = "projects/plane-test-project/secrets/plane-test-plane-db"
@@ -108,8 +108,8 @@ run "external_secrets_identity" {
     source = "./modules/addons"
   }
   variables {
-    issue_certificate   = true
-    certificate_secrets = ["projects/plane-test-project/secrets/plane-mail-tls"]
+    issue_certificate = true
+    customer_secrets  = ["projects/plane-test-project/secrets/plane-mail-tls", "projects/plane-test-project/secrets/plane-ai-providers"]
   }
 
   assert {
@@ -129,8 +129,8 @@ run "external_secrets_identity" {
     error_message = "External Secrets must be allowed to read each module secret."
   }
   assert {
-    condition     = toset(keys(google_secret_manager_secret_iam_member.external_secrets_certificates)) == toset(["plane-mail-tls"])
-    error_message = "External Secrets must be allowed to read the customer's certificate secrets, by name."
+    condition     = toset(keys(google_secret_manager_secret_iam_member.external_secrets_customer)) == toset(["plane-mail-tls", "plane-ai-providers"])
+    error_message = "External Secrets must be allowed to read the customer's secrets (certificates, AI provider keys), by name."
   }
   assert {
     condition     = length(helm_release.cert_manager) == 1

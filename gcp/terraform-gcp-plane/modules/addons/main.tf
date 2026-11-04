@@ -52,7 +52,7 @@ resource "helm_release" "external_secrets" {
     terraform_data.cluster_ready,
     google_service_account_iam_member.external_secrets_workload_identity,
     google_secret_manager_secret_iam_member.external_secrets,
-    google_secret_manager_secret_iam_member.external_secrets_certificates,
+    google_secret_manager_secret_iam_member.external_secrets_customer,
   ]
 }
 

@@ -51,13 +51,20 @@ locals {
     secrets = { "helm.sh/hook" = "pre-install,pre-upgrade", "helm.sh/hook-weight" = "-5", "helm.sh/hook-delete-policy" = "before-hook-creation" }
   }
 
+  # The customer's AI provider keys (JSON), read by the pi workloads and live. The root module checks the project.
+  ai_providers_secret = "plane-ai-providers"
+  pi_secrets          = var.enable_components.pi ? { (local.ai_providers_secret) = regex("[^/]+$", var.plane_ai.providers_secret) } : {}
+
+  # Every plane_ai.embedding_model has 1536 dimensions; Plane's page search index uses the same.
+  embedding_dimension = 1536
+
   external_secret = {
-    for name, key in {
+    for name, key in merge({
       "plane-db"       = var.data.secret_names.postgres
       "plane-redis"    = var.data.secret_names.redis
       "plane-rabbitmq" = var.data.secret_names.rabbitmq
       "plane-app-keys" = var.data.secret_names.app_keys
-      } : name => {
+      }, local.pi_secrets) : name => {
       apiVersion = "external-secrets.io/v1"
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
@@ -93,7 +100,7 @@ locals {
             OPENSEARCH_PASSWORD               = "{{ .password }}"
             OPENSEARCH_INITIAL_ADMIN_PASSWORD = "{{ .password }}"
             OPENSEARCH_INDEX_PREFIX           = var.opensearch.index_prefix
-            OPENSEARCH_EMBEDDING_DIMENSION    = "1536"
+            OPENSEARCH_EMBEDDING_DIMENSION    = tostring(local.embedding_dimension)
           }
         }
       }
@@ -155,6 +162,8 @@ locals {
     opensearch = merge(
       { local_setup = var.data.opensearch_enabled },
       var.data.opensearch_enabled ? { volumeSize = "${var.opensearch.volume_size_gb}Gi" } : {},
+      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.11.7+).
+      var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
     )
   }
 
@@ -194,8 +203,14 @@ locals {
   component_services = {
     email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
-    # Plane AI needs S3 (no GCS support yet): the root module refuses pi = true.
-    pi     = { enabled = false }
+    pi = merge(
+      { enabled = var.enable_components.pi },
+      var.enable_components.pi ? {
+        ai_providers = {
+          embedding_model = { enabled = true, name = var.plane_ai.embedding_model, embedding_dimension = local.embedding_dimension }
+        }
+      } : {},
+    )
     drawio = { local_setup = var.enable_components.drawio }
   }
 
@@ -282,6 +297,7 @@ locals {
         app_keys_existingSecret = "plane-app-keys"
       },
       var.data.opensearch_enabled ? { opensearch_existingSecret = local.opensearch_secret } : {},
+      var.enable_components.pi ? { ai_providers_existingSecret = local.ai_providers_secret } : {},
     )
 
     # Memorystore's server CA for the Node.js services (live, silo).
