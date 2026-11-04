@@ -3,9 +3,9 @@
 Terraform module that deploys [Plane](https://plane.so) Commercial on Google Cloud with one `terraform apply`: the
 project APIs, the network, a GKE cluster, managed data services and Plane itself (the `plane-enterprise` Helm chart).
 
-> **Status:** under development, not yet tested on a real GCP project. It needs plane-enterprise chart **3.11.5**
-> (pending release: the bundled RabbitMQ reading its credentials from External Secrets). Until it's published,
-> reference it from this repository.
+> **Status:** tested end to end on GKE (apply, app checks, destroy) with a preview build of the chart. It needs
+> plane-enterprise chart **3.11.6** (pending release: the bundled RabbitMQ reading its credentials from External
+> Secrets). Until it's published, reference it from this repository.
 
 ## What it creates
 
@@ -115,7 +115,7 @@ module's subnet instead. An MX record can't point at an IP, so the email service
 and an MX record naming it. Keep Cloudflare records DNS-only (no proxy): Traefik terminates TLS.
 
 **Path B routes:** generate Plane's routes for your controller from the chart and the values the module generated
-(`chart_version`, default 3.11.5; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the
+(`chart_version`, default 3.11.6; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the
 Secret named by `tls_secret_name` (`plane-tls`) in namespace `plane`.
 
 ```bash
@@ -196,7 +196,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
   data unreadable.
 - **Plane AI (pi) isn't available on GCP yet:** it supports only S3 storage. `enable_components.pi = true` is refused.
 - **Redis uses TLS** (`redis.transit_encryption`, on by default): Memorystore's server CA is passed to every Plane service
-  through the chart's `customCA` (plane-enterprise 3.11.5+). `false` keeps AUTH over the private network without TLS.
+  through the chart's `customCA` (plane-enterprise 3.11.6+). `false` keeps AUTH over the private network without TLS.
 - **Nodes:** 3 zones × 1 `n2d-standard-4`, scaled by the GKE cluster autoscaler up to 2 per zone
   (`node_pool.min_per_zone` / `max_per_zone`). The third node, compared with AWS, carries the in-cluster OpenSearch and
   RabbitMQ.
@@ -244,7 +244,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
-| chart\_version | plane-enterprise Helm chart version. 3.11.5 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret). | `string` | `"3.11.5"` | no |
+| chart\_version | plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret). | `string` | `"3.11.6"` | no |
 | cluster\_admin\_members | IAM members (user:…, group:…, serviceAccount:…) granted roles/container.admin on the project. The identity running Terraform needs it already. | `list(string)` | `[]` | no |
 | deployment\_mode | How Plane runs. Only "gke" is available in this release. | `string` | `"gke"` | no |
 | email | Plane's email service (inbound email to work items). On by default with its own internet-facing passthrough load<br/>balancer on a reserved static IP (ports 25 SMTP, 465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is<br/>the domain that receives mail (default "intake.<domain>"): create an A record for it pointing at the<br/>email\_load\_balancer\_ip output and an MX record naming it (see dns\_records). Certificate: your own via<br/>certificate\_secret (a Secret Manager secret like ingress.tls\_certificate\_secret), else the email app's own<br/>self-signed certificate (fine for receiving mail). load\_balancer = false keeps the service running with no load<br/>balancer (not reachable from the internet); enabled = false turns the service and its load balancer off. | <pre>object({<br/>    enabled            = optional(bool, true)<br/>    smtp_domain        = optional(string)<br/>    load_balancer      = optional(bool, true)<br/>    certificate_secret = optional(string)<br/>  })</pre> | `{}` | no |
@@ -261,7 +261,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
 | postgres | Cloud SQL for PostgreSQL: private IP only, TLS required (ENCRYPTED\_ONLY), regional high availability, backups with<br/>point-in-time recovery. The module creates the databases plane and plane\_pi and the user plane (password generated,<br/>in Secret Manager). deletion\_protection turns on both Terraform's and Cloud SQL's own protection. | <pre>object({<br/>    database_version       = optional(string, "POSTGRES_15")<br/>    tier                   = optional(string, "db-custom-2-8192")<br/>    edition                = optional(string, "ENTERPRISE")<br/>    availability_type      = optional(string, "REGIONAL")<br/>    disk_size_gb           = optional(number, 100)<br/>    disk_type              = optional(string, "PD_SSD")<br/>    backup_retention_days  = optional(number, 14)<br/>    point_in_time_recovery = optional(bool, true)<br/>    deletion_protection    = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | RabbitMQ, run in the cluster by the chart (GCP has no managed RabbitMQ): one node on a persistent disk of volume\_size\_gb. Its credentials are generated, stored in Secret Manager and synced by External Secrets. | <pre>object({<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
-| redis | Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD\_HA<br/>keeps a replica in another zone with automatic failover. transit\_encryption (default true) turns on TLS (port 6378)<br/>with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.11.5+);<br/>false keeps AUTH over the private network without TLS. | <pre>object({<br/>    version            = optional(string, "REDIS_7_2")<br/>    tier               = optional(string, "STANDARD_HA")<br/>    memory_size_gb     = optional(number, 4)<br/>    transit_encryption = optional(bool, true)<br/>  })</pre> | `{}` | no |
+| redis | Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD\_HA<br/>keeps a replica in another zone with automatic failover. transit\_encryption (default true) turns on TLS (port 6378)<br/>with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.11.6+);<br/>false keeps AUTH over the private network without TLS. | <pre>object({<br/>    version            = optional(string, "REDIS_7_2")<br/>    tier               = optional(string, "STANDARD_HA")<br/>    memory_size_gb     = optional(number, 4)<br/>    transit_encryption = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | release\_channel | GKE release channel. GKE picks and upgrades the Kubernetes version within it. | `string` | `"REGULAR"` | no |
 | tls\_secret\_name | Path A: name of the Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager (acme\_email) or by External Secrets from ingress.tls\_certificate\_secret. | `string` | `"plane-tls"` | no |
 | use\_storage\_proxy | false (default): browsers upload and download directly from the bucket with signed URLs (the bucket allows CORS from domain). true: uploads and downloads go through Plane's api (no CORS needed, bounded by the ingress body limit). | `bool` | `false` | no |

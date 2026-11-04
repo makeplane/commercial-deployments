@@ -11,7 +11,7 @@
   a GCS uploads bucket and Secret Manager secrets (regional replication).
 - RabbitMQ and OpenSearch run in the cluster from the chart (GCP has neither as a managed service), on
   `standard-rwo` persistent disks, with generated credentials in Secret Manager synced by External Secrets. Needs
-  plane-enterprise chart 3.11.5 (pending release) for the bundled RabbitMQ to read its credentials from that Secret.
+  plane-enterprise chart 3.11.6 (pending release) for the bundled RabbitMQ to read its credentials from that Secret.
 - In-cluster add-ons as Helm releases: External Secrets (GCP Secret Manager through Workload Identity, CRDs kept on
   uninstall), Reloader; in path A also Traefik, and cert-manager when `acme_email` is set.
 - Plane (plane-enterprise chart) with keyless GCS through GKE Workload Identity (bucket-scoped roles, signed URLs

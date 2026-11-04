@@ -110,7 +110,7 @@ domain = "plane.example.com" # never change after install
 # bucket_force_destroy = false
 
 # plane_version    = "v4.0.1"
-# chart_version    = "3.11.5"
+# chart_version    = "3.11.6"
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"
 # helm_timeout     = 3600

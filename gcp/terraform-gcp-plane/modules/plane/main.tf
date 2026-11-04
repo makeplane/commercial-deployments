@@ -277,7 +277,7 @@ locals {
       {
         database = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
         redis    = { secretName = "plane-redis", passwordKey = "password" }
-        # With services.rabbitmq.local_setup, the bundled broker and the apps both read this Secret (chart 3.11.5+).
+        # With services.rabbitmq.local_setup, the bundled broker and the apps both read this Secret (chart 3.11.6+).
         rabbitmq                = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
         app_keys_existingSecret = "plane-app-keys"
       },
