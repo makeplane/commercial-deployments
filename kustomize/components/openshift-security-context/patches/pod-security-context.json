@@ -1,0 +1,12 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/securityContext",
+    "value": {
+      "runAsNonRoot": true,
+      "seccompProfile": {
+        "type": "RuntimeDefault"
+      }
+    }
+  }
+]
