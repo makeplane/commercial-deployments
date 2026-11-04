@@ -4,9 +4,8 @@ Terraform module that deploys [Plane](https://plane.so) Commercial on Google Clo
 project APIs, the network, a GKE cluster, managed data services and Plane itself (the `plane-enterprise` Helm chart).
 
 > **Status:** tested end to end on GKE (apply, app checks, destroy) with a preview build of the chart. It needs
-> plane-enterprise chart **3.11.7** (pending release: from 3.11.6 the bundled RabbitMQ reads its credentials from
-> External Secrets; 3.11.7 sets the OpenSearch heap for Plane AI). Until it's published, reference it from this
-> repository.
+> plane-enterprise chart **3.11.6** (pending release: the bundled RabbitMQ reading its credentials from External
+> Secrets). Until it's published, reference it from this repository.
 
 ## What it creates
 
@@ -116,7 +115,7 @@ module's subnet instead. An MX record can't point at an IP, so the email service
 and an MX record naming it. Keep Cloudflare records DNS-only (no proxy): Traefik terminates TLS.
 
 **Path B routes:** generate Plane's routes for your controller from the chart and the values the module generated
-(`chart_version`, default 3.11.7; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the
+(`chart_version`, default 3.11.6; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the
 Secret named by `tls_secret_name` (`plane-tls`) in namespace `plane`.
 
 ```bash
@@ -189,7 +188,7 @@ Plane AI (pi) is off by default. `enable_components = { pi = true }` runs it on 
 Plane's Workload Identity: no new IAM) and the `plane_pi` database the module already creates. It needs:
 
 - **`opensearch.enabled`** (the default): Plane AI keeps its search and embeddings in the in-cluster OpenSearch. With
-  pi on, the module gives OpenSearch a 1.5 GB heap in a 3 GiB memory limit (chart 3.11.7+).
+  pi on, the module gives OpenSearch a 1.5 GB heap in a 3 GiB memory limit (chart 3.11.6+).
 - **`plane_version`**: the first Plane release whose Plane AI supports GCS storage (named in this module's release
   notes). The module refuses older versions.
 - **`plane_ai.providers_secret`**: a Secret Manager secret **in `project_id`** that you create before the apply, as
@@ -242,7 +241,7 @@ keys are configured in the admin UI (`/god-mode`) in this release; Plane AI (pi)
 - **App keys are generated once and never rotated** (`<name>-plane-app-keys`). Changing them makes stored encrypted
   data unreadable.
 - **Plane AI (pi) needs a recent Plane and chart:** the first Plane release whose Plane AI supports GCS storage, and
-  plane-enterprise 3.11.7+. The module refuses `enable_components.pi = true` with an older `plane_version`.
+  plane-enterprise 3.11.6+. The module refuses `enable_components.pi = true` with an older `plane_version`.
 - **Redis uses TLS** (`redis.transit_encryption`, on by default): Memorystore's server CA is passed to every Plane service
   through the chart's `customCA` (plane-enterprise 3.11.6+). `false` keeps AUTH over the private network without TLS.
 - **Nodes:** 3 zones × 1 `n2d-standard-4`, scaled by the GKE cluster autoscaler up to 2 per zone
@@ -292,7 +291,7 @@ keys are configured in the admin UI (`/god-mode`) in this release; Plane AI (pi)
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
-| chart\_version | plane-enterprise Helm chart version. 3.11.7 or later (from 3.11.6 the bundled RabbitMQ reads its credentials from an External Secrets Secret; 3.11.7 sets the OpenSearch heap Plane AI needs). | `string` | `"3.11.7"` | no |
+| chart\_version | plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret; Plane AI sets the OpenSearch heap). | `string` | `"3.11.6"` | no |
 | cluster\_admin\_members | IAM members (user:…, group:…, serviceAccount:…) granted roles/container.admin on the project. The identity running Terraform needs it already. | `list(string)` | `[]` | no |
 | deployment\_mode | How Plane runs. Only "gke" is available in this release. | `string` | `"gke"` | no |
 | email | Plane's email service (inbound email to work items). On by default with its own internet-facing passthrough load<br/>balancer on a reserved static IP (ports 25 SMTP, 465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is<br/>the domain that receives mail (default "intake.<domain>"): create an A record for it pointing at the<br/>email\_load\_balancer\_ip output and an MX record naming it (see dns\_records). Certificate: your own via<br/>certificate\_secret (a Secret Manager secret like ingress.tls\_certificate\_secret), else the email app's own<br/>self-signed certificate (fine for receiving mail). load\_balancer = false keeps the service running with no load<br/>balancer (not reachable from the internet); enabled = false turns the service and its load balancer off. | <pre>object({<br/>    enabled            = optional(bool, true)<br/>    smtp_domain        = optional(string)<br/>    load_balancer      = optional(bool, true)<br/>    certificate_secret = optional(string)<br/>  })</pre> | `{}` | no |

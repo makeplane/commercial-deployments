@@ -162,7 +162,7 @@ locals {
     opensearch = merge(
       { local_setup = var.data.opensearch_enabled },
       var.data.opensearch_enabled ? { volumeSize = "${var.opensearch.volume_size_gb}Gi" } : {},
-      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.11.7+).
+      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.11.6+).
       var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
     )
   }

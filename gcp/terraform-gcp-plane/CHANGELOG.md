@@ -32,8 +32,7 @@
   `embedding_model`, one of the 1536-dimension models (`cohere/embed-v4.0` by default,
   `openai/text-embedding-3-small`, `openai/text-embedding-ada-002`). pi needs `opensearch.enabled`, the providers secret
   and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known; until then pi is
-  refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise chart 3.11.7:
-  `chart_version` now defaults to 3.11.7.
+  refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise chart 3.11.6.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything; the example declares every module
   input under the same name (`nullable = false` on every defaulted input). CI checks that it declares exactly the

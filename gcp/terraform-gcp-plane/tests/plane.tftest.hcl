@@ -391,7 +391,7 @@ run "plane_identity" {
   variables {
     pods_cidr          = "10.61.0.0/16"
     plane_version      = "v4.0.1"
-    chart_version      = "3.11.7"
+    chart_version      = "3.11.6"
     chart_repository   = "https://helm.plane.so/"
     chart_name         = "plane-enterprise"
     enable_components  = { silo = true, drawio = true, pi = false }

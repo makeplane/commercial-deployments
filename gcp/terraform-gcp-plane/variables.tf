@@ -52,10 +52,10 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.7 or later (from 3.11.6 the bundled RabbitMQ reads its credentials from an External Secrets Secret; 3.11.7 sets the OpenSearch heap Plane AI needs)."
+  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret; Plane AI sets the OpenSearch heap)."
   type        = string
-  # 3.11.6 (helm-charts#370) and 3.11.7 are pending release; 3.11.5 and earlier refuse to render this module's values.
-  default  = "3.11.7"
+  # 3.11.6 is pending release (helm-charts#370); 3.11.5 and earlier refuse to render this module's values.
+  default  = "3.11.6"
   nullable = false
 }
 

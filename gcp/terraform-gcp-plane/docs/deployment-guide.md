@@ -268,7 +268,7 @@ into one line.
 Plane AI runs on the same uploads bucket and in-cluster OpenSearch as Plane. It needs:
 
 - **Plane** at the first release whose Plane AI supports Cloud Storage (named in the module's release notes), and the
-  Plane Commercial Helm chart **3.11.7 or later** (the default). The module refuses Plane AI with an older
+  Plane Commercial Helm chart **3.11.6 or later** (the default). The module refuses Plane AI with an older
   `plane_version`.
 - **Search on** (`opensearch.enabled`, the default). With Plane AI, OpenSearch gets a larger memory allowance (1.5 GB
   heap, 3 GiB limit).
@@ -437,7 +437,7 @@ before applying.
 
 | Task | How |
 |---|---|
-| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.11.7 or later). Option B: regenerate and re-apply your routes. |
+| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.11.6 or later). Option B: regenerate and re-apply your routes. |
 | More capacity | Raise the node limit (`node_pool = { max_per_zone = 3 }`); the GKE cluster autoscaler adds nodes when pods need room. Add Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
 | Kubernetes upgrades | Automatic, within the release channel (`release_channel`, default `REGULAR`), on Saturdays and Sundays between 02:00 and 08:00 UTC. Nodes are replaced one at a time. Plane's api, worker, web and live run two replicas and stay up; RabbitMQ and OpenSearch restart briefly when their node is replaced. |
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
