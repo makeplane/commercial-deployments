@@ -37,7 +37,7 @@ domain = "plane.example.com" # never change after install
 # ingress = {
 #   mode                   = "none"            # automated (path A) | none (path B)
 #   allowed_cidrs          = ["0.0.0.0/0"]     # path A: who can reach Plane
-#   scheme                 = "internet-facing" # path A: or internal (not with Let's Encrypt)
+#   scheme                 = "internet-facing" # path A: or internal (not with Let's Encrypt); set at install
 #   tls_certificate_secret = null              # path A: your web certificate (A.2)
 # }
 # acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
@@ -84,12 +84,12 @@ domain = "plane.example.com" # never change after install
 # }
 
 # rabbitmq = {
-#   volume_size_gb = 10
+#   volume_size_gb = 10 # set before the first install
 # }
 
 # opensearch = {
 #   enabled        = true
-#   volume_size_gb = 20
+#   volume_size_gb = 20 # set before the first install
 #   index_prefix   = "plane"
 # }
 

@@ -59,7 +59,8 @@ zone holding one of their disks is unavailable, that service is down until the z
 - GKE nodes are shielded VMs. GKE upgrades the cluster automatically within its release channel (`REGULAR`), in a
   weekend maintenance window.
 
-Every size above can be changed in `terraform.tfvars`. For costs, enter these sizes in the Google Cloud pricing
+Every size above can be changed in `terraform.tfvars`; the RabbitMQ and OpenSearch disk sizes only before the first
+install (section 10 explains how to grow those disks later). For costs, enter these sizes in the Google Cloud pricing
 calculator for your region.
 
 ## 2. Before you start
@@ -246,12 +247,12 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Setting | Example | Effect |
 |---|---|---|
 | Restrict who reaches Plane (A.2) | `ingress = { mode = "automated", tls_certificate_secret = "…", allowed_cidrs = ["10.0.0.0/8"] }` | The load balancer accepts only these ranges |
-| Internal load balancer (A.2) | `ingress = { …, scheme = "internal" }` | Plane gets an IP from the module's subnet, reachable only from the VPC or connected networks |
+| Internal load balancer (A.2) | `ingress = { …, scheme = "internal" }` | Plane gets an IP from the module's subnet, reachable only from the VPC or connected networks. Choose it before the first install; to change it later, see section 10 |
 | More nodes | `node_pool = { max_per_zone = 3 }` | The autoscaler can grow to 3 nodes per zone (9 in all) |
 | Choose the zones | `zones = ["us-central1-a", "us-central1-b", "us-central1-c"]` | Nodes run in these zones instead of three GKE picks |
 | Larger database | `postgres = { tier = "db-custom-4-16384" }` | 4 vCPUs and 16 GB |
 | Larger cache | `redis = { memory_size_gb = 8 }` | 8 GB |
-| Larger search disk | `opensearch = { volume_size_gb = 50 }` | 50 GiB for OpenSearch |
+| Larger search disk | `opensearch = { volume_size_gb = 50 }` | 50 GiB for OpenSearch. Set it before the first install; to grow the disk later, see section 10 |
 | No search | `opensearch = { enabled = false }` | No OpenSearch; Plane runs with search indexing off, so search is more limited |
 | Different email domain | `email = { smtp_domain = "mail.example.com" }` | Intake addresses use this domain |
 | Email without a public endpoint | `email = { load_balancer = false }` | The email service runs, but can't receive mail from the internet |
@@ -484,7 +485,49 @@ attach it to both disks (`gcloud compute disks add-resource-policies`).
   ```
   When a Plane release's notes ask you to update the search mappings, run the commands they give in the same way.
 - **RabbitMQ** holds Plane's background tasks while they wait to run.
-- Disk sizes are `rabbitmq.volume_size_gb` and `opensearch.volume_size_gb`.
+
+### Growing the RabbitMQ or OpenSearch disk
+
+`rabbitmq.volume_size_gb` and `opensearch.volume_size_gb` set the disk sizes at the first install only. They go into
+the StatefulSets' volume claim templates, which Kubernetes doesn't allow to change: changing them later makes the apply
+fail (section 12). To grow a disk, resize its claim directly and **leave `volume_size_gb` unchanged** in
+`terraform.tfvars`.
+
+| Service | Claim (PVC) |
+|---|---|
+| RabbitMQ | `pvc-plane-rabbitmq-vol-plane-rabbitmq-wl-0` |
+| OpenSearch | `pvc-plane-opensearch-vol-plane-opensearch-wl-0` |
+
+1. Check that the disk's storage class allows growing (prints `true`):
+   ```bash
+   kubectl get storageclass standard-rwo -o jsonpath='{.allowVolumeExpansion}'
+   ```
+2. Snapshot the disk first (above).
+3. Ask for the new size, for example 50 GiB for OpenSearch:
+   ```bash
+   kubectl -n plane patch pvc pvc-plane-opensearch-vol-plane-opensearch-wl-0 \
+     -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'
+   ```
+4. Watch `CAPACITY` in `kubectl -n plane get pvc` reach the new size. If it doesn't after a few minutes,
+   `kubectl -n plane describe pvc <pvc>` shows why.
+
+Disks can only grow, not shrink. Terraform and Helm don't see the change: later upgrades keep the larger disk.
+
+### Changing the load balancer scheme (option A)
+
+`ingress.scheme` (internet-facing or internal) is chosen at the first install. Changing it in place fails (section 12):
+the module would replace the web IP while Traefik's load balancer still uses it, and Traefik's Service can't change
+its load balancer class. To switch, remove Traefik and reinstall it. Plane is unreachable between the two applies, and
+the web IP changes.
+
+1. In `terraform.tfvars`, set `ingress = { mode = "none" }` (keep your other settings), then plan and apply. Traefik,
+   Plane's routes and the web IP are removed.
+2. Set `ingress` back to `mode = "automated"` with the new `scheme` (internal needs your own certificate, option A.2),
+   then plan and apply.
+3. Point your domain's A record at the new IP (`terraform output dns_records`). With `scheme = "internal"`, create it in
+   a zone your users resolve (section 7).
+
+If step 1 fails releasing the web IP, the load balancer is still being removed: wait a few minutes and apply again.
 
 ### Redis TLS
 
@@ -543,6 +586,8 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 | `terraform plan` can't reach the cluster, or `gke-gcloud-auth-plugin` not found | Your IP isn't in `master_authorized_networks`, or the plugin isn't installed | Add your network's range and apply; install the plugin (section 2) and run `gcloud auth login` |
 | `helm_release.plane` runs for a long time | Database migrations on a new installation (about 20 minutes) | Wait; check with `kubectl -n plane get pods` |
 | The load balancer has no external IP (`kubectl -n traefik get svc traefik`, `EXTERNAL-IP` pending) | An organisation policy blocks the load balancer type, or quota | `kubectl -n traefik describe svc traefik` shows the reason in its events |
+| `helm_release.plane` fails with `StatefulSet.apps "plane-rabbitmq-wl"` (or `"plane-opensearch-wl"`) `is invalid: spec: Forbidden: updates to statefulset spec for fields other than … are forbidden` | `rabbitmq.volume_size_gb` or `opensearch.volume_size_gb` was changed after the first install | Set it back to the size it was installed with and apply again. To grow the disk, see section 10 |
+| Apply fails deleting `google_compute_address.web` (`resourceInUseByAnotherResource`, `is already being used by`), or Traefik's upgrade fails with `spec.loadBalancerClass` … `may not change once set` | `ingress.scheme` was changed after the first install | Set it back and apply again. To change it, see section 10 |
 | A RabbitMQ or OpenSearch pod stays `Pending` | Its disk can't be created (SSD quota) or no node has room | `kubectl -n plane describe pvc` and `kubectl -n plane describe pod <pod>`; raise the quota or `node_pool.max_per_zone` |
 | Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |

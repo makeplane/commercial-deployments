@@ -93,7 +93,8 @@ variable "ingress" {
     your own via tls_certificate_secret). mode = "none" (path B, default): the module installs no ingress controller or
     routes; you bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the
     records are yours in both paths (see the dns_records output). Path A only: allowed_cidrs (who can reach Plane),
-    scheme (internet-facing, or internal: an internal load balancer on an IP in the module's subnet) and
+    scheme (internet-facing, or internal: an internal load balancer on an IP in the module's subnet; set at install, as
+    changing it in place fails: to switch, apply with mode = "none" first, see the deployment guide) and
     tls_certificate_secret (a Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>", whose
     value is JSON with the keys "tls.crt" (full chain) and "tls.key").
   EOT
@@ -234,7 +235,7 @@ variable "redis" {
 }
 
 variable "rabbitmq" {
-  description = "RabbitMQ, run in the cluster by the chart (GCP has no managed RabbitMQ): one node on a persistent disk of volume_size_gb. Its credentials are generated, stored in Secret Manager and synced by External Secrets."
+  description = "RabbitMQ, run in the cluster by the chart (GCP has no managed RabbitMQ): one node on a persistent disk of volume_size_gb. Set the size before the first install: Kubernetes can't change it afterwards (to grow the disk, see the deployment guide). Its credentials are generated, stored in Secret Manager and synced by External Secrets."
   type = object({
     volume_size_gb = optional(number)
   })
@@ -245,8 +246,9 @@ variable "opensearch" {
   description = <<-EOT
     OpenSearch for Plane's search, run in the cluster by the chart (GCP has no managed OpenSearch), on by default as in
     today's deployments: one node on a persistent disk of volume_size_gb, credentials generated, stored in Secret
-    Manager and synced by External Secrets. The chart's Job creates the search indexes after every install and upgrade.
-    enabled = false: Plane runs with search indexing off.
+    Manager and synced by External Secrets. Set volume_size_gb before the first install: Kubernetes can't change it
+    afterwards (to grow the disk, see the deployment guide). The chart's Job creates the search indexes after every
+    install and upgrade. enabled = false: Plane runs with search indexing off.
   EOT
   type = object({
     enabled        = optional(bool)
