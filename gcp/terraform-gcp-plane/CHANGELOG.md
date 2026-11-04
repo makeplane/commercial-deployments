@@ -27,8 +27,9 @@
   (`email.certificate_secret`) in either path, else self-signed (a warning in path A).
 - Plane AI (pi) on GKE, off by default: `enable_components.pi = true` runs it on the GCS bucket (Plane's Workload
   Identity, no new IAM) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). OpenAI chat and
-  Cohere embeddings (`cohere/embed-v4.0`) by default, or Anthropic chat (`pi.api_keys.chat_provider`) and an OpenAI
-  1536-dimension embedding model (`openai/text-embedding-3-small`, `openai/text-embedding-ada-002`). Both keys are
+  Cohere embeddings (`cohere/embed-v4.0`) by default, or Anthropic chat (`pi.api_keys.chat_provider`) and another of
+  Plane AI's Cohere or OpenAI embedding models. The search indexes' dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows
+  `pi.api_keys.embedding_model`, with pi on or off (1536 by default). Both keys are
   required, each a plain-text Secret Manager secret in `project_id` (one secret when OpenAI does both), copied by
   External Secrets into the env var Plane AI reads (the keys never pass through Terraform). pi needs
   `opensearch.enabled` and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known;

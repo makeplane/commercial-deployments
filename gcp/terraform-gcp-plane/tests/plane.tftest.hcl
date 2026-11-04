@@ -283,6 +283,33 @@ run "opensearch_off" {
   }
 }
 
+# The api sizes its search indexes with the embedding model's dimension, so it is rendered with pi off too.
+run "embedding_dimension_default_pi_off" {
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
+    ]) == "1536"
+    error_message = "With pi off, the OpenSearch Secret must carry the default model's dimension (cohere/embed-v4.0, 1536)."
+  }
+  assert {
+    condition     = !yamldecode(output.plane_helm_values).services.pi.enabled && !can(yamldecode(output.plane_helm_values).services.pi.ai_providers)
+    error_message = "With pi off, no pi providers are rendered."
+  }
+}
+
+run "embedding_dimension_follows_model_pi_off" {
+  variables {
+    pi = { api_keys = { embedding_model = "cohere/embed-english-v3.0" } }
+  }
+
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
+    ]) == "1024"
+    error_message = "With pi off, the OpenSearch Secret must carry the chosen model's dimension (cohere/embed-english-v3.0, 1024)."
+  }
+}
+
 run "pi_on_gcs" {
   variables {
     enable_components = { pi = true }
@@ -370,6 +397,27 @@ run "pi_openai_both" {
   }
 }
 
+run "pi_embedding_dimension_follows_model" {
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+    pi = {
+      api_keys = { chat_key_secret = var.openai_key, embedding_model = "openai/text-embedding-3-large", embedding_key_secret = var.openai_key }
+    }
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).services.pi.ai_providers.embedding_model == { enabled = true, name = "openai/text-embedding-3-large", embedding_dimension = 3072 }
+    error_message = "Plane AI must embed with the chosen model at its dimension (3072)."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
+    ]) == "3072"
+    error_message = "The OpenSearch Secret must carry the chosen model's dimension (3072)."
+  }
+}
+
 run "reject_pi_without_opensearch" {
   command = plan
   variables {
@@ -438,7 +486,7 @@ run "reject_bad_chat_provider" {
 run "reject_bad_embedding_model" {
   command = plan
   variables {
-    pi = { api_keys = { embedding_model = "openai/text-embedding-3-large" } }
+    pi = { api_keys = { embedding_model = "bedrock/amazon.titan-embed-text-v2" } }
   }
   expect_failures = [var.pi]
 }
@@ -470,7 +518,7 @@ run "plane_identity" {
     use_storage_proxy  = false
     rabbitmq           = { volume_size_gb = 10 }
     opensearch         = { enabled = true, volume_size_gb = 20, index_prefix = "plane" }
-    pi                 = { embedding_model = "cohere/embed-v4.0", api_key_secrets = {} }
+    pi                 = { embedding_model = "cohere/embed-v4.0", embedding_dimension = 1536, api_key_secrets = {} }
     helm_timeout       = 3600
     plane_values       = ""
     addons_ready       = "ready"

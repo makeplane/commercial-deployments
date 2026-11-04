@@ -195,8 +195,8 @@ there is nothing to configure in the admin UI. It needs:
 - **`plane_version`**: the first Plane release whose Plane AI supports GCS storage (named in this module's release
   notes). The module refuses older versions.
 - **OpenAI and Cohere API keys.** Chat on OpenAI (`pi.api_keys.chat_provider`; or `anthropic`) and embeddings on
-  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or `openai/text-embedding-3-small` or
-  `openai/text-embedding-ada-002`), as today's Helm installs. Both keys are required: the module refuses Plane AI
+  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or another model below), as today's Helm
+  installs. Both keys are required: the module refuses Plane AI
   without them. Store each as a plain-text secret in Secret Manager, **in `project_id`**, and pass them as
   `projects/<project_id>/secrets/<name>`; for OpenAI chat and embeddings, one secret:
 
@@ -221,9 +221,22 @@ The module lets External Secrets read the two secrets (and nothing else of yours
 AI reads for its provider (`OPENAI_API_KEY` or `CLAUDE_API_KEY` for chat, `COHERE_API_KEY` or `OPENAI_API_KEY` for
 embeddings) in the `plane-ai-providers` Secret; the keys never pass through Terraform or Helm values.
 
-**Embedding model:** only the 1536-dimension models above, because Plane's page search index uses the same dimension.
-The embedding model is registered once, at Plane AI's first start, and its dimension fixes Plane AI's indexes: choose it
-before you turn Plane AI on. The chat model changes with an apply.
+**Embedding model:** one of Plane AI's Cohere or OpenAI models, and its vector dimension:
+
+| `pi.api_keys.embedding_model` | Dimension |
+|---|---|
+| `cohere/embed-v4.0` (default) | 1536 |
+| `cohere/embed-english-v3.0` | 1024 |
+| `cohere/embed-english-v2.0` | 4096 |
+| `openai/text-embedding-ada-002` | 1536 |
+| `openai/text-embedding-3-small` | 1536 |
+| `openai/text-embedding-3-large` | 3072 |
+
+**Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's own search
+indexes (work items, pages) are created at the first install with the model's dimension, whether Plane AI is on or not
+(the module sets `OPENSEARCH_EMBEDDING_DIMENSION` from it). The model is registered in OpenSearch at Plane AI's first
+start, and its dimension fixes Plane AI's indexes too. Changing the embedding model afterwards needs Plane's search
+indexes and Plane AI's indexes recreated. The chat model changes with an apply.
 
 **Egress:** the pi pods call the chat provider's API, and the OpenSearch pod calls the embedding provider's API, over
 the internet through the module's Cloud NAT. If you restrict egress, allow HTTPS to the providers you use
@@ -318,7 +331,7 @@ the `pi.api_keys` secrets instead.
 | network | Address ranges of the VPC the module creates: subnet\_cidr (nodes and internal load balancers), pods\_cidr and<br/>services\_cidr (the subnet's secondary ranges for GKE) and private\_service\_cidr (private services access, for Cloud<br/>SQL and Memorystore). They must not overlap each other or networks you will peer or VPN with. The defaults all sit<br/>in 10.60.0.0/15 and avoid 10.0.0.0/16. | <pre>object({<br/>    subnet_cidr          = optional(string, "10.60.0.0/20")<br/>    services_cidr        = optional(string, "10.60.16.0/20")<br/>    private_service_cidr = optional(string, "10.60.32.0/20")<br/>    pods_cidr            = optional(string, "10.61.0.0/16")<br/>  })</pre> | `{}` | no |
 | node\_pool | The GKE node pool, in every zone of the cluster (3 by default): min\_per\_zone to max\_per\_zone nodes per zone, scaled<br/>by the GKE cluster autoscaler (1-2 per zone, so 3-6 nodes). The third node, compared with AWS, carries the in-cluster<br/>OpenSearch and RabbitMQ. spot = true uses Spot VMs (cheaper, can be reclaimed: tests only). | <pre>object({<br/>    machine_type = optional(string, "n2d-standard-4")<br/>    min_per_zone = optional(number, 1)<br/>    max_per_zone = optional(number, 2)<br/>    disk_size_gb = optional(number, 50)<br/>    disk_type    = optional(string, "pd-balanced")<br/>    spot         = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | opensearch | OpenSearch for Plane's search, run in the cluster by the chart (GCP has no managed OpenSearch), on by default as in<br/>today's deployments: one node on a persistent disk of volume\_size\_gb, credentials generated, stored in Secret<br/>Manager and synced by External Secrets. Set volume\_size\_gb before the first install: Kubernetes can't change it<br/>afterwards (to grow the disk, see the deployment guide). The chart's Job creates the search indexes after every<br/>install and upgrade. enabled = false: Plane runs with search indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    volume_size_gb = optional(number, 20)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
-| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api\_keys.chat\_provider;<br/>or Anthropic) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0; or openai/text-embedding-3-small<br/>or openai/text-embedding-ada-002, 1536 dimensions like Plane's search index). Both API keys are required: each is a<br/>plain-text Secret Manager secret in project\_id, as "projects/<project\_id>/secrets/<name>" (one secret for both when<br/>OpenAI does chat and embeddings). Choose the embedding model before Plane AI's first start: changing it later needs<br/>Plane AI's indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider        = optional(string, "openai")<br/>      chat_key_secret      = optional(string)<br/>      embedding_model      = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api\_keys.chat\_provider;<br/>or Anthropic) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0; or another Cohere or OpenAI<br/>model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,<br/>openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text<br/>Secret Manager secret in project\_id, as "projects/<project\_id>/secrets/<name>" (one secret for both when OpenAI does<br/>chat and embeddings). The search indexes take the embedding model's dimension even with pi off, so choose the model<br/>before the first install, even if pi is enabled later: changing it later needs the search indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider        = optional(string, "openai")<br/>      chat_key_secret      = optional(string)<br/>      embedding_model      = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). Plane AI (enable\_components.pi) needs the first release whose pi supports GCS storage; the module checks it. | `string` | `"v4.0.1"` | no |
 | postgres | Cloud SQL for PostgreSQL: private IP only, TLS required (ENCRYPTED\_ONLY), regional high availability, backups with<br/>point-in-time recovery. The module creates the databases plane and plane\_pi and the user plane (password generated,<br/>in Secret Manager). deletion\_protection turns on both Terraform's and Cloud SQL's own protection. | <pre>object({<br/>    database_version       = optional(string, "POSTGRES_15")<br/>    tier                   = optional(string, "db-custom-2-8192")<br/>    edition                = optional(string, "ENTERPRISE")<br/>    availability_type      = optional(string, "REGIONAL")<br/>    disk_size_gb           = optional(number, 100)<br/>    disk_type              = optional(string, "PD_SSD")<br/>    backup_retention_days  = optional(number, 14)<br/>    point_in_time_recovery = optional(bool, true)<br/>    deletion_protection    = optional(bool, true)<br/>  })</pre> | `{}` | no |

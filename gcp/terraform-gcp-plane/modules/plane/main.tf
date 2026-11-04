@@ -53,9 +53,6 @@ locals {
 
   ai_providers_secret = "plane-ai-providers"
 
-  # Every pi embedding model has 1536 dimensions; Plane's page search index uses the same.
-  embedding_dimension = 1536
-
   external_secret = {
     for name, key in {
       "plane-db"       = var.data.secret_names.postgres
@@ -112,7 +109,7 @@ locals {
             OPENSEARCH_PASSWORD               = "{{ .password }}"
             OPENSEARCH_INITIAL_ADMIN_PASSWORD = "{{ .password }}"
             OPENSEARCH_INDEX_PREFIX           = var.opensearch.index_prefix
-            OPENSEARCH_EMBEDDING_DIMENSION    = tostring(local.embedding_dimension)
+            OPENSEARCH_EMBEDDING_DIMENSION    = tostring(var.pi.embedding_dimension)
           }
         }
       }
@@ -219,7 +216,7 @@ locals {
       { enabled = var.enable_components.pi },
       var.enable_components.pi ? {
         ai_providers = {
-          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = local.embedding_dimension }
+          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension }
         }
       } : {},
     )

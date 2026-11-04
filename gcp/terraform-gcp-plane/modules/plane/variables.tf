@@ -109,10 +109,11 @@ variable "opensearch" {
 }
 
 variable "pi" {
-  description = "Plane AI's embedding model and api_key_secrets: env var pi reads => Secret Manager secret (projects/<project>/secrets/<name>)."
+  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off) and api_key_secrets: env var pi reads => Secret Manager secret (projects/<project>/secrets/<name>)."
   type = object({
-    embedding_model = string
-    api_key_secrets = map(string)
+    embedding_model     = string
+    embedding_dimension = number
+    api_key_secrets     = map(string)
   })
 }
 

@@ -303,10 +303,16 @@ pi = {
 ```
 
 **Other providers.** For Anthropic chat, store the Anthropic key instead and set `chat_provider = "anthropic"`. For
-OpenAI embeddings, set `embedding_model = "openai/text-embedding-3-small"` (or `openai/text-embedding-ada-002`); with
-OpenAI chat too, use the same secret for both keys. Only these 1536-dimension embedding models are accepted, because
-Plane's page search uses the same index size. Choose the embedding model before you turn Plane AI on: changing it
-later means recreating Plane AI's indexes.
+another embedding model, set `embedding_model` to one of `cohere/embed-english-v3.0`, `cohere/embed-english-v2.0`,
+`openai/text-embedding-ada-002`, `openai/text-embedding-3-small` or `openai/text-embedding-3-large` (the module README
+lists their dimensions); with OpenAI for both chat and embeddings, use the same secret for both keys.
+
+**Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's search indexes
+are created at the first install with the vector dimension of `pi.api_keys.embedding_model`, whether Plane AI is on or
+not. Without a `pi` setting that is Cohere embed-v4.0 (1536). If you will use another model, set
+`pi = { api_keys = { embedding_model = "…" } }` now and add `enable_components = { pi = true }` and the keys when you
+turn Plane AI on. Changing the embedding model afterwards needs Plane's search indexes and Plane AI's indexes
+recreated.
 
 **Outbound access.** Plane AI calls your providers' APIs over the internet through the module's Cloud NAT: the Plane AI
 pods call the language model, and the OpenSearch pod calls the embedding API. If your organisation restricts outbound

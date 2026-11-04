@@ -111,11 +111,12 @@ variable "pi" {
   description = <<-EOT
     Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
     (pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api_keys.chat_provider;
-    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or openai/text-embedding-3-small
-    or openai/text-embedding-ada-002, 1536 dimensions like Plane's search index). Both API keys are required: each is a
-    plain-text Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>" (one secret for both when
-    OpenAI does chat and embeddings). Choose the embedding model before Plane AI's first start: changing it later needs
-    Plane AI's indexes recreated.
+    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or another Cohere or OpenAI
+    model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,
+    openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text
+    Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>" (one secret for both when OpenAI does
+    chat and embeddings). The search indexes take the embedding model's dimension even with pi off, so choose the model
+    before the first install, even if pi is enabled later: changing it later needs the search indexes recreated.
   EOT
   type = object({
     api_keys = optional(object({
@@ -137,8 +138,8 @@ variable "pi" {
     error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
   }
   validation {
-    condition     = contains(["cohere/embed-v4.0", "openai/text-embedding-3-small", "openai/text-embedding-ada-002"], var.pi.api_keys.embedding_model)
-    error_message = "pi.api_keys.embedding_model must be cohere/embed-v4.0, openai/text-embedding-3-small or openai/text-embedding-ada-002: the search index uses 1536 dimensions."
+    condition     = contains(keys(local.pi_embedding_dimensions), var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", keys(local.pi_embedding_dimensions))}."
   }
   validation {
     condition = alltrue([
