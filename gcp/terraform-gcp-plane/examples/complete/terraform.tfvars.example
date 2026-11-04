@@ -84,12 +84,12 @@ domain = "plane.example.com" # never change after install
 # }
 
 # rabbitmq = {
-#   volume_size_gb = 10
+#   volume_size_gb = 10 # set before the first install
 # }
 
 # opensearch = {
 #   enabled        = true
-#   volume_size_gb = 20
+#   volume_size_gb = 20 # set before the first install
 #   index_prefix   = "plane"
 # }
 

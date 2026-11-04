@@ -374,7 +374,7 @@ variable "redis" {
 }
 
 variable "rabbitmq" {
-  description = "RabbitMQ, run in the cluster by the chart (GCP has no managed RabbitMQ): one node on a persistent disk of volume_size_gb. Its credentials are generated, stored in Secret Manager and synced by External Secrets."
+  description = "RabbitMQ, run in the cluster by the chart (GCP has no managed RabbitMQ): one node on a persistent disk of volume_size_gb. Set the size before the first install: Kubernetes can't change it afterwards (to grow the disk, see the deployment guide). Its credentials are generated, stored in Secret Manager and synced by External Secrets."
   type = object({
     volume_size_gb = optional(number, 10)
   })
@@ -386,8 +386,9 @@ variable "opensearch" {
   description = <<-EOT
     OpenSearch for Plane's search, run in the cluster by the chart (GCP has no managed OpenSearch), on by default as in
     today's deployments: one node on a persistent disk of volume_size_gb, credentials generated, stored in Secret
-    Manager and synced by External Secrets. The chart's Job creates the search indexes after every install and upgrade.
-    enabled = false: Plane runs with search indexing off.
+    Manager and synced by External Secrets. Set volume_size_gb before the first install: Kubernetes can't change it
+    afterwards (to grow the disk, see the deployment guide). The chart's Job creates the search indexes after every
+    install and upgrade. enabled = false: Plane runs with search indexing off.
   EOT
   type = object({
     enabled        = optional(bool, true)
