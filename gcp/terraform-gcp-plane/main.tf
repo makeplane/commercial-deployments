@@ -12,6 +12,12 @@ locals {
   # Placeholder until the Plane release carrying pi GCS support is known: it keeps pi refused until then.
   pi_min_plane_version = "v99.0.0"
 
+  # The env var pi reads each key from => the secret holding it.
+  pi_api_key_secrets = var.enable_components.pi ? merge(
+    { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret },
+    { "${upper(split("/", var.pi.api_keys.embedding_model)[0])}_API_KEY" = var.pi.api_keys.embedding_key_secret },
+  ) : {}
+
   labels = merge(var.labels, {
     "plane-deployment" = var.name
     "managed-by"       = "terraform-gcp-plane"
@@ -87,11 +93,10 @@ module "addons" {
   load_balancer_scheme = var.ingress.scheme
   web_address_name     = module.edge.web_address_name
   issue_certificate    = local.lets_encrypt
-  customer_secrets = compact([
+  customer_secrets = concat(compact([
     local.automated ? var.ingress.tls_certificate_secret : null,
     local.email.enabled ? local.email.certificate_secret : null,
-    var.enable_components.pi ? var.plane_ai.providers_secret : null,
-  ])
+  ]), distinct(values(local.pi_api_key_secrets)))
   secret_ids = module.data.secret_ids
 
   # Waits for the node pool. A module-level depends_on would defer every data source and make plans noisy.
@@ -119,7 +124,10 @@ module "plane" {
   use_storage_proxy  = var.use_storage_proxy
   rabbitmq           = var.rabbitmq
   opensearch         = var.opensearch
-  plane_ai           = var.plane_ai
+  pi = {
+    embedding_model = var.pi.api_keys.embedding_model
+    api_key_secrets = local.pi_api_key_secrets
+  }
 
   tls_certificate_secret = var.ingress.tls_certificate_secret
   helm_timeout           = var.helm_timeout

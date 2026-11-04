@@ -58,7 +58,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) needs plane_ai.providers_secret, opensearch.enabled and a plane_version with GCS support in Plane AI."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
@@ -67,17 +67,15 @@ variable "enable_components" {
   default = null
 }
 
-variable "plane_ai" {
-  description = <<-EOT
-    Plane AI (enable_components.pi). providers_secret: a Secret Manager secret in project_id, as
-    "projects/<project_id>/secrets/<name>", that you create before the apply; its value is JSON with the provider API
-    keys: COHERE_API_KEY or OPENAI_API_KEY (embeddings, matching embedding_model), OPENAI_API_KEY and/or CLAUDE_API_KEY
-    (the LLM), optionally GROQ_API_KEY. The keys never pass through Terraform. embedding_model: cohere/embed-v4.0,
-    openai/text-embedding-3-small or openai/text-embedding-ada-002 (1536 dimensions, shared with Plane's search index).
-  EOT
+variable "pi" {
+  description = "Plane AI's models (with enable_components.pi = true): OpenAI chat and Cohere embeddings by default, both keys required, each a plain-text Secret Manager secret in project_id."
   type = object({
-    providers_secret = optional(string)
-    embedding_model  = optional(string)
+    api_keys = optional(object({
+      chat_provider        = optional(string)
+      chat_key_secret      = optional(string)
+      embedding_model      = optional(string)
+      embedding_key_secret = optional(string)
+    }))
   })
   default = null
 }

@@ -83,6 +83,10 @@ variables {
   domain     = "plane.example.com"
   project_id = "plane-test-project"
   region     = "us-central1"
+
+  openai_key = "projects/plane-test-project/secrets/plane-openai-key"
+  cohere_key = "projects/plane-test-project/secrets/plane-cohere-key"
+  claude_key = "projects/plane-test-project/secrets/plane-claude-key"
 }
 
 run "gcs_workload_identity" {
@@ -283,7 +287,7 @@ run "pi_on_gcs" {
   variables {
     enable_components = { pi = true }
     plane_version     = "v99.0.0"
-    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+    pi                = { api_keys = { chat_key_secret = var.openai_key, embedding_key_secret = var.cohere_key } }
   }
 
   assert {
@@ -311,13 +315,58 @@ run "pi_on_gcs" {
       refreshInterval = "1h"
       secretStoreRef  = { name = "gcp-secret-manager", kind = "SecretStore" }
       target          = { name = "plane-ai-providers", creationPolicy = "Orphan" }
-      dataFrom        = [{ extract = { key = "acme-ai-keys" } }]
+      data = [
+        { secretKey = "COHERE_API_KEY", remoteRef = { key = "plane-cohere-key" } },
+        { secretKey = "OPENAI_API_KEY", remoteRef = { key = "plane-openai-key" } },
+      ]
     }
-    error_message = "An ExternalSecret must copy the customer's provider keys secret, by name, into plane-ai-providers."
+    error_message = "External Secrets must copy each key, by name, into the env var pi reads for its provider: OpenAI chat and Cohere embeddings by default."
+  }
+  assert {
+    condition     = toset(distinct(values(local.pi_api_key_secrets))) == toset([var.openai_key, var.cohere_key])
+    error_message = "External Secrets must be allowed to read both key secrets."
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.javaOpts == "-Xms1536m -Xmx1536m" && yamldecode(output.plane_helm_values).services.opensearch.memoryLimit == "3Gi"
     error_message = "With Plane AI, OpenSearch gets a 1.5 GB heap in a 3 GiB limit."
+  }
+}
+
+run "pi_anthropic_chat" {
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+    pi                = { api_keys = { chat_provider = "anthropic", chat_key_secret = var.claude_key, embedding_key_secret = var.cohere_key } }
+  }
+
+  assert {
+    condition = toset(one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
+      ])) == toset([
+      { secretKey = "CLAUDE_API_KEY", remoteRef = { key = "plane-claude-key" } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = "plane-cohere-key" } },
+    ])
+    error_message = "Anthropic chat reads its key from CLAUDE_API_KEY."
+  }
+}
+
+run "pi_openai_both" {
+  variables {
+    enable_components = { pi = true }
+    plane_version     = "v99.0.0"
+    pi = {
+      api_keys = { chat_key_secret = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret = var.openai_key }
+    }
+  }
+
+  assert {
+    condition = (
+      one([for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"]) == [
+        { secretKey = "OPENAI_API_KEY", remoteRef = { key = "plane-openai-key" } },
+      ]
+      && yamldecode(output.plane_helm_values).services.pi.ai_providers.embedding_model.name == "openai/text-embedding-3-small"
+    )
+    error_message = "OpenAI for both: one key, and the chosen embedding model."
   }
 }
 
@@ -326,26 +375,27 @@ run "reject_pi_without_opensearch" {
   variables {
     enable_components = { pi = true }
     plane_version     = "v99.0.0"
-    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+    pi                = { api_keys = { chat_key_secret = var.openai_key, embedding_key_secret = var.cohere_key } }
     opensearch        = { enabled = false }
   }
   expect_failures = [var.enable_components]
 }
 
-run "reject_pi_without_providers_secret" {
+run "reject_pi_without_keys" {
   command = plan
   variables {
     enable_components = { pi = true }
     plane_version     = "v99.0.0"
+    pi                = { api_keys = { chat_key_secret = var.openai_key } }
   }
-  expect_failures = [var.enable_components]
+  expect_failures = [var.pi]
 }
 
 run "reject_pi_below_plane_version_floor" {
   command = plan
   variables {
     enable_components = { pi = true }
-    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+    pi                = { api_keys = { chat_key_secret = var.openai_key, embedding_key_secret = var.cohere_key } }
   }
   expect_failures = [var.plane_version]
 }
@@ -355,24 +405,42 @@ run "pi_on_preview_build_tag" {
   variables {
     enable_components = { pi = true }
     plane_version     = "preview-abc1234"
-    plane_ai          = { providers_secret = "projects/plane-test-project/secrets/acme-ai-keys" }
+    pi                = { api_keys = { chat_key_secret = var.openai_key, embedding_key_secret = var.cohere_key } }
   }
+}
+
+run "reject_openai_two_keys" {
+  command = plan
+  variables {
+    pi = {
+      api_keys = { chat_key_secret = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret = var.cohere_key }
+    }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_secret_in_another_project" {
+  command = plan
+  variables {
+    pi = { api_keys = { chat_key_secret = "projects/other-project/secrets/plane-openai-key", embedding_key_secret = var.cohere_key } }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_bad_chat_provider" {
+  command = plan
+  variables {
+    pi = { api_keys = { chat_provider = "groq" } }
+  }
+  expect_failures = [var.pi]
 }
 
 run "reject_bad_embedding_model" {
   command = plan
   variables {
-    plane_ai = { embedding_model = "openai/text-embedding-3-large" }
+    pi = { api_keys = { embedding_model = "openai/text-embedding-3-large" } }
   }
-  expect_failures = [var.plane_ai]
-}
-
-run "reject_providers_secret_in_another_project" {
-  command = plan
-  variables {
-    plane_ai = { providers_secret = "projects/other-project/secrets/acme-ai-keys" }
-  }
-  expect_failures = [var.plane_ai]
+  expect_failures = [var.pi]
 }
 
 run "reject_bad_zone" {
@@ -402,7 +470,7 @@ run "plane_identity" {
     use_storage_proxy  = false
     rabbitmq           = { volume_size_gb = 10 }
     opensearch         = { enabled = true, volume_size_gb = 20, index_prefix = "plane" }
-    plane_ai           = { providers_secret = null, embedding_model = "cohere/embed-v4.0" }
+    pi                 = { embedding_model = "cohere/embed-v4.0", api_key_secrets = {} }
     helm_timeout       = 3600
     plane_values       = ""
     addons_ready       = "ready"

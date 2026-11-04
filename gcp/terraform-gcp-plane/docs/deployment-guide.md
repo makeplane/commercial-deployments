@@ -272,41 +272,40 @@ Plane AI runs on the same uploads bucket and in-cluster OpenSearch as Plane. It 
   `plane_version`.
 - **Search on** (`opensearch.enabled`, the default). With Plane AI, OpenSearch gets a larger memory allowance (1.5 GB
   heap, 3 GiB limit).
-- **An API key from your AI providers**, stored in Secret Manager before the apply.
+- **Two API keys:** OpenAI for chat and Cohere for embeddings (semantic search), each stored in Secret Manager before
+  the apply. The module refuses Plane AI without both keys.
 
-**1. Store the provider keys.** Create a secret in the **same project** as Plane (`project_id`), as a regular secret,
-whose value is JSON with the keys you have:
-
-| Key | Used for |
-|---|---|
-| `COHERE_API_KEY` | Embeddings (semantic search) with `cohere/embed-v4.0`, the default model |
-| `OPENAI_API_KEY` | The language model, and embeddings with `openai/text-embedding-3-small` or `openai/text-embedding-ada-002` |
-| `CLAUDE_API_KEY` | The language model (Anthropic) |
-| `GROQ_API_KEY` | Optional: Groq models |
+**1. Store the provider keys.** Create two secrets in the **same project** as Plane (`project_id`), each holding only
+the key, as plain text:
 
 ```bash
-jq -n --arg cohere "<cohere-key>" --arg claude "<anthropic-key>" \
-  '{COHERE_API_KEY: $cohere, CLAUDE_API_KEY: $claude}' |
-  gcloud secrets create plane-ai-providers --project <project-id> \
-    --replication-policy user-managed --locations <region> --data-file=-
+printf %s "<openai-key>" | gcloud secrets create plane-openai-key --project <project-id> \
+  --replication-policy=user-managed --locations=<region> --data-file=-
+printf %s "<cohere-key>" | gcloud secrets create plane-cohere-key --project <project-id> \
+  --replication-policy=user-managed --locations=<region> --data-file=-
 ```
 
 The keys go straight to Secret Manager: they never appear in `terraform.tfvars` or the Terraform state. The module
-lets External Secrets read this secret and copies it into the cluster.
+lets External Secrets read these two secrets and copies them into the cluster.
 
 **2. Turn Plane AI on** in `terraform.tfvars`:
 
 ```hcl
 enable_components = { pi = true }
-plane_ai          = { providers_secret = "projects/my-plane-project/secrets/plane-ai-providers" }
+pi = {
+  api_keys = {
+    chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
+    embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+  }
+}
 # plane_version = "<a release with Plane AI on Cloud Storage>" # if the module's default is older
 ```
 
-**Embedding model.** `plane_ai.embedding_model` defaults to `cohere/embed-v4.0`. If you only have an OpenAI key, set
-`plane_ai = { …, embedding_model = "openai/text-embedding-3-small" }`. Only these 1536-dimension models are accepted,
-because Plane's page search uses the same index size. Without a key for the chosen model, Plane AI still works but
-falls back to keyword search (BM25) instead of semantic search. If you add the key later, the model is set up at the
-next Plane upgrade, when Plane AI's migrations run.
+**Other providers.** For Anthropic chat, store the Anthropic key instead and set `chat_provider = "anthropic"`. For
+OpenAI embeddings, set `embedding_model = "openai/text-embedding-3-small"` (or `openai/text-embedding-ada-002`); with
+OpenAI chat too, use the same secret for both keys. Only these 1536-dimension embedding models are accepted, because
+Plane's page search uses the same index size. Choose the embedding model before you turn Plane AI on: changing it
+later means recreating Plane AI's indexes.
 
 **Outbound access.** Plane AI calls your providers' APIs over the internet through the module's Cloud NAT: the Plane AI
 pods call the language model, and the OpenSearch pod calls the embedding API. If your organisation restricts outbound
@@ -443,7 +442,7 @@ before applying.
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | Cloud SQL keeps the last 14 daily backups and 7 days of logs for point-in-time recovery. The uploads bucket keeps old versions of files for 30 days. Back up RabbitMQ and OpenSearch with disk snapshots (below). |
 | Secrets | Database, cache, RabbitMQ and OpenSearch credentials and Plane's app keys are in Secret Manager as `<name>-plane-*` (`terraform output secret_ids`). |
-| Rotate AI provider keys | Add a new version of your provider keys secret with the full JSON (`gcloud secrets versions add plane-ai-providers --project <project-id> --data-file=-`). Plane picks it up within an hour and restarts the Plane AI services. |
+| Rotate AI provider keys | Add a new version of the key's secret (`printf %s "<new-key>" \| gcloud secrets versions add plane-openai-key --project <project-id> --data-file=-`). Plane picks it up within an hour and restarts the Plane AI services. Plane AI keeps the embedding key in the OpenSearch connector it created, so a new embedding key also needs that connector updated. |
 
 **Never change** `name` or `domain` after installation, and never delete or change the `<name>-plane-app-keys` secret:
 Plane uses those keys to encrypt data, and the licence is bound to the domain.
@@ -534,10 +533,9 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 |---|---|---|
 | Browser certificate warning (A.1) | The certificate isn't issued yet: DNS doesn't resolve to the load balancer, the record is proxied, or port 80 isn't reachable from the internet | Check the record (`dig <domain>`), make it DNS-only, then `kubectl -n plane describe certificate plane-tls` and `kubectl -n plane get challenges` |
 | Browser certificate warning (A.2) | The certificate secret has the wrong keys or doesn't cover the domain | Keys must be `tls.crt` and `tls.key`; `kubectl -n plane describe externalsecret plane-web-tls` |
-| An ExternalSecret isn't `SecretSynced` | The secret doesn't exist in `project_id`, has no version, or isn't JSON with the expected keys | `kubectl -n plane describe externalsecret <name>`. Right after the first apply, Workload Identity can take a minute or two to work: the error clears on its own |
+| An ExternalSecret isn't `SecretSynced` | The secret doesn't exist in `project_id`, has no version, or isn't JSON with the expected keys (the AI provider keys are plain text) | `kubectl -n plane describe externalsecret <name>`. Right after the first apply, Workload Identity can take a minute or two to work: the error clears on its own |
 | `Invalid value for variable "ingress"` | Option A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret`; with Let's Encrypt keep the load balancer internet-facing and open |
-| `Invalid value for variable "enable_components"`, `"plane_version"` or `"plane_ai"` | Plane AI is on without its provider keys secret or search, with a Plane release older than the minimum, or with an unsupported embedding model | Set `plane_ai.providers_secret`, keep `opensearch.enabled`, raise `plane_version`, or pick one of the three embedding models (section 5) |
-| Plane AI answers but search isn't semantic | No key for the embedding model in the provider keys secret, so Plane AI uses keyword search | Add `COHERE_API_KEY` (or `OPENAI_API_KEY` for an OpenAI model) to the secret; the model is set up at the next Plane upgrade |
+| `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | Plane AI is on without search or without both API keys, with a Plane release older than the minimum, a secret in another project, or an unsupported provider or embedding model | Keep `opensearch.enabled`, set both `pi.api_keys` secrets (one secret when OpenAI does both), raise `plane_version`, or pick a supported provider and model (section 5) |
 | `Warning: Check block assertion failed` (email certificate) | No email certificate given | Informational: the email service uses a self-signed certificate. Set `email.certificate_secret` for a trusted one |
 | Apply fails because an API "has not been used in project … or it is disabled" | A newly enabled API wasn't ready yet, or `enable_apis = false` and the API is off | Wait a few minutes and apply again, or enable the API (section 2) |
 | Apply fails with `Insufficient regional quota` or `QUOTA_EXCEEDED` | Quota too low (often N2D CPUs or external IPs) | Raise the quota (section 2) and apply again |

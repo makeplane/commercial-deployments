@@ -184,54 +184,60 @@ like today's managed deployment); `email = { enabled = false }` turns the servic
 
 ## Plane AI
 
-Plane AI (pi) is off by default. `enable_components = { pi = true }` runs it on the same GCS bucket (keyless, through
-Plane's Workload Identity: no new IAM) and the `plane_pi` database the module already creates. It needs:
+Off by default. `enable_components = { pi = true }` turns it on, and the module then sets up everything it needs: a
+chat model and semantic search, on the same GCS bucket (keyless, through Plane's Workload Identity: no new IAM) and the
+`plane_pi` database the module already creates. Plane AI reads its models from its environment, which the module sets;
+there is nothing to configure in the admin UI. It needs:
 
-- **`opensearch.enabled`** (the default): Plane AI keeps its search and embeddings in the in-cluster OpenSearch. With
-  pi on, the module gives OpenSearch a 1.5 GB heap in a 3 GiB memory limit (chart 3.11.6+).
+- **`opensearch.enabled`** (the default): at its first start, Plane AI creates the embedding model in the in-cluster
+  OpenSearch (an ML connector to the provider), its pipelines and its indexes. With pi on, the module gives OpenSearch
+  a 1.5 GB heap in a 3 GiB memory limit (chart 3.11.6+).
 - **`plane_version`**: the first Plane release whose Plane AI supports GCS storage (named in this module's release
   notes). The module refuses older versions.
-- **`plane_ai.providers_secret`**: a Secret Manager secret **in `project_id`** that you create before the apply, as
-  `projects/<project_id>/secrets/<name>`. The module lets External Secrets read it and copies it into the cluster
-  (`plane-ai-providers`); the keys never pass through Terraform. Its value is JSON with the provider API keys:
-
-  | Key | Used for |
-  |---|---|
-  | `COHERE_API_KEY` | Embeddings with `cohere/embed-v4.0` (the default `plane_ai.embedding_model`) |
-  | `OPENAI_API_KEY` | The LLM, and embeddings with `openai/text-embedding-3-small` or `openai/text-embedding-ada-002` |
-  | `CLAUDE_API_KEY` | The LLM (Anthropic) |
-  | `GROQ_API_KEY` | Optional: Groq models |
+- **OpenAI and Cohere API keys.** Chat on OpenAI (`pi.api_keys.chat_provider`; or `anthropic`) and embeddings on
+  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or `openai/text-embedding-3-small` or
+  `openai/text-embedding-ada-002`), as today's Helm installs. Both keys are required: the module refuses Plane AI
+  without them. Store each as a plain-text secret in Secret Manager, **in `project_id`**, and pass them as
+  `projects/<project_id>/secrets/<name>`; for OpenAI chat and embeddings, one secret:
 
   ```bash
-  jq -n --arg cohere "$COHERE_API_KEY" --arg claude "$CLAUDE_API_KEY" \
-    '{COHERE_API_KEY: $cohere, CLAUDE_API_KEY: $claude}' |
-    gcloud secrets create plane-ai-providers --project my-plane-project --replication-policy user-managed \
-      --locations us-central1 --data-file=-
+  printf %s "$OPENAI_API_KEY" | gcloud secrets create plane-openai-key --project my-plane-project \
+    --replication-policy=user-managed --locations=us-central1 --data-file=-
+  printf %s "$COHERE_API_KEY" | gcloud secrets create plane-cohere-key --project my-plane-project \
+    --replication-policy=user-managed --locations=us-central1 --data-file=-
   ```
 
 ```hcl
 enable_components = { pi = true }
-plane_ai          = { providers_secret = "projects/my-plane-project/secrets/plane-ai-providers" }
+pi = {
+  api_keys = {
+    chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
+    embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+  }
+}
 ```
 
-**Embedding model:** `plane_ai.embedding_model` is one of the 1536-dimension models (`cohere/embed-v4.0`,
-`openai/text-embedding-3-small`, `openai/text-embedding-ada-002`), because Plane's page search index uses the same
-dimension. pi's migrator, which runs at every install and upgrade, sets up the model in OpenSearch from the matching
-key. Without that key, Plane AI falls back to BM25 keyword search (no semantic search); after adding the key, the
-model is set up at the next upgrade.
+The module lets External Secrets read the two secrets (and nothing else of yours) and copies each into the env var Plane
+AI reads for its provider (`OPENAI_API_KEY` or `CLAUDE_API_KEY` for chat, `COHERE_API_KEY` or `OPENAI_API_KEY` for
+embeddings) in the `plane-ai-providers` Secret; the keys never pass through Terraform or Helm values.
 
-**Egress:** the pi pods call the LLM providers' APIs, and the OpenSearch pod calls the embedding provider's API, over
-the internet through the module's Cloud NAT. If you restrict egress, allow HTTPS to the providers you use (for example
-`api.cohere.ai`, `api.openai.com`, `api.anthropic.com`).
+**Embedding model:** only the 1536-dimension models above, because Plane's page search index uses the same dimension.
+The embedding model is registered once, at Plane AI's first start, and its dimension fixes Plane AI's indexes: choose it
+before you turn Plane AI on. The chat model changes with an apply.
+
+**Egress:** the pi pods call the chat provider's API, and the OpenSearch pod calls the embedding provider's API, over
+the internet through the module's Cloud NAT. If you restrict egress, allow HTTPS to the providers you use
+(`api.openai.com`, `api.cohere.ai`, `api.anthropic.com`).
 
 **Rotating keys:** add a new version of the secret. It's picked up within an hour, and Reloader restarts the pi
-workloads.
+workloads. Plane AI puts the embedding key into the OpenSearch connector it creates, so a rotated embedding key also
+needs the connector updated.
 
 ## After install
 
 Open `https://<domain>`, finish the setup wizard, then activate your Plane licence key. SMTP, SSO and AI provider
 keys are configured in the admin UI (`/god-mode`) in this release; Plane AI (pi) reads its keys from
-`plane_ai.providers_secret` instead.
+the `pi.api_keys` secrets instead.
 
 ## Things to know
 
@@ -296,7 +302,7 @@ keys are configured in the admin UI (`/god-mode`) in this release; Plane AI (pi)
 | deployment\_mode | How Plane runs. Only "gke" is available in this release. | `string` | `"gke"` | no |
 | email | Plane's email service (inbound email to work items). On by default with its own internet-facing passthrough load<br/>balancer on a reserved static IP (ports 25 SMTP, 465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is<br/>the domain that receives mail (default "intake.<domain>"): create an A record for it pointing at the<br/>email\_load\_balancer\_ip output and an MX record naming it (see dns\_records). Certificate: your own via<br/>certificate\_secret (a Secret Manager secret like ingress.tls\_certificate\_secret), else the email app's own<br/>self-signed certificate (fine for receiving mail). load\_balancer = false keeps the service running with no load<br/>balancer (not reachable from the internet); enabled = false turns the service and its load balancer off. | <pre>object({<br/>    enabled            = optional(bool, true)<br/>    smtp_domain        = optional(string)<br/>    load_balancer      = optional(bool, true)<br/>    certificate_secret = optional(string)<br/>  })</pre> | `{}` | no |
 | enable\_apis | Enable the project APIs the module needs (Compute, GKE, Service Networking, Cloud SQL Admin, Memorystore, Secret Manager, IAM, Cloud Storage). They are left on at destroy. Set false when your organisation enables APIs centrally. | `bool` | `true` | no |
-| enable\_components | Optional Plane workloads. pi (Plane AI) needs plane\_ai.providers\_secret, opensearch.enabled and a plane\_version with GCS support in Plane AI. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
+| enable\_components | Optional Plane workloads. pi (Plane AI) needs both pi.api\_keys secrets, opensearch.enabled and a plane\_version with GCS support in Plane AI. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | ingress | How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind a GCP passthrough<br/>network load balancer on a reserved static IP, Plane's routes and the certificates (Let's Encrypt via acme\_email, or<br/>your own via tls\_certificate\_secret). mode = "none" (path B, default): the module installs no ingress controller or<br/>routes; you bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the<br/>records are yours in both paths (see the dns\_records output). Path A only: allowed\_cidrs (who can reach Plane),<br/>scheme (internet-facing, or internal: an internal load balancer on an IP in the module's subnet) and<br/>tls\_certificate\_secret (a Secret Manager secret in project\_id, as "projects/<project\_id>/secrets/<name>", whose<br/>value is JSON with the keys "tls.crt" (full chain) and "tls.key"). | <pre>object({<br/>    mode                   = optional(string, "none")<br/>    allowed_cidrs          = optional(list(string), ["0.0.0.0/0"])<br/>    scheme                 = optional(string, "internet-facing")<br/>    tls_certificate_secret = optional(string)<br/>  })</pre> | `{}` | no |
 | labels | Labels applied to every GCP resource that supports them (GCP label rules: lowercase keys and values, digits, hyphens and underscores). | `map(string)` | `{}` | no |
@@ -304,7 +310,7 @@ keys are configured in the admin UI (`/god-mode`) in this release; Plane AI (pi)
 | network | Address ranges of the VPC the module creates: subnet\_cidr (nodes and internal load balancers), pods\_cidr and<br/>services\_cidr (the subnet's secondary ranges for GKE) and private\_service\_cidr (private services access, for Cloud<br/>SQL and Memorystore). They must not overlap each other or networks you will peer or VPN with. The defaults all sit<br/>in 10.60.0.0/15 and avoid 10.0.0.0/16. | <pre>object({<br/>    subnet_cidr          = optional(string, "10.60.0.0/20")<br/>    services_cidr        = optional(string, "10.60.16.0/20")<br/>    private_service_cidr = optional(string, "10.60.32.0/20")<br/>    pods_cidr            = optional(string, "10.61.0.0/16")<br/>  })</pre> | `{}` | no |
 | node\_pool | The GKE node pool, in every zone of the cluster (3 by default): min\_per\_zone to max\_per\_zone nodes per zone, scaled<br/>by the GKE cluster autoscaler (1-2 per zone, so 3-6 nodes). The third node, compared with AWS, carries the in-cluster<br/>OpenSearch and RabbitMQ. spot = true uses Spot VMs (cheaper, can be reclaimed: tests only). | <pre>object({<br/>    machine_type = optional(string, "n2d-standard-4")<br/>    min_per_zone = optional(number, 1)<br/>    max_per_zone = optional(number, 2)<br/>    disk_size_gb = optional(number, 50)<br/>    disk_type    = optional(string, "pd-balanced")<br/>    spot         = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | opensearch | OpenSearch for Plane's search, run in the cluster by the chart (GCP has no managed OpenSearch), on by default as in<br/>today's deployments: one node on a persistent disk of volume\_size\_gb, credentials generated, stored in Secret<br/>Manager and synced by External Secrets. The chart's Job creates the search indexes after every install and upgrade.<br/>enabled = false: Plane runs with search indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    volume_size_gb = optional(number, 20)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
-| plane\_ai | Plane AI (enable\_components.pi). providers\_secret: a Secret Manager secret in project\_id, as<br/>"projects/<project\_id>/secrets/<name>", that you create before the apply; its value is JSON with the provider API<br/>keys: COHERE\_API\_KEY or OPENAI\_API\_KEY (embeddings, matching embedding\_model), OPENAI\_API\_KEY and/or CLAUDE\_API\_KEY<br/>(the LLM), optionally GROQ\_API\_KEY. The keys never pass through Terraform. embedding\_model: cohere/embed-v4.0,<br/>openai/text-embedding-3-small or openai/text-embedding-ada-002 (1536 dimensions, shared with Plane's search index). | <pre>object({<br/>    providers_secret = optional(string)<br/>    embedding_model  = optional(string, "cohere/embed-v4.0")<br/>  })</pre> | `{}` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api\_keys.chat\_provider;<br/>or Anthropic) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0; or openai/text-embedding-3-small<br/>or openai/text-embedding-ada-002, 1536 dimensions like Plane's search index). Both API keys are required: each is a<br/>plain-text Secret Manager secret in project\_id, as "projects/<project\_id>/secrets/<name>" (one secret for both when<br/>OpenAI does chat and embeddings). Choose the embedding model before Plane AI's first start: changing it later needs<br/>Plane AI's indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider        = optional(string, "openai")<br/>      chat_key_secret      = optional(string)<br/>      embedding_model      = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). Plane AI (enable\_components.pi) needs the first release whose pi supports GCS storage; the module checks it. | `string` | `"v4.0.1"` | no |
 | postgres | Cloud SQL for PostgreSQL: private IP only, TLS required (ENCRYPTED\_ONLY), regional high availability, backups with<br/>point-in-time recovery. The module creates the databases plane and plane\_pi and the user plane (password generated,<br/>in Secret Manager). deletion\_protection turns on both Terraform's and Cloud SQL's own protection. | <pre>object({<br/>    database_version       = optional(string, "POSTGRES_15")<br/>    tier                   = optional(string, "db-custom-2-8192")<br/>    edition                = optional(string, "ENTERPRISE")<br/>    availability_type      = optional(string, "REGIONAL")<br/>    disk_size_gb           = optional(number, 100)<br/>    disk_type              = optional(string, "PD_SSD")<br/>    backup_retention_days  = optional(number, 14)<br/>    point_in_time_recovery = optional(bool, true)<br/>    deletion_protection    = optional(bool, true)<br/>  })</pre> | `{}` | no |

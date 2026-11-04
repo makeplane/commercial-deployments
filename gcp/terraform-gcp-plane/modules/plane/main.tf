@@ -51,20 +51,18 @@ locals {
     secrets = { "helm.sh/hook" = "pre-install,pre-upgrade", "helm.sh/hook-weight" = "-5", "helm.sh/hook-delete-policy" = "before-hook-creation" }
   }
 
-  # The customer's AI provider keys (JSON), read by the pi workloads and live. The root module checks the project.
   ai_providers_secret = "plane-ai-providers"
-  pi_secrets          = var.enable_components.pi ? { (local.ai_providers_secret) = regex("[^/]+$", var.plane_ai.providers_secret) } : {}
 
-  # Every plane_ai.embedding_model has 1536 dimensions; Plane's page search index uses the same.
+  # Every pi embedding model has 1536 dimensions; Plane's page search index uses the same.
   embedding_dimension = 1536
 
   external_secret = {
-    for name, key in merge({
+    for name, key in {
       "plane-db"       = var.data.secret_names.postgres
       "plane-redis"    = var.data.secret_names.redis
       "plane-rabbitmq" = var.data.secret_names.rabbitmq
       "plane-app-keys" = var.data.secret_names.app_keys
-      }, local.pi_secrets) : name => {
+      } : name => {
       apiVersion = "external-secrets.io/v1"
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
@@ -76,6 +74,20 @@ locals {
         target   = { name = name, creationPolicy = "Orphan" }
         dataFrom = [{ extract = { key = key } }]
       }
+    }
+  }
+
+  # The customer's provider keys, each in the env var pi reads; the root module checks the project.
+  # pi puts the embedding key into the OpenSearch connector it creates.
+  pi_api_keys_object = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = local.ai_providers_secret, annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = local.ai_providers_secret, creationPolicy = "Orphan" }
+      data            = [for env, secret in var.pi.api_key_secrets : { secretKey = env, remoteRef = { key = regex("[^/]+$", secret) } }]
     }
   }
 
@@ -207,7 +219,7 @@ locals {
       { enabled = var.enable_components.pi },
       var.enable_components.pi ? {
         ai_providers = {
-          embedding_model = { enabled = true, name = var.plane_ai.embedding_model, embedding_dimension = local.embedding_dimension }
+          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = local.embedding_dimension }
         }
       } : {},
     )
@@ -314,6 +326,7 @@ locals {
       [local.secret_store_object],
       values(local.external_secret),
       var.data.opensearch_enabled ? [local.opensearch_external_secret] : [],
+      var.enable_components.pi ? [local.pi_api_keys_object] : [],
       var.data.redis_tls ? [local.redis_ca_object] : [],
       local.certificate_objects,
       values(local.customer_certificates),

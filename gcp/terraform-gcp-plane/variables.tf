@@ -92,7 +92,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) needs plane_ai.providers_secret, opensearch.enabled and a plane_version with GCS support in Plane AI."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with GCS support in Plane AI."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -105,34 +105,51 @@ variable "enable_components" {
     condition     = !var.enable_components.pi || var.opensearch.enabled
     error_message = "enable_components.pi needs opensearch.enabled = true: Plane AI keeps its search and embeddings in OpenSearch."
   }
-  validation {
-    condition     = !var.enable_components.pi || var.plane_ai.providers_secret != null
-    error_message = "enable_components.pi needs plane_ai.providers_secret: a Secret Manager secret holding the AI provider API keys (JSON)."
-  }
 }
 
-variable "plane_ai" {
+variable "pi" {
   description = <<-EOT
-    Plane AI (enable_components.pi). providers_secret: a Secret Manager secret in project_id, as
-    "projects/<project_id>/secrets/<name>", that you create before the apply; its value is JSON with the provider API
-    keys: COHERE_API_KEY or OPENAI_API_KEY (embeddings, matching embedding_model), OPENAI_API_KEY and/or CLAUDE_API_KEY
-    (the LLM), optionally GROQ_API_KEY. The keys never pass through Terraform. embedding_model: cohere/embed-v4.0,
-    openai/text-embedding-3-small or openai/text-embedding-ada-002 (1536 dimensions, shared with Plane's search index).
+    Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
+    (pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api_keys.chat_provider;
+    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or openai/text-embedding-3-small
+    or openai/text-embedding-ada-002, 1536 dimensions like Plane's search index). Both API keys are required: each is a
+    plain-text Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>" (one secret for both when
+    OpenAI does chat and embeddings). Choose the embedding model before Plane AI's first start: changing it later needs
+    Plane AI's indexes recreated.
   EOT
   type = object({
-    providers_secret = optional(string)
-    embedding_model  = optional(string, "cohere/embed-v4.0")
+    api_keys = optional(object({
+      chat_provider        = optional(string, "openai")
+      chat_key_secret      = optional(string)
+      embedding_model      = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret = optional(string)
+    }), {})
   })
   default  = {}
   nullable = false
 
   validation {
-    condition     = var.plane_ai.providers_secret == null || can(regex("^projects/${var.project_id}/secrets/[A-Za-z0-9_-]{1,255}$", var.plane_ai.providers_secret))
-    error_message = "plane_ai.providers_secret must be a Secret Manager secret in project_id, as \"projects/<project_id>/secrets/<name>\"."
+    condition     = !var.enable_components.pi || (var.pi.api_keys.chat_key_secret != null && var.pi.api_keys.embedding_key_secret != null)
+    error_message = "Plane AI needs both API keys: pi.api_keys.chat_key_secret and pi.api_keys.embedding_key_secret."
   }
   validation {
-    condition     = contains(["cohere/embed-v4.0", "openai/text-embedding-3-small", "openai/text-embedding-ada-002"], var.plane_ai.embedding_model)
-    error_message = "plane_ai.embedding_model must be cohere/embed-v4.0, openai/text-embedding-3-small or openai/text-embedding-ada-002: the search index uses 1536 dimensions."
+    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+  }
+  validation {
+    condition     = contains(["cohere/embed-v4.0", "openai/text-embedding-3-small", "openai/text-embedding-ada-002"], var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be cohere/embed-v4.0, openai/text-embedding-3-small or openai/text-embedding-ada-002: the search index uses 1536 dimensions."
+  }
+  validation {
+    condition = alltrue([
+      for s in [var.pi.api_keys.chat_key_secret, var.pi.api_keys.embedding_key_secret] :
+      s == null || can(regex("^projects/${var.project_id}/secrets/[A-Za-z0-9_-]{1,255}$", s))
+    ])
+    error_message = "pi.api_keys secrets must be Secret Manager secrets in project_id, as \"projects/<project_id>/secrets/<name>\"."
+  }
+  validation {
+    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret == var.pi.api_keys.embedding_key_secret
+    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret for both."
   }
 }
 

@@ -103,14 +103,18 @@ domain = "plane.example.com" # never change after install
 # enable_components = {
 #   silo   = true
 #   drawio = true
-#   pi     = false # Plane AI: also set plane_ai below (needs opensearch and a plane_version with GCS support in pi)
+#   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with GCS support in pi)
 # }
 
-# Plane AI. Create the secret first: JSON with COHERE_API_KEY or OPENAI_API_KEY (embeddings),
-# OPENAI_API_KEY and/or CLAUDE_API_KEY (the LLM), optionally GROQ_API_KEY.
-# plane_ai = {
-#   providers_secret = null                # e.g. "projects/my-plane-project/secrets/plane-ai-providers"
-#   embedding_model  = "cohere/embed-v4.0" # or openai/text-embedding-3-small, openai/text-embedding-ada-002
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
+# a plain-text Secret Manager secret in project_id; both are required.
+# pi = {
+#   api_keys = {
+#     chat_provider        = "openai" # or "anthropic"
+#     chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
+#     embedding_model      = "cohere/embed-v4.0" # or openai/text-embedding-3-small, openai/text-embedding-ada-002
+#     embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+#   }
 # }
 
 # use_storage_proxy    = false

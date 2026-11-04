@@ -109,7 +109,7 @@ run "external_secrets_identity" {
   }
   variables {
     issue_certificate = true
-    customer_secrets  = ["projects/plane-test-project/secrets/plane-mail-tls", "projects/plane-test-project/secrets/plane-ai-providers"]
+    customer_secrets  = ["projects/plane-test-project/secrets/plane-mail-tls", "projects/plane-test-project/secrets/plane-openai-key", "projects/plane-test-project/secrets/plane-cohere-key"]
   }
 
   assert {
@@ -129,7 +129,7 @@ run "external_secrets_identity" {
     error_message = "External Secrets must be allowed to read each module secret."
   }
   assert {
-    condition     = toset(keys(google_secret_manager_secret_iam_member.external_secrets_customer)) == toset(["plane-mail-tls", "plane-ai-providers"])
+    condition     = toset(keys(google_secret_manager_secret_iam_member.external_secrets_customer)) == toset(["plane-mail-tls", "plane-openai-key", "plane-cohere-key"])
     error_message = "External Secrets must be allowed to read the customer's secrets (certificates, AI provider keys), by name."
   }
   assert {
