@@ -147,8 +147,8 @@ run "a1_lets_encrypt" {
 
 run "a2_own_certificates" {
   variables {
-    ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls" }
-    email   = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls" }
+    ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls-AbCdEf" }
+    email   = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls-AbCdEf" }
   }
 
   assert {
@@ -174,7 +174,7 @@ run "a2_own_certificates" {
 
 run "path_b_email_certificate" {
   variables {
-    email = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls" }
+    email = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls-AbCdEf" }
   }
 
   assert {
@@ -202,7 +202,7 @@ run "reject_automated_without_certificate" {
 run "reject_automated_with_both_certificates" {
   command = plan
   variables {
-    ingress    = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls" }
+    ingress    = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls-AbCdEf" }
     acme_email = "ops@example.com"
   }
   expect_failures = [var.ingress]

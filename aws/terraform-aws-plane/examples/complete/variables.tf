@@ -109,8 +109,8 @@ variable "ingress" {
     default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and
     DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns_records output).
     Path A only: allowed_cidrs (who can reach Plane), scheme (internet-facing or internal) and
-    tls_certificate_secret_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted
-    with the default aws/secretsmanager key or this module's KMS key).
+    tls_certificate_secret_arn (the full ARN of a Secrets Manager secret in this account and region, with JSON keys
+    "tls.crt" and "tls.key", full chain, encrypted with the default aws/secretsmanager key or this module's KMS key).
   EOT
   type = object({
     mode                       = optional(string)

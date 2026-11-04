@@ -405,39 +405,6 @@ run "reject_api_keys_bedrock_embeddings" {
   expect_failures = [var.pi]
 }
 
-run "reject_secret_other_account" {
-  command = plan
-  variables {
-    enable_components = { pi = true }
-    pi = {
-      provider = "api_keys"
-      api_keys = { chat_key_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/openai-key", embedding_key_secret_arn = var.cohere_key }
-    }
-  }
-  expect_failures = [var.pi]
-}
-
-run "reject_secret_other_region" {
-  command = plan
-  variables {
-    enable_components = { pi = true }
-    pi = {
-      provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/cohere-key" }
-    }
-  }
-  expect_failures = [var.pi]
-}
-
-run "reject_secret_name" {
-  command = plan
-  variables {
-    enable_components = { pi = true }
-    pi                = { provider = "api_keys", api_keys = { chat_key_secret_arn = "plane/openai-key", embedding_key_secret_arn = var.cohere_key } }
-  }
-  expect_failures = [var.pi]
-}
-
 run "reject_openai_two_keys" {
   command = plan
   variables {

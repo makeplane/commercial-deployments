@@ -159,11 +159,12 @@ variable "pi" {
     error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", [for m in keys(local.pi_embedding_dimensions) : m if !startswith(m, "bedrock/")])}."
   }
   validation {
-    condition = alltrue([
-      for arn in [var.pi.api_keys.chat_key_secret_arn, var.pi.api_keys.embedding_key_secret_arn] :
-      arn == null || can(regex("^arn:aws[a-z-]*:secretsmanager:${local.region}:${local.account_id}:secret:.+$", arn))
-    ])
-    error_message = "pi.api_keys secrets must be full ARNs of Secrets Manager secrets in this account and region."
+    condition     = var.pi.api_keys.chat_key_secret_arn == null || can(regex(local.secret_arn_regex, var.pi.api_keys.chat_key_secret_arn))
+    error_message = "pi.api_keys.chat_key_secret_arn must be ${local.secret_arn_format}."
+  }
+  validation {
+    condition     = var.pi.api_keys.embedding_key_secret_arn == null || can(regex(local.secret_arn_regex, var.pi.api_keys.embedding_key_secret_arn))
+    error_message = "pi.api_keys.embedding_key_secret_arn must be ${local.secret_arn_format}."
   }
   validation {
     condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret_arn == var.pi.api_keys.embedding_key_secret_arn
@@ -190,8 +191,8 @@ variable "ingress" {
     default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and
     DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns_records output).
     Path A only: allowed_cidrs (who can reach Plane), scheme (internet-facing or internal) and
-    tls_certificate_secret_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted
-    with the default aws/secretsmanager key or this module's KMS key).
+    tls_certificate_secret_arn (the full ARN of a Secrets Manager secret in this account and region, with JSON keys
+    "tls.crt" and "tls.key", full chain, encrypted with the default aws/secretsmanager key or this module's KMS key).
   EOT
   type = object({
     mode                       = optional(string, "none")
@@ -217,6 +218,10 @@ variable "ingress" {
   validation {
     condition     = !(var.ingress.mode == "automated" && var.acme_email != null) || (contains(var.ingress.allowed_cidrs, "0.0.0.0/0") && var.ingress.scheme == "internet-facing")
     error_message = "Let's Encrypt (acme_email) uses HTTP-01, which needs Plane reachable from the internet on port 80: ingress.allowed_cidrs must include 0.0.0.0/0 and ingress.scheme must be internet-facing. Use your own certificate (ingress.tls_certificate_secret_arn) to restrict access."
+  }
+  validation {
+    condition     = var.ingress.tls_certificate_secret_arn == null || can(regex(local.secret_arn_regex, var.ingress.tls_certificate_secret_arn))
+    error_message = "ingress.tls_certificate_secret_arn must be ${local.secret_arn_format}."
   }
 }
 
@@ -417,6 +422,11 @@ variable "email" {
   })
   default  = {}
   nullable = false
+
+  validation {
+    condition     = var.email.certificate_secret_arn == null || can(regex(local.secret_arn_regex, var.email.certificate_secret_arn))
+    error_message = "email.certificate_secret_arn must be ${local.secret_arn_format}."
+  }
 }
 
 variable "bucket_force_destroy" {
@@ -443,12 +453,8 @@ variable "app_keys_secret_arn" {
   default     = null
 
   validation {
-    condition     = var.app_keys_secret_arn == null || can(regex("^arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+-[A-Za-z0-9]{6}$", var.app_keys_secret_arn))
-    error_message = "app_keys_secret_arn must be the full ARN of a Secrets Manager secret (arn:aws:secretsmanager:<region>:<account>:secret:<name>-<6 characters>), as aws secretsmanager create-secret prints it."
-  }
-  validation {
-    condition     = var.app_keys_secret_arn == null || try(split(":", var.app_keys_secret_arn)[3] == data.aws_region.current.region && split(":", var.app_keys_secret_arn)[4] == data.aws_caller_identity.current.account_id, false)
-    error_message = "app_keys_secret_arn must be in the same AWS account and region as Plane."
+    condition     = var.app_keys_secret_arn == null || can(regex(local.secret_arn_regex, var.app_keys_secret_arn))
+    error_message = "app_keys_secret_arn must be ${local.secret_arn_format}."
   }
 }
 

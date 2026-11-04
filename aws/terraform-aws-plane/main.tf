@@ -26,6 +26,10 @@ locals {
   })
   region     = data.aws_region.current.region
   account_id = data.aws_caller_identity.current.account_id
+  # Customer secrets: External Secrets reads this region's Secrets Manager and is granted each exact ARN, so
+  # only a full ARN (with its 6-character suffix) in this account and region works.
+  secret_arn_regex  = "^arn:aws[a-z-]*:secretsmanager:${local.region}:${local.account_id}:secret:[A-Za-z0-9/_+=.@-]+-[A-Za-z0-9]{6}$"
+  secret_arn_format = "a full Secrets Manager secret ARN in this account and region, as aws secretsmanager create-secret prints it (arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:<name>-<6 characters>)"
 
   # Plane AI's embedding models (pi/core/embedding_config.py) and their vector dimensions; Bedrock
   # ones with the Bedrock model ID behind pi's key.

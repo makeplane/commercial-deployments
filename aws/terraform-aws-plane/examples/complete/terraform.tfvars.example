@@ -14,11 +14,11 @@ domain = "plane.example.com" # never change after install
 # A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
 # ingress    = { mode = "automated" }
 # acme_email = "ops@example.com"
-# email      = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; else self-signed
+# email      = { certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/mail-tls-..." } # optional; else self-signed
 
 # A.2  Your own certificates, stored in Secrets Manager before the apply (JSON keys "tls.crt" and "tls.key")
-# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/web-tls" }
-# email   = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; same ARN if it covers both names
+# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/web-tls-..." }
+# email   = { certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/mail-tls-..." } # optional; same ARN if it covers both names
 
 # Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
 # apply Plane's routes, add your certificate and DNS records.

@@ -39,6 +39,8 @@
   (`ingress.tls_certificate_secret_arn`); **none** (path B, default) installs no ingress controller or routes. The
   module configures no DNS: the `dns_records` output lists the records to create. Email certificate from Secrets
   Manager (`email.certificate_secret_arn`) in either path, else self-signed (a warning in path A).
+- Every Secrets Manager ARN you pass (certificates, Plane AI keys, `app_keys_secret_arn`) is checked at plan: a full
+  ARN with its 6-character suffix, in this account and region (External Secrets is granted each exact ARN).
 - Plane AI set up end to end when `enable_components.pi = true` (`pi` input): chat and semantic search. Default
   `pi.provider = "api_keys"`: OpenAI chat and Cohere embeddings (or Anthropic chat, OpenAI embeddings), both keys
   required, from Secrets Manager through External Secrets. Alternative `pi.provider = "bedrock"`, keyless: application
