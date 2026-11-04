@@ -157,8 +157,6 @@ images:
     newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/live-commercial
     newTag: app-version-driven
-  - name: artifacts.plane.so/makeplane/monitor-commercial
-    newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/silo-commercial
     newTag: app-version-driven
   - name: artifacts.plane.so/makeplane/email-commercial
@@ -182,11 +180,6 @@ replacements:
     targets:
       - select:
           kind: ConfigMap
-          name: plane-monitor-vars
-        fieldPaths:
-          - data.APP_VERSION
-      - select:
-          kind: ConfigMap
           name: plane-app-vars
         fieldPaths:
           - data.APP_VERSION
@@ -194,9 +187,9 @@ replacements:
   # Drive every workload's image tag from APP_VERSION (single source of truth).
   # plane-iframely-wl has independent versioning — rejected.
   # In-cluster infra StatefulSets (postgres/redis/rabbitmq/minio/opensearch) and
-  # the minio bucket-create Job use unrelated images — only the matching
-  # workloads (plane-monitor StatefulSet, plane-migrator Job) are explicitly
-  # selected so infra is never retagged.
+  # the minio bucket-create Job use unrelated images — StatefulSets are not
+  # selected at all, and Jobs only by name (the migrators), so infra is never
+  # retagged.
   # If custom-ca is enabled in this overlay, add an initContainers.*.image target
   # block (mirroring the phoenix overlay) to tag the CA-cert init containers.
   - source:
@@ -209,14 +202,6 @@ replacements:
         reject:
           - name: plane-iframely-wl
           - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
-        fieldPaths:
-          - spec.template.spec.containers.*.image
-        options:
-          delimiter: ":"
-          index: 1
-      - select:
-          kind: StatefulSet
-          name: plane-monitor
         fieldPaths:
           - spec.template.spec.containers.*.image
         options:
@@ -253,11 +238,6 @@ replacements:
       - select:
           kind: ConfigMap
           name: plane-app-vars
-        fieldPaths:
-          - data.APP_DOMAIN
-      - select:
-          kind: ConfigMap
-          name: plane-monitor-vars
         fieldPaths:
           - data.APP_DOMAIN
 
@@ -328,41 +308,28 @@ replacements:
     targets:
       - select:
           kind: ConfigMap
-          name: plane-monitor-vars
-        fieldPaths:
-          - data.IS_AIRGAPPED
-      - select:
-          kind: ConfigMap
           name: plane-app-vars
         fieldPaths:
           - data.IS_AIRGAPPED
-
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.MONITOR_STORAGE_CLASS
-    targets:
-      - select:
-          kind: StatefulSet
-          name: plane-monitor
-        fieldPaths:
-          - spec.volumeClaimTemplates.0.spec.storageClassName
 
   - source:
       kind: ConfigMap
       name: overlay-vars
       fieldPath: data.PRIME_HOST
     targets:
+      # PRIME_HOST is also the payment server. Monitor used to proxy it at
+      # plane-monitor:8080; it is gone, so the api and silo call prime directly.
       - select:
           kind: ConfigMap
           name: plane-app-vars
         fieldPaths:
           - data.PRIME_HOST
+          - data.PAYMENT_SERVER_BASE_URL
       - select:
           kind: ConfigMap
-          name: plane-monitor-vars
+          name: plane-silo-vars
         fieldPaths:
-          - data.PRIME_HOST
+          - data.PAYMENT_SERVER_BASE_URL
 
   - source:
       kind: ConfigMap
@@ -472,6 +439,27 @@ replacements:
           name: plane-live-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
+
+  # RUNNER_HMAC_SECRET_KEY must match on both sides: the api family signs every call
+  # to node-runner with it and node-runner verifies. node-runner (plane-ee #10209 on)
+  # exits at startup when NODE_ENV=production and the key is empty. plane-app-secrets
+  # reaches every backend-commercial workload -- api, workers, automation-consumer,
+  # the migrator -- so no per-workload wiring is needed on the signing side.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.RUNNER_HMAC_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.RUNNER_HMAC_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-node-runner-secrets
+        fieldPaths:
+          - stringData.RUNNER_HMAC_SECRET_KEY
 
   - source:
       kind: Secret

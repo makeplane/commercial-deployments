@@ -45,8 +45,6 @@ data:
   # Other configuration flags
   IS_AIRGAPPED: "0"
 
-  # Storage class for monitor StatefulSet PVC — gp2 matches this overlay's intent
-  MONITOR_STORAGE_CLASS: "gp2"
 
   # OpenSearch configuration
   OPENSEARCH_INDEX_PREFIX: "plane"
