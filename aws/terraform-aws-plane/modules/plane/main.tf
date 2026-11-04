@@ -93,6 +93,59 @@ locals {
     spec = { provider = { aws = { service = "SecretsManager", region = var.region } } }
   }
 
+  # Plane AI: an embedding model (pi creates it in OpenSearch at startup) and a chat model, either on
+  # Amazon Bedrock through inference profiles (keyless) or with provider API keys from Secrets Manager.
+  pi_bedrock   = var.pi.mode == "bedrock"
+  pi_api_keys  = var.pi.mode == "api_keys"
+  pi_ai_secret = "${local.release}-ai-providers"
+
+  pi_ai_providers = merge(
+    { for k, v in {
+      embedding_model = {
+        enabled             = true
+        name                = var.pi.embedding_model
+        embedding_dimension = var.pi.embedding_dimension
+        aws_region          = var.region
+      }
+    } : k => v if var.pi.mode != null },
+    # pi's custom LLM on Bedrock: with a profile and a pod identity it calls the profile keylessly.
+    { for k, v in {
+      custom_llm = {
+        enabled    = true
+        provider   = "bedrock"
+        model_key  = try(var.pi.bedrock.chat_model_id, null)
+        name       = try(var.pi.bedrock.chat_model_name, null)
+        max_tokens = try(var.pi.bedrock.chat_max_tokens, null)
+        aws_region = var.region
+      }
+      bedrock = {
+        enabled               = true
+        inference_profile_arn = try(aws_bedrock_inference_profile.pi["chat"].arn, null)
+        region                = var.region
+      }
+    } : k => v if local.pi_bedrock },
+  )
+
+  # Each key in the env var pi reads for its provider. pi puts the embedding key into the
+  # OpenSearch connector it creates.
+  pi_api_keys_object = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = local.pi_ai_secret, annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = local.pi_ai_secret, creationPolicy = "Orphan" }
+      data            = [for env, arn in var.pi.api_key_secrets : { secretKey = env, remoteRef = { key = arn } }]
+    }
+  }
+
+  # The chart has no values for these: identifiers, not secrets, so they go in extraEnv.
+  pi_bedrock_env = local.pi_bedrock ? [
+    { name = "BEDROCK_EMBEDDING_INFERENCE_PROFILE_ARN", value = try(aws_bedrock_inference_profile.pi["embeddings"].arn, null) },
+    { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = one(aws_iam_role.pi_connector[*].arn) },
+  ] : []
+
   # pi needs its own database; the chart doesn't create it yet (chart change C-1).
   db_init_job = {
     apiVersion = "batch/v1"
@@ -210,8 +263,11 @@ locals {
   component_services = {
     email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
-    pi            = { enabled = var.enable_components.pi }
-    drawio        = { local_setup = var.enable_components.drawio }
+    pi = merge(
+      { enabled = var.enable_components.pi },
+      { for k, v in { ai_providers = local.pi_ai_providers } : k => v if length(local.pi_ai_providers) > 0 },
+    )
+    drawio = { local_setup = var.enable_components.drawio }
   }
 
   reloader_services = {
@@ -250,7 +306,7 @@ locals {
       )
     }
 
-    env = {
+    env = merge({
       # Fail the render rather than fall back to the chart's public example keys.
       requireExplicitSecrets = true
 
@@ -288,14 +344,19 @@ locals {
 
       # As today's managed deployment: any attachment type can be uploaded.
       allow_all_attachment_types = true
-    }
+      },
+      # pi creates its vector indexes with this dimension; it must match the embedding model.
+      { for k, v in { opensearch_embedding_dimension = tostring(coalesce(var.pi.embedding_dimension, 0)) } : k => v if var.pi.mode != null },
+    )
 
-    external_secrets = {
+    external_secrets = merge({
       database                = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
       redis                   = { secretName = "plane-redis", passwordKey = "password" }
       rabbitmq                = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
       app_keys_existingSecret = "plane-app-keys"
-    }
+      },
+      { for k, v in { ai_providers_existingSecret = local.pi_ai_secret } : k => v if local.pi_api_keys },
+    )
 
     # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). Traefik sits
     # behind the NLB inside the VPC, so the VPC CIDR is the trusted proxy range.
@@ -307,6 +368,7 @@ locals {
       # A moved 3.x installation's signature (env beats the chart's derived one): Plane needs it
       # once, to move the licences to the instance key it creates on first start.
       var.machine_signature == null ? [] : [{ name = "MACHINE_SIGNATURE", value = var.machine_signature }],
+      local.pi_bedrock_env,
     )
 
     extraObjects = concat(
@@ -315,6 +377,7 @@ locals {
       [local.app_keys_external_secret],
       # Plane AI's database, only when pi is on.
       var.enable_components.pi ? [local.db_init_job] : [],
+      local.pi_api_keys ? [local.pi_api_keys_object] : [],
       local.certificate_objects,
       values(local.customer_certificates),
     )
@@ -340,7 +403,9 @@ resource "helm_release" "plane" {
 
   values = compact([yamlencode(local.values), var.plane_values])
 
-  depends_on = [terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane]
+  depends_on = [
+    terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane, aws_iam_role_policy.pi_connector,
+  ]
 }
 
 # The email NLB the LB controller creates for the chart's email Service, found by its fixed name once

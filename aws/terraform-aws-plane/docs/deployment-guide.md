@@ -206,6 +206,8 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Email without a public endpoint | `email = { load_balancer = false }` | The email service runs, but can't receive mail from the internet |
 | No email | `email = { enabled = false }` | No email service and no email load balancer |
 | No search | `opensearch = { enabled = false }` | No OpenSearch; Plane runs with search indexing off, so search is more limited |
+| Plane AI on Amazon Bedrock | `enable_components = { pi = true }` | Plane AI with Bedrock models, no keys: Titan Text Embeddings V2 and Claude Sonnet 4.6 (`pi.bedrock` to change them). Before the apply, make sure the models are available in your region and, for Claude, submit Anthropic's use case form and open the model once in the Bedrock playground as an administrator. See the README's Plane AI section |
+| Plane AI with API keys | `enable_components = { pi = true }` and `pi = { provider = "api_keys", api_keys = { chat_key_secret_arn = "…", embedding_key_secret_arn = "…" } }` | OpenAI chat and Cohere embeddings (or `chat_provider = "anthropic"`, an OpenAI embedding model), keys stored as plain-text secrets in Secrets Manager |
 | Different VPC range | `vpc_cidr = "10.80.0.0/16"` | Avoids overlap with networks you peer with |
 | Extra admins | `cluster_admin_principal_arns = ["arn:aws:iam::<account>:role/<role>"]` | Cluster admin access for these IAM roles or users |
 | Tags | `tags = { CostCenter = "1234" }` | Added to every resource |
@@ -327,8 +329,8 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
 
 1. Open `https://<your domain>` and complete the setup: create the first admin account and your workspace.
 2. Activate your Plane licence key, following the activation steps in Plane's documentation.
-3. Configure outgoing email (SMTP), single sign-on and AI providers in the instance admin panel at
-   `https://<your domain>/god-mode/`.
+3. Configure outgoing email (SMTP) and single sign-on in the instance admin panel at
+   `https://<your domain>/god-mode/`. Plane AI's models come from `terraform.tfvars` (`pi`), not the admin panel.
 
 **Inbound email:** once the MX record resolves, mail sent to your intake addresses becomes work items. The email load
 balancer accepts mail from any sender on ports 25, 465 and 587, as a mail server must.
@@ -399,6 +401,8 @@ because those names are still taken.
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |
 | Live collaboration doesn't connect (option B) | WebSockets not enabled on `/live/` | Enable WebSocket support for that path |
 | No inbound email | The MX record is missing or wrong | `dig MX <email domain>` must return the email load balancer's hostname |
+| Plane AI chat fails with `AccessDeniedException` mentioning `aws-marketplace` | The Claude model was never enabled in the account | Submit Anthropic's use case form and open the model once in the Bedrock playground as an administrator |
+| Plane AI's migrator fails creating the connector | The embedding model isn't available in the region, or (keys) the key is wrong | `kubectl -n plane logs job/<plane-pi-api-migrate-…>`; check the model in the Bedrock console, or the secret's value |
 
 For help, contact Plane support with the output of `terraform version`, the failing command's error, and
 `kubectl -n plane get pods`.
