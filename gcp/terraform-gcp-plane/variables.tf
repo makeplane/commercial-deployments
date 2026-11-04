@@ -122,7 +122,8 @@ variable "ingress" {
     your own via tls_certificate_secret). mode = "none" (path B, default): the module installs no ingress controller or
     routes; you bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the
     records are yours in both paths (see the dns_records output). Path A only: allowed_cidrs (who can reach Plane),
-    scheme (internet-facing, or internal: an internal load balancer on an IP in the module's subnet) and
+    scheme (internet-facing, or internal: an internal load balancer on an IP in the module's subnet; set at install, as
+    changing it in place fails: to switch, apply with mode = "none" first, see the deployment guide) and
     tls_certificate_secret (a Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>", whose
     value is JSON with the keys "tls.crt" (full chain) and "tls.key").
   EOT
