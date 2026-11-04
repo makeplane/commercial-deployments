@@ -345,8 +345,9 @@ locals {
       # As today's managed deployment: any attachment type can be uploaded.
       allow_all_attachment_types = true
       },
-      # pi creates its vector indexes with this dimension; it must match the embedding model.
-      { for k, v in { opensearch_embedding_dimension = tostring(coalesce(var.pi.embedding_dimension, 0)) } : k => v if var.pi.mode != null },
+      # The api's and pi's vector indexes use this dimension, pi on or off: it must match the embedding model
+      # pi uses (now or when turned on later), since the api creates its indexes once.
+      { for k, v in { opensearch_embedding_dimension = tostring(var.pi.embedding_dimension) } : k => v if var.data.opensearch_enabled },
     )
 
     external_secrets = merge({

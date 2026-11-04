@@ -52,6 +52,8 @@ locals {
     bedrock  = var.pi.bedrock.embedding_model
     api_keys = var.pi.api_keys.embedding_model
   }
+  # The api sizes its search indexes with this too, so it follows pi.provider whether pi is on or off.
+  pi_embedding_dimension = local.pi_embedding_dimensions[local.pi_embedding_model[var.pi.provider]]
   # The env var pi reads each key from => the secret holding it.
   pi_api_key_secrets = local.pi_mode == "api_keys" ? merge(
     { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret_arn },
@@ -167,7 +169,7 @@ module "plane" {
   pi = {
     mode                = local.pi_mode
     embedding_model     = local.pi_mode == null ? null : local.pi_embedding_model[local.pi_mode]
-    embedding_dimension = local.pi_mode == null ? null : local.pi_embedding_dimensions[local.pi_embedding_model[local.pi_mode]]
+    embedding_dimension = local.pi_embedding_dimension
     bedrock = local.pi_mode != "bedrock" ? null : merge(var.pi.bedrock, {
       embedding_model_id = local.pi_bedrock_embedding_models[var.pi.bedrock.embedding_model]
     })

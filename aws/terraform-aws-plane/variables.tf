@@ -108,8 +108,9 @@ variable "pi" {
     module creates an application inference profile for each model from bedrock.embedding_model (one of Plane AI's
     Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude model ID or cross-Region inference profile
     ID; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
-    (Anthropic: submit the use case form once). Choose the embedding model before Plane AI's first start: changing it
-    later needs Plane AI's indexes recreated.
+    (Anthropic: submit the use case form once). Choose the provider and embedding model before the first install, even
+    if Plane AI is turned on later: Plane's search indexes are created with its dimension, so changing it afterwards
+    needs Plane's search indexes and Plane AI's indexes recreated.
   EOT
   type = object({
     provider = optional(string, "api_keys")

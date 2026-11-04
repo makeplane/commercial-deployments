@@ -215,6 +215,12 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 When an object setting appears twice (for example two `email = { … }` lines), Terraform fails: combine the fields
 into one line.
 
+**Choose Plane AI's embedding model now**, even if you turn Plane AI on later. Plane's search indexes are created at
+the first install with the vector dimension of the embedding model `pi` selects, whether Plane AI is on or not.
+Without a `pi` setting that is Cohere embed-v4.0 (1536). If you will use Bedrock, set `pi = { provider = "bedrock" }`
+(and any `pi.bedrock.embedding_model`) now and add `enable_components = { pi = true }` when you turn it on. Changing
+the provider or embedding model afterwards needs Plane's search indexes and Plane AI's indexes recreated.
+
 ## 6. Deploy
 
 ```bash

@@ -109,7 +109,8 @@ domain = "plane.example.com" # never change after install
 # }
 
 # Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
-# a plain-text Secrets Manager secret (same account and region); both are required.
+# a plain-text Secrets Manager secret (same account and region); both are required. Choose the provider and embedding
+# model before the first install, even with Plane AI off: Plane's search indexes are created with its dimension.
 # pi = {
 #   api_keys = {
 #     chat_provider            = "openai" # or "anthropic"

@@ -113,15 +113,85 @@ run "pi_off_unchanged" {
     condition = (
       length(yamldecode(output.plane_helm_values).extraEnv) == 2
       && !can(yamldecode(output.plane_helm_values).external_secrets.ai_providers_existingSecret)
-      && !can(yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension)
     )
-    error_message = "With pi off, extraEnv, external_secrets and env must be as before."
+    error_message = "With pi off, extraEnv and external_secrets must be as before."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension == "1536"
+    error_message = "With pi off, the api's indexes must still get the default embedding model's dimension (cohere/embed-v4.0, 1536)."
   }
   assert {
     condition = length([
       for o in yamldecode(output.plane_helm_values).extraObjects : o if contains(["plane-pi-db-init", "plane-ai-providers"], o.metadata.name)
     ]) == 0
     error_message = "With pi off, no Plane AI objects."
+  }
+}
+
+run "pi_off_bedrock_dimension" {
+  variables {
+    pi = { provider = "bedrock" }
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension == "1024"
+    error_message = "With pi off, the dimension must follow the selected Bedrock embedding model (Titan v2, 1024)."
+  }
+  assert {
+    condition = (
+      !yamldecode(output.plane_helm_values).services.pi.enabled && !can(yamldecode(output.plane_helm_values).services.pi.ai_providers)
+      && length(yamldecode(output.plane_helm_values).extraEnv) == 2
+    )
+    error_message = "With pi off, Bedrock must render no AI provider settings or profiles."
+  }
+}
+
+run "pi_off_without_opensearch" {
+  variables {
+    opensearch = { enabled = false }
+  }
+  override_module {
+    target = module.data
+    outputs = {
+      kms_key_arn   = "arn:aws:kms:us-east-1:123456789012:key/mock"
+      postgres_host = "postgres.mock"
+      redis_host    = "redis.mock"
+      rabbitmq_host = "rabbitmq.mock"
+      bucket_name   = "plane-test-uploads"
+      secret_arns = {
+        postgres = "arn:aws:secretsmanager:us-east-1:123456789012:secret:postgres"
+        redis    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:redis"
+        rabbitmq = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rabbitmq"
+        app_keys = "arn:aws:secretsmanager:us-east-1:123456789012:secret:app-keys"
+      }
+      plane_inputs = {
+        kms_key_arn            = "arn:aws:kms:us-east-1:123456789012:key/mock"
+        bucket_name            = "plane-test-uploads"
+        bucket_arn             = "arn:aws:s3:::plane-test-uploads"
+        postgres_host          = "postgres.mock"
+        postgres_port          = 5432
+        postgres_db            = "plane"
+        postgres_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:postgres"
+        redis_host             = "redis.mock"
+        redis_port             = 6379
+        redis_secret_arn       = "arn:aws:secretsmanager:us-east-1:123456789012:secret:redis"
+        rabbitmq_host          = "rabbitmq.mock"
+        rabbitmq_port          = 5671
+        rabbitmq_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rabbitmq"
+        app_keys_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:app-keys"
+        app_key_names          = ["SECRET_KEY", "AES_SECRET_KEY"]
+        opensearch_enabled     = false
+        opensearch_endpoint    = null
+        opensearch_domain_name = null
+        opensearch_domain_arn  = null
+        opensearch_prefix      = "plane"
+      }
+    }
+  }
+
+  assert {
+    condition     = !can(yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension)
+    error_message = "Without OpenSearch, no embedding dimension."
   }
 }
 

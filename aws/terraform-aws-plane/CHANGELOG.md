@@ -45,7 +45,8 @@
   inference profiles for Titan Text Embeddings V2 and Claude Sonnet 4.6 (global cross-Region inference), Plane's Pod
   Identity role allowed to invoke the chat profile, and a role OpenSearch assumes to call the embeddings profile (pi
   creates the ML connector at startup). Plane AI needs OpenSearch. Plane AI's models are no longer described as configured in the admin UI: pi reads them only from its
-  environment.
+  environment. The OpenSearch embedding dimension follows the embedding model `pi` selects whether Plane AI is on or
+  off, so Plane's search indexes fit a model turned on later: choose it before the first install.
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
   input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
   defaulted input). `terraform.tfvars.example` shows every setting with its default, plus a few examples. CI checks that the example declares exactly the module's inputs.
