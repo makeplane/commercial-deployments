@@ -4,6 +4,8 @@
 name   = "plane"             # never change after install
 domain = "plane.example.com" # never change after install
 
+# deployment_mode = "eks"   # or "docker": one EC2 instance with Docker Compose (see "Docker mode" below)
+
 ################################################################################
 # How traffic reaches Plane: pick ONE block and uncomment it.
 # The module configures no DNS. After the apply, create the records shown by:  terraform output dns_records
@@ -20,8 +22,22 @@ domain = "plane.example.com" # never change after install
 # ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/web-tls" }
 # email   = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; same ARN if it covers both names
 
-# Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
+# Path B: bring your own (EKS default). Nothing to set here. After the apply: install your ingress controller,
 # apply Plane's routes, add your certificate and DNS records.
+
+################################################################################
+# Docker mode: one EC2 instance runs Plane's Docker Compose stack (bundled Postgres, Valkey, RabbitMQ, MinIO).
+# ingress defaults to path A here: set acme_email (A.1) or ingress.tls_certificate_secret_arn (A.2), or
+# ingress = { mode = "none" } for path B (private instance, plain HTTP on :80 behind your load balancer).
+# The EKS-only settings below (cluster, node_group, postgres, redis, rabbitmq, opensearch, chart_*) are ignored.
+################################################################################
+
+# deployment_mode = "docker"
+# acme_email      = "ops@example.com"
+# docker = {
+#   compose_assets_url    = "s3://my-bucket/plane-assets" # until Plane publishes them (default: Plane's URL)
+#   compose_assets_sha256 = { "docker-compose.yml" = "<sha256>", "variables.env" = "<sha256>" }
+# }
 
 ################################################################################
 # Everything else (defaults)
@@ -31,7 +47,7 @@ domain = "plane.example.com" # never change after install
 # tags   = {}
 
 # ingress = {
-#   mode                       = "none"            # automated (path A) | none (path B)
+#   mode                       = null              # automated (path A) | none (path B); null: none in EKS, automated in Docker
 #   allowed_cidrs              = ["0.0.0.0/0"]     # path A: who can reach Plane
 #   scheme                     = "internet-facing" # path A: or internal (not with Let's Encrypt)
 #   tls_certificate_secret_arn = null              # path A: your web certificate (A.2)
@@ -109,6 +125,22 @@ domain = "plane.example.com" # never change after install
 # }
 
 # bucket_force_destroy = false
+
+# docker = {
+#   instance_type           = "m7a.xlarge"
+#   data_services           = "bundled"
+#   root_volume_gb          = 50
+#   data_volume_gb          = 100
+#   data_volume_snapshot_id = null # restore the data volume from an EBS snapshot
+#   compose_assets_url      = "https://prime.plane.so/deployment/assets" # + /<plane_version>/docker-compose.yml, variables.env
+#   compose_assets_sha256   = {}
+#   docker_version          = "29.9.2"
+#   compose_version         = "5.6.1"
+#   extra_env               = {} # more plane.env settings, no secrets
+#   backup_time             = "03:00" # UTC: EBS snapshot, pg_dump and MinIO mirror to S3
+#   backup_retention_days   = 14
+#   setup_timeout_minutes   = 60
+# }
 
 # plane_version    = "v4.0.1"
 # chart_version    = "3.11.3"

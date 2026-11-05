@@ -18,6 +18,12 @@ variable "single_nat_gateway" {
   type        = bool
 }
 
+variable "enable_nat_gateway" {
+  description = "Create NAT gateways for the private subnets."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags."
   type        = map(string)

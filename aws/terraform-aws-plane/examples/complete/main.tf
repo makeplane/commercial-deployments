@@ -3,15 +3,15 @@ provider "aws" {
 }
 
 # The module has no provider blocks. Helm talks to the cluster the module creates, with a
-# short-lived token from the AWS CLI (no static credentials).
+# short-lived token from the AWS CLI (no static credentials). In Docker mode Helm is never used.
 provider "helm" {
   kubernetes = {
     host                   = module.plane.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.plane.cluster_certificate_authority_data)
+    cluster_ca_certificate = try(base64decode(module.plane.cluster_certificate_authority_data), null)
     exec = {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.plane.cluster_name, "--region", var.region]
+      args        = ["eks", "get-token", "--cluster-name", coalesce(module.plane.cluster_name, "none"), "--region", var.region]
     }
   }
 }
@@ -50,4 +50,5 @@ module "plane" {
   opensearch                           = var.opensearch
   email                                = var.email
   bucket_force_destroy                 = var.bucket_force_destroy
+  docker                               = var.docker
 }
