@@ -14,6 +14,7 @@ Kubernetes deployment for Plane Commercial using Kustomize.
 - [Deployment Scenarios](#deployment-scenarios)
 - [Deploying with IRSA or EKS Pod Identity](#deploying-with-irsa-or-eks-pod-identity)
 - [Running workloads as non-root](#running-workloads-as-non-root)
+- [Redis Sentinel](#redis-sentinel)
 - [Configuration](#configuration)
 - [Production Considerations](#production-considerations)
 - [Security Best Practices](#security-best-practices)
@@ -107,7 +108,8 @@ Choose to deploy these locally OR provide external managed services. Each compon
 **redis** (Redis cache)
 - Adds: StatefulSet, Service
 - Patches: `plane-app-secrets` and `plane-live-secrets` with Redis URLs
-- Alternative: AWS ElastiCache, Redis Cloud, Azure Cache
+- Alternative: AWS ElastiCache, Redis Cloud, Azure Cache, or a Redis Sentinel
+  set you run yourself (see [Redis Sentinel](#redis-sentinel))
 
 **rabbitmq** (RabbitMQ message broker)
 - Adds: StatefulSet, Service, Secret
@@ -335,6 +337,7 @@ spec:
 |-----------|-------------|-------------------|
 | **postgres** | Use local PostgreSQL | Using AWS RDS, Cloud SQL, etc. |
 | **redis** | Use local Redis | Using AWS ElastiCache, Redis Cloud |
+| **redis-sentinel** | Using a Redis Sentinel set you run (instead of **redis**) | Using a single Redis endpoint |
 | **rabbitmq** | Use local RabbitMQ | Using AWS MQ, CloudAMQP |
 | **minio** | Use local S3 storage | Using AWS S3, Google Cloud Storage |
 | **opensearch** | Use local OpenSearch | Using AWS OpenSearch Service |
@@ -391,6 +394,10 @@ components:
 - Image: `redis:7`
 - Resources: 50Mi memory, 50m CPU
 - Storage: 1Gi
+
+**Redis Sentinel:** this component always runs a single node. To use a Sentinel set
+you run, leave it out and use the `redis-sentinel` component instead (see
+[Redis Sentinel](#redis-sentinel)).
 
 #### RabbitMQ Component
 
@@ -664,6 +671,88 @@ components:
 
 No extra configuration is required. The component patches all base Deployments (api, web, space, admin, live, worker, etc.) with the same non-root security context. Ensure your container images support running as the configured user (e.g. UID 1000); Plane Commercial images are built to run as non-root.
 
+## Redis Sentinel
+
+Plane can connect to a Redis primary that a **Redis Sentinel set you run** manages.
+Plane does not deploy Sentinel; running it (quorum, failover timeouts, topology) is
+your job. This needs a Plane release with Redis Sentinel support. The Plane docs
+page "Connect to your own Redis Sentinel" lists the Sentinel requirements and what
+happens during a failover.
+
+The opt-in `redis-sentinel` component copies the settings from `secrets-vars.yaml`
+into the Secrets the Redis clients read:
+
+| Secret | Workloads |
+|--------|-----------|
+| `plane-app-secrets` | api, workers, beat, consumers, migrator, silo, flux |
+| `plane-live-secrets` | live, live-exporter |
+| `plane-silo-secrets` | silo (api and worker also load it) |
+| `plane-flux-secrets` | flux, flux-consumer (`flux` component) |
+| `plane-mcp-server-secrets` | mcp-server (`mcp-server` component) |
+
+Secrets that aren't in your overlay are skipped. pi is not covered.
+
+### Settings
+
+| Key | Meaning | Default / notes |
+|-----|---------|-----------------|
+| `REDIS_SENTINELS` | `host1:26379,host2:26379,host3:26379` | A non-empty value turns on Sentinel mode. Port defaults to 26379. |
+| `REDIS_SENTINEL_MASTER` | Sentinel master (service) name | Required in Sentinel mode; services fail at startup without it. |
+| `REDIS_SENTINEL_USERNAME` / `REDIS_SENTINEL_PASSWORD` | Auth to the sentinels | Optional. ACL usernames need Redis >= 6.2. |
+| `REDIS_USERNAME` / `REDIS_PASSWORD` | Auth to the data nodes | Optional. |
+| `REDIS_DB` | Database index | `0` |
+| `REDIS_SSL` | TLS to the data nodes | `true`/`1`/`yes`/`on` turn it on. |
+| `REDIS_SENTINEL_SSL` | TLS to the sentinels | Empty = same as `REDIS_SSL`. |
+| `REDIS_SSL_VERIFY` | Verify server certificates against the system CA bundle | Off by default (today's behaviour). The certificate must match the address the sentinels report for the primary. |
+
+### Enable it
+
+1. In `kustomization.yaml`, remove `../../components/redis` (Sentinel always means
+   an external Redis) and add the component **after** `flux`, `flux-consumer` and
+   `mcp-server`, since it only patches Secrets that are already in the build:
+
+   ```yaml
+   components:
+     # ...
+     - ../../components/flux
+     - ../../components/mcp-server
+     # ...
+     - ../../components/redis-sentinel
+   ```
+
+2. In `secrets-vars.yaml`, set `REDIS_URL: ""` and add **all ten** keys (they are
+   replacement sources, so a missing key fails the whole overlay render). Leave
+   optional ones as `""`. Each overlay's `secrets-vars.yaml.example` has the block
+   commented out:
+
+   ```yaml
+   stringData:
+     REDIS_URL: ""
+     REDIS_SENTINELS: "sentinel-0.redis.internal:26379,sentinel-1.redis.internal:26379,sentinel-2.redis.internal:26379"
+     REDIS_SENTINEL_MASTER: "mymaster"
+     REDIS_SENTINEL_USERNAME: ""
+     REDIS_SENTINEL_PASSWORD: ""
+     REDIS_USERNAME: ""
+     REDIS_PASSWORD: "<data-node-password>"
+     REDIS_DB: "0"
+     REDIS_SSL: "false"
+     REDIS_SENTINEL_SSL: ""
+     REDIS_SSL_VERIFY: "false"
+   ```
+
+3. If the overlay uses ElastiCache (`ELASTICACHE_SECRET_ARN`, mcp-server
+   `REDIS_HOST`), Sentinel mode takes precedence and the services log a warning.
+   Clear those values to silence it. The `iframely` cache settings are separate
+   and are not affected.
+
+4. Render and check before applying:
+
+   ```bash
+   kubectl kustomize overlays/my-env | grep -n "REDIS_SENTINEL"
+   ```
+
+Overlays that don't include `redis-sentinel` render exactly as before.
+
 ## Configuration
 
 ### Configuration System
@@ -767,6 +856,8 @@ These files are marked with `config.kubernetes.io/local-config: "true"` so they'
 **Configured via secrets-vars.yaml (sensitive):**
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection string (main)
+- `REDIS_SENTINELS`, `REDIS_SENTINEL_*`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_SSL*` -
+  only with the `redis-sentinel` component; see [Redis Sentinel](#redis-sentinel)
 - `AMQP_URL` - RabbitMQ connection string
 - `OPENSEARCH_*` - OpenSearch configuration
 - `AWS_*` - S3/MinIO configuration
@@ -830,7 +921,8 @@ For production, configure HA for critical components:
 
 2. **Use Managed Services:** For true HA, use cloud-managed services:
    - AWS RDS Multi-AZ for PostgreSQL
-   - AWS ElastiCache with Redis replication
+   - AWS ElastiCache with Redis replication, or your own Redis Sentinel
+     (see [Redis Sentinel](#redis-sentinel))
    - AWS MQ with active/standby brokers
    - S3 with versioning and cross-region replication
    - AWS OpenSearch with 3+ nodes across AZs
