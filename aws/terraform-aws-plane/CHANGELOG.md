@@ -17,6 +17,8 @@
 - PostgreSQL major version upgrades (changing `postgres.engine_version` to a new major) apply in one run: the cluster
   parameter group of the new family is created before the old one is deleted, and the cluster allows the major
   upgrade. New `postgres.apply_immediately` (default false) runs it at apply time instead of the maintenance window.
+- Destroy waits for the LB controller to remove the email NLB in path B too: the add-ons' readiness (which Plane
+  waits for) now depends on the NLB cleanup wait directly, not only through Traefik.
 
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
