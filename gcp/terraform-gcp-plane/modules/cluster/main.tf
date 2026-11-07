@@ -24,6 +24,8 @@ resource "google_container_cluster" "this" {
   location       = var.region
   node_locations = length(var.zones) > 0 ? var.zones : null
 
+  # Deprecated by provider 8.9 but still works. Its replacement needs that provider and GKE 1.36.4-gke.1469000+,
+  # newer than the STABLE channel's default (1.35), and changing it on a live cluster may force a rebuild.
   remove_default_node_pool = true
   initial_node_count       = 1
 
