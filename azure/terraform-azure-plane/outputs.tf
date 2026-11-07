@@ -28,12 +28,12 @@ output "dns_records" {
   value = {
     web = local.load_balancer_ip == null ? null : {
       name  = var.domain
-      type  = "A"
+      type  = "A (DNS-only, no proxy)"
       value = local.load_balancer_ip
     }
     email_host = local.email_load_balancer_ip == null ? null : {
       name  = local.email.smtp_domain
-      type  = "A"
+      type  = "A (DNS-only, no proxy)"
       value = local.email_load_balancer_ip
     }
     email_mx = local.email_load_balancer_ip == null ? null : {

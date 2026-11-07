@@ -11,7 +11,7 @@ az login                                       # Helm authenticates through kube
 cp terraform.tfvars.example terraform.tfvars   # set name, domain and location, pick a path, uncomment anything else
 cp backend.hcl.example backend.hcl             # set the state storage account: state holds generated secrets
 terraform init -backend-config=backend.hcl
-terraform apply                                # about 40-70 minutes on a fresh install
+terraform apply                                # rough estimate, not yet measured on Azure: 40-70 minutes
 terraform output dns_records                   # create these DNS records (the module creates none)
 ```
 

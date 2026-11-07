@@ -119,7 +119,6 @@ variable "acme_server" {
 variable "rabbitmq" {
   description = "In-cluster RabbitMQ settings."
   type = object({
-    mode           = string
     volume_size_gb = number
   })
 }
@@ -128,10 +127,14 @@ variable "opensearch" {
   description = "In-cluster OpenSearch settings."
   type = object({
     enabled        = bool
-    mode           = string
     volume_size_gb = number
     index_prefix   = string
   })
+}
+
+variable "use_storage_proxy" {
+  description = "Uploads and downloads go through Plane (the root module accepts only true)."
+  type        = bool
 }
 
 variable "persistent_volume_sku" {

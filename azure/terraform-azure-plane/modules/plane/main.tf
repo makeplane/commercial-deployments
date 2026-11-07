@@ -14,7 +14,7 @@ locals {
     azure_storage_account_name   = var.data.storage_account_name
     azure_storage_container_name = var.data.storage_container_name
     azure_storage_blob_endpoint  = var.data.storage_blob_endpoint
-    use_storage_proxy            = true
+    use_storage_proxy            = var.use_storage_proxy
   }
   blob_service_account = {
     annotations = { "azure.workload.identity/client-id" = azurerm_user_assigned_identity.plane.client_id }
@@ -305,7 +305,7 @@ locals {
 
     ssl = { tls_secret_name = var.tls_secret_name }
 
-    serviceAccount = merge({ create = true }, local.blob_service_account)
+    serviceAccount = merge({ create = true, cloudIdentity = true }, local.blob_service_account)
 
     podDisruptionBudget = { enabled = true }
 

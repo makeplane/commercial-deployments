@@ -31,8 +31,9 @@ variables {
   chart_name            = "plane-enterprise"
   acme_email            = null
   acme_server           = "https://acme-v02.api.letsencrypt.org/directory"
-  rabbitmq              = { mode = "in-cluster", volume_size_gb = 10 }
-  opensearch            = { enabled = true, mode = "in-cluster", volume_size_gb = 50, index_prefix = "plane" }
+  rabbitmq              = { volume_size_gb = 10 }
+  opensearch            = { enabled = true, volume_size_gb = 50, index_prefix = "plane" }
+  use_storage_proxy     = true
   persistent_volume_sku = "Premium_ZRS"
   helm_timeout          = 3600
   plane_values          = ""
@@ -84,6 +85,10 @@ run "blob_contract" {
   assert {
     condition     = yamldecode(output.helm_values).serviceAccount.annotations["azure.workload.identity/client-id"] == "00000000-0000-0000-0000-00000000000c"
     error_message = "Plane's ServiceAccount must name its managed identity."
+  }
+  assert {
+    condition     = yamldecode(output.helm_values).serviceAccount.cloudIdentity
+    error_message = "serviceAccount.cloudIdentity must be on, as on AWS and GCP."
   }
   assert {
     condition     = yamldecode(output.helm_values).serviceAccount.podLabels["azure.workload.identity/use"] == "true"
@@ -181,7 +186,7 @@ run "opensearch_off" {
     source = "./modules/plane"
   }
   variables {
-    opensearch = { enabled = false, mode = "in-cluster", volume_size_gb = 50, index_prefix = "plane" }
+    opensearch = { enabled = false, volume_size_gb = 50, index_prefix = "plane" }
   }
 
   assert {

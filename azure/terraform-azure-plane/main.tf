@@ -230,6 +230,7 @@ module "plane" {
   }
   rabbitmq              = var.rabbitmq
   opensearch            = var.opensearch
+  use_storage_proxy     = var.use_storage_proxy
   persistent_volume_sku = var.persistent_volume_sku
   helm_timeout          = var.helm_timeout
   plane_values          = var.plane_values

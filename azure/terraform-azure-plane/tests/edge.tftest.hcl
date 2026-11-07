@@ -96,6 +96,10 @@ run "path_b_default" {
     error_message = "The email load balancer (on by default) must give an A record for smtp_domain on its static IP."
   }
   assert {
+    condition     = output.dns_records.email_host.type == "A (DNS-only, no proxy)"
+    error_message = "The email A record must carry the DNS-only hint, as on GCP."
+  }
+  assert {
     condition     = output.dns_records.email_mx.type == "MX" && output.dns_records.email_mx.value == "10 intake.plane.example.com"
     error_message = "The MX record must point at smtp_domain (which has its own A record)."
   }
@@ -106,6 +110,14 @@ run "path_b_default" {
   assert {
     condition     = !yamldecode(output.plane_helm_values).ingress.enabled
     error_message = "Path B must not install Plane's routes."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.use_storage_proxy
+    error_message = "use_storage_proxy (default true) must reach the chart values."
+  }
+  assert {
+    condition     = var.redis.sku_name == "Balanced_B3" && var.redis.persistence
+    error_message = "Redis defaults to Balanced_B3 with persistence on."
   }
   assert {
     condition     = !contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.kind], "ClusterIssuer")
@@ -127,7 +139,7 @@ run "a1_lets_encrypt" {
     error_message = "Path A (internet-facing) must expose Traefik's static public IP."
   }
   assert {
-    condition     = output.dns_records.web.type == "A" && output.dns_records.web.value == output.load_balancer_ip && output.dns_records.web.name == "plane.example.com"
+    condition     = output.dns_records.web.type == "A (DNS-only, no proxy)" && output.dns_records.web.value == output.load_balancer_ip && output.dns_records.web.name == "plane.example.com"
     error_message = "Path A must give an A record for domain on the load balancer IP."
   }
   assert {
@@ -281,5 +293,35 @@ run "email_off" {
   assert {
     condition     = output.dns_records.email_mx == null && output.dns_records.email_host == null && output.email_load_balancer_ip == null
     error_message = "email.enabled = false must turn off the email load balancer too."
+  }
+}
+
+run "storage_proxy_false_refused" {
+  command = plan
+  variables {
+    use_storage_proxy = false
+  }
+
+  expect_failures = [var.use_storage_proxy]
+}
+
+run "redis_persistence_needs_high_availability" {
+  command = plan
+  variables {
+    redis = { high_availability_enabled = false }
+  }
+
+  expect_failures = [var.redis]
+}
+
+run "redis_without_high_availability_or_persistence" {
+  command = plan
+  variables {
+    redis = { high_availability_enabled = false, persistence = false }
+  }
+
+  assert {
+    condition     = !var.redis.persistence && !var.redis.high_availability_enabled
+    error_message = "persistence = false must allow high availability off."
   }
 }

@@ -48,6 +48,28 @@ resource "azurerm_storage_account" "this" {
   tags = var.tags
 }
 
+# Azure counts a previous version's age from its first write, not from when it stopped being current.
+resource "azurerm_storage_management_policy" "uploads" {
+  count = var.storage.versioning_enabled ? 1 : 0
+
+  storage_account_id = azurerm_storage_account.this.id
+
+  rule {
+    name    = "deleteOldVersions"
+    enabled = true
+
+    filters {
+      blob_types = ["blockBlob"]
+    }
+
+    actions {
+      version {
+        delete_after_days_since_creation = 30
+      }
+    }
+  }
+}
+
 resource "azurerm_storage_container" "uploads" {
   # checkov:skip=CKV2_AZURE_21:Read logging needs a diagnostic setting; the customer's choice.
   name                  = var.storage.container_name
@@ -100,4 +122,7 @@ resource "azurerm_management_lock" "storage" {
   scope      = azurerm_storage_account.this.id
   lock_level = "CanNotDelete"
   notes      = "Plane uploads. Set storage.deletion_protection = false and apply before destroying."
+
+  # The lock covers the account's child resources, so it must go first when both are removed.
+  depends_on = [azurerm_storage_management_policy.uploads]
 }

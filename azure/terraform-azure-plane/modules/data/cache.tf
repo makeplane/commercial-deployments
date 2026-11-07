@@ -12,6 +12,8 @@ resource "azurerm_managed_redis" "this" {
     access_keys_authentication_enabled = true
     client_protocol                    = "Encrypted"
     clustering_policy                  = var.redis.clustering_policy
+    # 12h is the longest RDB frequency Azure offers (1h, 6h, 12h).
+    persistence_redis_database_backup_frequency = var.redis.persistence ? "12h" : null
   }
 
   tags = var.tags

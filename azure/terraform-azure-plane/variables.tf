@@ -400,11 +400,17 @@ variable "postgres" {
 }
 
 variable "redis" {
-  description = "Azure Managed Redis: private endpoint only, TLS (port 10000), access-key auth (Plane's clients send a password only)."
+  description = <<-EOT
+    Azure Managed Redis: private endpoint only, TLS (port 10000), access-key auth (Plane's clients send a password only).
+    persistence (default true) saves an RDB snapshot every 12 hours, the longest frequency Azure offers, and needs
+    high_availability_enabled. Azure restores it to the same cache by itself after a failure: it isn't a backup you can
+    download or import.
+  EOT
   type = object({
-    sku_name                  = optional(string, "Balanced_B1")
+    sku_name                  = optional(string, "Balanced_B3")
     high_availability_enabled = optional(bool, true)
     clustering_policy         = optional(string, "NoCluster")
+    persistence               = optional(bool, true)
   })
   default  = {}
   nullable = false
@@ -413,21 +419,19 @@ variable "redis" {
     condition     = contains(["NoCluster", "EnterpriseCluster"], var.redis.clustering_policy)
     error_message = "redis.clustering_policy must be NoCluster or EnterpriseCluster (Plane's Redis clients aren't cluster-aware)."
   }
+  validation {
+    condition     = !var.redis.persistence || var.redis.high_availability_enabled
+    error_message = "redis.persistence needs redis.high_availability_enabled: Azure Managed Redis has no data persistence without high availability. Set persistence = false to turn high availability off."
+  }
 }
 
 variable "rabbitmq" {
   description = "RabbitMQ. Azure has no managed AMQP 0-9-1 service, so it runs in the cluster from the chart (one node, a Premium ZRS disk of volume_size_gb), with its credentials from Key Vault. Set volume_size_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README)."
   type = object({
-    mode           = optional(string, "in-cluster")
     volume_size_gb = optional(number, 10)
   })
   default  = {}
   nullable = false
-
-  validation {
-    condition     = contains(["in-cluster"], var.rabbitmq.mode)
-    error_message = "Only rabbitmq.mode = \"in-cluster\" is supported in this release."
-  }
 }
 
 variable "opensearch" {
@@ -440,7 +444,6 @@ variable "opensearch" {
   EOT
   type = object({
     enabled        = optional(bool, true)
-    mode           = optional(string, "in-cluster")
     volume_size_gb = optional(number, 50)
     # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install
     # needs the indexes created again and re-filled (manage_search_index index create + document index).
@@ -448,19 +451,15 @@ variable "opensearch" {
   })
   default  = {}
   nullable = false
-
-  validation {
-    condition     = contains(["in-cluster"], var.opensearch.mode)
-    error_message = "Only opensearch.mode = \"in-cluster\" is supported in this release."
-  }
 }
 
 variable "storage" {
   description = <<-EOT
     Uploads storage: native Azure Blob Storage (needs Plane's Azure Blob support; see README, "Requires"). A StorageV2
     account with no shared keys (Entra ID only), reached through a private endpoint; Plane's pods use their workload
-    identity, and browsers go through Plane's storage proxy (no SAS, no CORS). deletion_protection puts a CanNotDelete
-    lock on the account: set it to false and apply before a destroy.
+    identity, and browsers go through Plane's storage proxy (no SAS, no CORS). With versioning_enabled, previous blob
+    versions are deleted 30 days after they were first written, counted from the original write. deletion_protection
+    puts a CanNotDelete lock on the account: set it to false and apply before a destroy.
   EOT
   type = object({
     replication_type           = optional(string, "ZRS")
@@ -479,6 +478,22 @@ variable "storage" {
   validation {
     condition     = var.storage.soft_delete_retention_days >= 1 && var.storage.soft_delete_retention_days <= 365
     error_message = "storage.soft_delete_retention_days must be between 1 and 365."
+  }
+}
+
+variable "use_storage_proxy" {
+  description = <<-EOT
+    Whether uploads and downloads go through Plane. Azure supports only true: the storage account is private and the
+    module uses no SAS or CORS, so every upload and download goes through Plane. Plane AI on Azure uses its own signed
+    routes under /pi/. The chart and the api refuse false too. AWS and GCP expose the same input with a default of false.
+  EOT
+  type        = bool
+  default     = true
+  nullable    = false
+
+  validation {
+    condition     = var.use_storage_proxy
+    error_message = "use_storage_proxy must be true on Azure: the storage account is private and the module uses no SAS or CORS, so every upload and download goes through Plane."
   }
 }
 

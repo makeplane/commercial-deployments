@@ -39,7 +39,7 @@ variables {
     geo_redundant_backup_enabled = false
     deletion_protection          = true
   }
-  redis              = { sku_name = "Balanced_B1", high_availability_enabled = true, clustering_policy = "NoCluster" }
+  redis              = { sku_name = "Balanced_B3", high_availability_enabled = true, clustering_policy = "NoCluster", persistence = true }
   opensearch_enabled = true
   storage = {
     replication_type           = "ZRS"
@@ -98,6 +98,14 @@ run "defaults" {
     error_message = "Blob versioning and soft delete must be on."
   }
   assert {
+    condition     = length(azurerm_storage_management_policy.uploads) == 1 && azurerm_storage_management_policy.uploads[0].rule[0].actions[0].version[0].delete_after_days_since_creation == 30
+    error_message = "With versioning on, previous blob versions must be deleted after 30 days."
+  }
+  assert {
+    condition     = azurerm_managed_redis.this.default_database[0].persistence_redis_database_backup_frequency == "12h" && azurerm_managed_redis.this.default_database[0].persistence_append_only_file_backup_frequency == null
+    error_message = "redis.persistence must set RDB persistence at 12h, with no AOF."
+  }
+  assert {
     condition     = azurerm_key_vault.this.rbac_authorization_enabled && azurerm_key_vault.this.purge_protection_enabled && azurerm_key_vault.this.network_acls[0].default_action == "Allow"
     error_message = "Key Vault: RBAC mode, purge protection, public endpoint by default."
   }
@@ -148,6 +156,32 @@ run "unprotected_without_opensearch" {
   assert {
     condition     = length(azurerm_private_endpoint.key_vault) == 1
     error_message = "key_vault.private_endpoint_enabled must add a private endpoint."
+  }
+}
+
+run "no_versioning_no_persistence" {
+  command = plan
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    redis = { sku_name = "Balanced_B3", high_availability_enabled = true, clustering_policy = "NoCluster", persistence = false }
+    storage = {
+      replication_type           = "ZRS"
+      container_name             = "uploads"
+      versioning_enabled         = false
+      soft_delete_retention_days = 7
+      deletion_protection        = true
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_storage_management_policy.uploads) == 0
+    error_message = "Without versioning there are no old versions to delete: no policy."
+  }
+  assert {
+    condition     = azurerm_managed_redis.this.default_database[0].persistence_redis_database_backup_frequency == null
+    error_message = "redis.persistence = false must leave RDB persistence off."
   }
 }
 

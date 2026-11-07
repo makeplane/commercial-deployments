@@ -39,6 +39,16 @@
   keys never pass through Terraform). pi needs `opensearch.enabled` and a `plane_version` whose Plane AI supports Azure
   Blob (the floor is set once that release is known; until then pi is refused, except on preview tags). With pi on,
   OpenSearch gets a 1.5 GB heap in a 3 GiB limit.
+- Aligned with the AWS and GCP modules: `redis.sku_name` defaults to `Balanced_B3` (was `Balanced_B1`); `redis.persistence`
+  (default true) saves an RDB snapshot every 12 hours and needs `redis.high_availability_enabled`; with
+  `storage.versioning_enabled`, a lifecycle policy deletes previous blob versions 30 days after they were first written;
+  `serviceAccount.cloudIdentity = true` in the chart values; `dns_records` web and email A records carry the
+  "DNS-only, no proxy" hint.
+- `use_storage_proxy` input (default true). Azure supports only true, and the module refuses false: the storage account
+  is private and the module uses no SAS or CORS.
+- Removed `rabbitmq.mode` and `opensearch.mode`, which accepted only `"in-cluster"`.
+- A complete [deployment guide](docs/deployment-guide.md), and more outputs in `examples/complete` for the commands it
+  uses (`resource_group_name`, `nat_public_ip`, `postgres_endpoint`, `storage_account_name`, `key_vault_uri`).
 - `examples/complete` declares every module input 1:1 (`terraform.tfvars.example` shows every default); mock-provider
   tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values and the data layer; CI workflow
   `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).

@@ -73,19 +73,18 @@ location = "eastus2"
 # }
 
 # redis = {
-#   sku_name                  = "Balanced_B1"
+#   sku_name                  = "Balanced_B3"
 #   high_availability_enabled = true
 #   clustering_policy         = "NoCluster"
+#   persistence               = true # RDB snapshot every 12 hours; needs high_availability_enabled
 # }
 
 # rabbitmq = {
-#   mode           = "in-cluster"
 #   volume_size_gb = 10 # set before the first install
 # }
 
 # opensearch = {
 #   enabled        = true
-#   mode           = "in-cluster"
 #   volume_size_gb = 50 # set before the first install
 #   index_prefix   = "plane"
 # }
@@ -93,10 +92,12 @@ location = "eastus2"
 # storage = {
 #   replication_type           = "ZRS"
 #   container_name             = "uploads"
-#   versioning_enabled         = true
+#   versioning_enabled         = true # previous versions are deleted 30 days after they were first written
 #   soft_delete_retention_days = 7
 #   deletion_protection        = true
 # }
+
+# use_storage_proxy = true # Azure supports only true: every upload and download goes through Plane
 
 # key_vault = {
 #   purge_protection_enabled   = true

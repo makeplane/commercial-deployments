@@ -63,6 +63,7 @@ module "plane" {
   rabbitmq                        = var.rabbitmq
   opensearch                      = var.opensearch
   storage                         = var.storage
+  use_storage_proxy               = var.use_storage_proxy
   key_vault                       = var.key_vault
   persistent_volume_sku           = var.persistent_volume_sku
 }

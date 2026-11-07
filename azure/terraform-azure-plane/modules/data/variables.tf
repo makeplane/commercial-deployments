@@ -67,6 +67,7 @@ variable "redis" {
     sku_name                  = string
     high_availability_enabled = bool
     clustering_policy         = string
+    persistence               = bool
   })
 }
 
