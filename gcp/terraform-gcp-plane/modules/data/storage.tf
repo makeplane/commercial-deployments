@@ -1,4 +1,5 @@
-# Browsers use signed URLs directly, hence CORS. GCS refuses plain HTTP, so no TLS-only policy is needed.
+# Browsers use signed URLs directly, hence CORS; it stays with use_storage_proxy, as Plane AI keeps signed URLs.
+# GCS refuses plain HTTP, so no TLS-only policy is needed.
 
 resource "random_id" "bucket_suffix" {
   byte_length = 4

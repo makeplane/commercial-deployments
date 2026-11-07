@@ -48,7 +48,7 @@ override_module {
     postgres_instance_name = "plane-test-pg-abcd"
     postgres_host          = "10.60.32.3"
     redis_host             = "10.60.33.4"
-    redis_port             = 6379
+    redis_port             = 6378
     bucket_name            = "plane-test-uploads-abcd1234"
     secret_ids = {
       postgres   = "projects/plane-test-project/secrets/plane-test-plane-db"
@@ -63,9 +63,8 @@ override_module {
       postgres_port      = 5432
       postgres_db        = "plane"
       redis_host         = "10.60.33.4"
-      redis_port         = 6379
-      redis_tls          = false
-      redis_ca           = null
+      redis_port         = 6378
+      redis_ca           = "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
       opensearch_enabled = true
       app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names = {
@@ -113,6 +112,17 @@ run "gcs_workload_identity" {
   }
 }
 
+run "storage_proxy_on" {
+  variables {
+    use_storage_proxy = true
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.use_storage_proxy == true
+    error_message = "use_storage_proxy = true must reach the chart values."
+  }
+}
+
 run "in_cluster_rabbitmq_and_opensearch" {
   assert {
     condition     = yamldecode(output.plane_helm_values).env.storageClass == "standard-rwo"
@@ -129,6 +139,10 @@ run "in_cluster_rabbitmq_and_opensearch" {
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.local_setup && yamldecode(output.plane_helm_values).external_secrets.opensearch_existingSecret == "plane-opensearch"
     error_message = "OpenSearch must run in the cluster and read the External Secrets Secret."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).services.opensearch.volumeSize == "50Gi"
+    error_message = "OpenSearch must run on a 50 GiB volume by default."
   }
   assert {
     condition = toset(keys(one([
@@ -217,8 +231,29 @@ run "secret_store_and_no_secret_values" {
 }
 
 run "redis_tls" {
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.redis_ssl && yamldecode(output.plane_helm_values).env.redis_port == "6378"
+    error_message = "Memorystore TLS is on port 6378."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).customCA.s3Secrets == [{ name = "plane-redis-ca", key = "ca.crt" }]
+    error_message = "The Node.js services must trust Memorystore's server CA through customCA."
+  }
+  assert {
+    condition     = contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.name if o.kind == "Secret"], "plane-redis-ca")
+    error_message = "The server CA must be shipped as a Secret."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.stringData["ca.crt"] if o.metadata.name == "plane-redis-ca"
+    ]) == "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
+    error_message = "The Secret must carry Memorystore's server CA from the data layer."
+  }
+}
+
+run "opensearch_off" {
   variables {
-    redis = { transit_encryption = true }
+    opensearch = { enabled = false }
   }
 
   override_module {
@@ -237,58 +272,7 @@ run "redis_tls" {
         postgres_db        = "plane"
         redis_host         = "10.60.33.4"
         redis_port         = 6378
-        redis_tls          = true
         redis_ca           = "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
-        opensearch_enabled = true
-        app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
-        secret_names = {
-          postgres   = "plane-test-plane-db"
-          redis      = "plane-test-plane-redis"
-          rabbitmq   = "plane-test-plane-rabbitmq"
-          opensearch = "plane-test-plane-opensearch"
-          app_keys   = "plane-test-plane-app-keys"
-        }
-      }
-    }
-  }
-
-  assert {
-    condition     = yamldecode(output.plane_helm_values).env.redis_ssl && yamldecode(output.plane_helm_values).env.redis_port == "6378"
-    error_message = "Memorystore TLS is on port 6378."
-  }
-  assert {
-    condition     = yamldecode(output.plane_helm_values).customCA.s3Secrets == [{ name = "plane-redis-ca", key = "ca.crt" }]
-    error_message = "The Node.js services must trust Memorystore's server CA through customCA."
-  }
-  assert {
-    condition     = contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.name if o.kind == "Secret"], "plane-redis-ca")
-    error_message = "The server CA must be shipped as a Secret."
-  }
-}
-
-run "opensearch_off" {
-  variables {
-    opensearch = { enabled = false }
-  }
-
-  override_module {
-    target = module.data
-    outputs = {
-      postgres_instance_name = "plane-test-pg-abcd"
-      postgres_host          = "10.60.32.3"
-      redis_host             = "10.60.33.4"
-      redis_port             = 6379
-      bucket_name            = "plane-test-uploads-abcd1234"
-      secret_ids             = { app_keys = "projects/plane-test-project/secrets/plane-test-plane-app-keys" }
-      plane_inputs = {
-        bucket_name        = "plane-test-uploads-abcd1234"
-        postgres_host      = "10.60.32.3"
-        postgres_port      = 5432
-        postgres_db        = "plane"
-        redis_host         = "10.60.33.4"
-        redis_port         = 6379
-        redis_tls          = false
-        redis_ca           = null
         opensearch_enabled = false
         app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
         secret_names = {
@@ -578,7 +562,7 @@ run "plane_identity" {
     acme_server        = "https://acme-v02.api.letsencrypt.org/directory"
     use_storage_proxy  = false
     rabbitmq           = { volume_size_gb = 10 }
-    opensearch         = { enabled = true, volume_size_gb = 20, index_prefix = "plane" }
+    opensearch         = { enabled = true, volume_size_gb = 50, index_prefix = "plane" }
     pi                 = { embedding_model = "cohere/embed-v4.0", embedding_dimension = 1536, api_key_secrets = {} }
     helm_timeout       = 3600
     plane_values       = ""
@@ -593,9 +577,8 @@ run "plane_identity" {
       postgres_port      = 5432
       postgres_db        = "plane"
       redis_host         = "10.60.33.4"
-      redis_port         = 6379
-      redis_tls          = false
-      redis_ca           = null
+      redis_port         = 6378
+      redis_ca           = "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
       opensearch_enabled = true
       app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names       = { postgres = "a", redis = "b", rabbitmq = "c", opensearch = "d", app_keys = "e" }

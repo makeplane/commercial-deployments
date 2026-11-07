@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changed
+- TLS to Memorystore is always on, as on AWS and Azure: `redis.transit_encryption` is removed, and a value left in
+  `terraform.tfvars` is ignored. An instance created with it off is replaced on the next apply.
+- `opensearch.volume_size_gb` defaults to 50 (was 20), as on Azure. The size can't change on an existing install: to
+  keep one installed at 20, set `opensearch = { volume_size_gb = 20 }`, or the Helm upgrade fails.
+- `use_storage_proxy` docs corrected: `true` moves attachments, editor images and similar to Plane's api, but silo, live
+  and pi don't read it and Plane AI keeps signed URLs, so the bucket keeps its CORS configuration.
+
+### Fixed
+- `examples/complete` outputs `secret_ids`, which the deployment guide uses.
+- Deployment guide: Plane AI's keys, `jq` use, `terraform init` when upgrading, the `null` values in `dns_records`, and
+  keeping other `postgres` fields when preparing to destroy.
+
 ### Added
 - `deployment_mode = "gke"`: an empty GCP project to a running Plane Commercial in one apply. The module enables the
   project APIs, then builds a VPC (one subnet with GKE's ranges, Cloud NAT, private services access, flow logs), GKE

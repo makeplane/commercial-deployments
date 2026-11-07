@@ -14,7 +14,7 @@ output "redis_host" {
 }
 
 output "redis_port" {
-  description = "Memorystore port (6378 with TLS, 6379 without)."
+  description = "Memorystore TLS port (6378)."
   value       = google_redis_instance.this.port
 }
 
@@ -39,9 +39,8 @@ output "plane_inputs" {
 
     redis_host = google_redis_instance.this.host
     redis_port = google_redis_instance.this.port
-    redis_tls  = var.redis.transit_encryption
     # A public certificate, not a secret.
-    redis_ca = var.redis.transit_encryption ? join("\n", [for c in google_redis_instance.this.server_ca_certs : c.cert]) : null
+    redis_ca = join("\n", [for c in google_redis_instance.this.server_ca_certs : c.cert])
 
     opensearch_enabled = var.opensearch.enabled
 

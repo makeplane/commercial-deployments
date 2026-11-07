@@ -224,18 +224,16 @@ variable "postgres" {
 
 variable "redis" {
   description = <<-EOT
-    Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD_HA
-    keeps a replica in another zone with automatic failover. transit_encryption (default true) turns on TLS (port 6378)
-    with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.12.2+);
-    false keeps AUTH over the private network without TLS. persistence (default true) takes an RDB snapshot every
-    rdb_snapshot_period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS or TWENTY_FOUR_HOURS), on every tier: STANDARD_HA restores from
+    Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager) and always over
+    TLS (port 6378), with Memorystore's server CA trusted through the chart's customCA (every Plane service,
+    plane-enterprise 3.12.2+). STANDARD_HA keeps a replica in another zone with automatic failover. persistence (default
+    true) takes an RDB snapshot every rdb_snapshot_period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS or TWENTY_FOUR_HOURS), on every tier: STANDARD_HA restores from
     the replica first and the snapshot only if that fails; BASIC restores from the snapshot after a restart.
   EOT
   type = object({
     version             = optional(string)
     tier                = optional(string)
     memory_size_gb      = optional(number)
-    transit_encryption  = optional(bool)
     persistence         = optional(bool)
     rdb_snapshot_period = optional(string)
   })
@@ -286,7 +284,14 @@ variable "email" {
 }
 
 variable "use_storage_proxy" {
-  description = "false (default): browsers upload and download directly from the bucket with signed URLs (the bucket allows CORS from domain). true: uploads and downloads go through Plane's api (no CORS needed, bounded by the ingress body limit)."
+  description = <<-EOT
+    How browsers reach files in the uploads bucket. false (default): browsers upload to and download from the bucket
+    directly with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and
+    similar go through Plane's api, which reaches the bucket with its own identity. silo, live and pi don't read this
+    setting, and Plane AI on GCS keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration
+    either way. Proxied traffic adds load on the api and is subject to the ingress body limit, so size both for large
+    files.
+  EOT
   type        = bool
   default     = null
 }

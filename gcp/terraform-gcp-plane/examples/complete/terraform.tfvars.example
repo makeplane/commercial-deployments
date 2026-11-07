@@ -79,10 +79,9 @@ domain = "plane.example.com" # never change after install
 # }
 
 # redis = {
-#   version            = "REDIS_7_2"
-#   tier               = "STANDARD_HA" # or BASIC
-#   memory_size_gb     = 4
-#   transit_encryption = true # TLS (port 6378); false = AUTH over the private network only
+#   version             = "REDIS_7_2"
+#   tier                = "STANDARD_HA" # or BASIC
+#   memory_size_gb      = 4
 #   persistence         = true # RDB snapshots, on either tier
 #   rdb_snapshot_period = "TWENTY_FOUR_HOURS" # ONE_HOUR, SIX_HOURS, TWELVE_HOURS
 # }
@@ -93,7 +92,7 @@ domain = "plane.example.com" # never change after install
 
 # opensearch = {
 #   enabled        = true
-#   volume_size_gb = 20 # set before the first install
+#   volume_size_gb = 50 # set before the first install
 #   index_prefix   = "plane"
 # }
 
@@ -123,7 +122,7 @@ domain = "plane.example.com" # never change after install
 #   }
 # }
 
-# use_storage_proxy    = false
+# use_storage_proxy    = false # true: attachments and editor images go through Plane's api (deployment guide, section 5)
 # bucket_force_destroy = false
 
 # plane_version    = "v4.0.1"

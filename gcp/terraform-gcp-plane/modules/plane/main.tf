@@ -143,7 +143,7 @@ locals {
     kind       = "Secret"
     type       = "Opaque"
     metadata   = { name = local.redis_ca_secret, annotations = local.hook.secrets }
-    stringData = { "ca.crt" = coalesce(var.data.redis_ca, "-") }
+    stringData = { "ca.crt" = var.data.redis_ca }
   }
 
   # slice, not a conditional, keeps the tuple type stable.
@@ -297,7 +297,7 @@ locals {
 
       redis_host = var.data.redis_host
       redis_port = tostring(var.data.redis_port)
-      redis_ssl  = var.data.redis_tls
+      redis_ssl  = true
 
       rabbitmq_ssl   = false
       rabbitmq_vhost = "/"
@@ -324,7 +324,7 @@ locals {
     )
 
     # Memorystore's server CA for the Node.js services (live, silo).
-    customCA = { s3Secrets = var.data.redis_tls ? [{ name = local.redis_ca_secret, key = "ca.crt" }] : [] }
+    customCA = { s3Secrets = [{ name = local.redis_ca_secret, key = "ca.crt" }] }
 
     # No chart value for TRUSTED_PROXIES yet (chart change C-8); Traefik reaches the api from a pod IP.
     extraEnv = [
@@ -339,7 +339,7 @@ locals {
       [local.app_keys_external_secret],
       var.data.opensearch_enabled ? [local.opensearch_external_secret] : [],
       var.enable_components.pi ? [local.pi_api_keys_object] : [],
-      var.data.redis_tls ? [local.redis_ca_object] : [],
+      [local.redis_ca_object],
       local.certificate_objects,
       values(local.customer_certificates),
     )

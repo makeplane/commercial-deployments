@@ -88,7 +88,7 @@ variable "acme_server" {
 }
 
 variable "use_storage_proxy" {
-  description = "Uploads and downloads through the api instead of signed URLs."
+  description = "Attachments, editor images and similar go through the api instead of signed URLs (silo, live and pi do not read it)."
   type        = bool
 }
 
@@ -136,7 +136,6 @@ variable "data" {
     postgres_db        = string
     redis_host         = string
     redis_port         = number
-    redis_tls          = bool
     redis_ca           = string
     opensearch_enabled = bool
     secret_names       = map(string)

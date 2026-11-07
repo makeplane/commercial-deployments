@@ -80,7 +80,7 @@ output "cloudsql_private_ip" {
 }
 
 output "redis_endpoint" {
-  description = "Memorystore for Redis endpoint (host:port; port 6378 with TLS, 6379 without)."
+  description = "Memorystore for Redis endpoint (host:port; TLS, port 6378)."
   value       = "${module.data.redis_host}:${module.data.redis_port}"
 }
 

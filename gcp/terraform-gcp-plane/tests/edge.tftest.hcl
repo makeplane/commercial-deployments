@@ -49,7 +49,7 @@ override_module {
     postgres_instance_name = "plane-test-pg-abcd"
     postgres_host          = "10.60.32.3"
     redis_host             = "10.60.33.4"
-    redis_port             = 6379
+    redis_port             = 6378
     bucket_name            = "plane-test-uploads-abcd1234"
     secret_ids = {
       postgres   = "projects/plane-test-project/secrets/plane-test-plane-db"
@@ -64,9 +64,8 @@ override_module {
       postgres_port      = 5432
       postgres_db        = "plane"
       redis_host         = "10.60.33.4"
-      redis_port         = 6379
-      redis_tls          = false
-      redis_ca           = null
+      redis_port         = 6378
+      redis_ca           = "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
       opensearch_enabled = true
       app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names = {
@@ -89,8 +88,8 @@ variables {
 
 run "path_b_default" {
   assert {
-    condition     = var.redis.transit_encryption
-    error_message = "Memorystore TLS must be on by default."
+    condition     = yamldecode(output.plane_helm_values).env.redis_ssl
+    error_message = "Plane must always reach Memorystore over TLS."
   }
   assert {
     condition     = output.load_balancer_ip == null && output.dns_records.web == null

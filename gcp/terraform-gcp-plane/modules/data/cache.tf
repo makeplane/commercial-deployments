@@ -12,7 +12,7 @@ resource "google_redis_instance" "this" {
   reserved_ip_range  = var.private_service_range
 
   auth_enabled            = true
-  transit_encryption_mode = var.redis.transit_encryption ? "SERVER_AUTHENTICATION" : "DISABLED"
+  transit_encryption_mode = "SERVER_AUTHENTICATION"
 
   persistence_config {
     persistence_mode    = var.redis.persistence ? "RDB" : "DISABLED"

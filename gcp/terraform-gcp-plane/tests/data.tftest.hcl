@@ -1,7 +1,14 @@
 # The data layer on its own: Cloud SQL, Memorystore, the bucket and the generated secrets. Mock providers: no GCP
 # credentials needed.
 
-mock_provider "google" {}
+mock_provider "google" {
+  mock_resource "google_redis_instance" {
+    defaults = {
+      port            = 6378
+      server_ca_certs = [{ cert = "CERT-A" }, { cert = "CERT-B" }]
+    }
+  }
+}
 mock_provider "random" {}
 
 variables {
@@ -31,13 +38,12 @@ variables {
     version             = "REDIS_7_2"
     tier                = "STANDARD_HA"
     memory_size_gb      = 4
-    transit_encryption  = true
     persistence         = true
     rdb_snapshot_period = "TWENTY_FOUR_HOURS"
   }
   opensearch = {
     enabled        = true
-    volume_size_gb = 20
+    volume_size_gb = 50
     index_prefix   = "plane"
   }
 }
@@ -146,7 +152,6 @@ run "redis_rdb_persistence_on_basic_tier" {
       version             = "REDIS_7_2"
       tier                = "BASIC"
       memory_size_gb      = 4
-      transit_encryption  = true
       persistence         = true
       rdb_snapshot_period = "SIX_HOURS"
     }
@@ -171,7 +176,6 @@ run "redis_persistence_off" {
       version             = "REDIS_7_2"
       tier                = "STANDARD_HA"
       memory_size_gb      = 4
-      transit_encryption  = true
       persistence         = false
       rdb_snapshot_period = "TWENTY_FOUR_HOURS"
     }
@@ -183,5 +187,32 @@ run "redis_persistence_off" {
       google_redis_instance.this.persistence_config[0].rdb_snapshot_period == null
     )
     error_message = "With persistence off, the mode is DISABLED and no period is sent."
+  }
+}
+
+run "redis_tls_always_on" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition     = google_redis_instance.this.transit_encryption_mode == "SERVER_AUTHENTICATION"
+    error_message = "Memorystore must always use TLS."
+  }
+  assert {
+    condition     = output.plane_inputs.redis_port == 6378 && output.plane_inputs.redis_ca == "CERT-A\nCERT-B"
+    error_message = "Plane must get the TLS port and every Memorystore server CA."
+  }
+}
+
+# Plane AI keeps signed URLs even with use_storage_proxy, so this doesn't depend on it.
+run "bucket_cors_for_domain" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition     = one(google_storage_bucket.uploads.cors[0].origin) == "https://plane.example.com"
+    error_message = "The bucket must allow CORS from the domain."
   }
 }

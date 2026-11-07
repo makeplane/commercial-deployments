@@ -51,7 +51,6 @@ variable "redis" {
     version             = string
     tier                = string
     memory_size_gb      = number
-    transit_encryption  = bool
     persistence         = bool
     rdb_snapshot_period = string
   })

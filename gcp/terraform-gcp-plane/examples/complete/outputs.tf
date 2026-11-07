@@ -27,3 +27,8 @@ output "plane_helm_values" {
   description = "Chart values the module generated (YAML, no secret values)."
   value       = module.plane.plane_helm_values
 }
+
+output "secret_ids" {
+  description = "Secret Manager secrets the deployment uses (IDs only, never values)."
+  value       = module.plane.secret_ids
+}

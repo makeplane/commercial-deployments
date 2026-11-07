@@ -32,7 +32,7 @@ Plan for about two hours. Most of that is waiting for Google Cloud to create res
 | Database | Cloud SQL for PostgreSQL 15, regional high availability, private IP only, encrypted connections only. Databases `plane` and `plane_pi` | `db-custom-2-8192` (2 vCPU, 8 GB), 100 GB SSD, grows automatically |
 | Cache | Memorystore for Redis 7.2, Standard tier (a replica in another zone with automatic failover), AUTH and TLS | 4 GB |
 | Message queue | RabbitMQ, **run in the cluster** | One node, 10 GiB persistent disk |
-| Search | OpenSearch, **run in the cluster** | One node, 20 GiB persistent disk |
+| Search | OpenSearch, **run in the cluster** | One node, 50 GiB persistent disk |
 | File storage | A Cloud Storage bucket for uploads, versioned | |
 | Email | Plane's email service on its own load balancer and reserved static IP, receiving mail for `intake.<your domain>` | |
 | Plane | The Plane Commercial Helm chart, with its secrets in Secret Manager | |
@@ -42,19 +42,20 @@ each as a single instance on a persistent disk. You operate them: back them up w
 zone holding one of their disks is unavailable, that service is down until the zone returns. Search is optional: set
 `opensearch = { enabled = false }` to turn it off.
 
-**Plane AI is optional and off by default.** It needs an API key from an AI provider and a recent Plane release; see
-[Plane AI](#plane-ai-optional) in section 5.
+**Plane AI is optional and off by default.** It needs API keys from your AI providers (OpenAI and Cohere by default) and
+a recent Plane release; see [Plane AI](#plane-ai-optional) in section 5.
 
 **Security defaults:**
 - The nodes have no public IPs. Only the load balancers and the Kubernetes API endpoint are public. The API endpoint is
   open to all addresses by default: limit it to your networks with `master_authorized_networks`.
-- Cloud SQL and Memorystore have private IPs only. Cloud SQL accepts only encrypted connections; Memorystore requires a
-  password (AUTH) and uses TLS.
+- Cloud SQL and Memorystore have private IPs only. Cloud SQL accepts only encrypted connections. Memorystore requires a
+  password (AUTH) and always uses TLS (port 6378); Plane trusts its server certificate automatically.
 - Data is encrypted at rest with Google-managed keys. Customer-managed keys (CMEK) are not supported in this release.
 - Plane reaches Cloud Storage, and External Secrets reaches Secret Manager, through GKE Workload Identity. There are no
   service account keys anywhere. Plane's identity can use the uploads bucket only; External Secrets can read only this
   installation's secrets and the certificate and AI provider secrets you name.
-- The uploads bucket blocks public access. Browsers upload and download files with short-lived signed URLs.
+- The uploads bucket blocks public access. By default, browsers upload and download files with short-lived signed URLs
+  (see [File uploads and downloads](#file-uploads-and-downloads-optional) in section 5).
 - Passwords and keys are generated for you and stored in Secret Manager, replicated in your region only.
 - GKE nodes are shielded VMs. GKE upgrades the cluster automatically within its release channel (`REGULAR`), in a
   weekend maintenance window.
@@ -74,7 +75,7 @@ calculator for your region.
 | `gke-gcloud-auth-plugin` | any recent | Authentication to the cluster during the apply (`gcloud components install gke-gcloud-auth-plugin`) |
 | kubectl | any recent | Checking the installation |
 | Helm | 3 or later | Only if you bring your own ingress (option B) |
-| jq | any | Only if you store your own certificates or AI provider keys in Secret Manager |
+| jq | any | Only if you store your own certificates in Secret Manager |
 
 ### Google Cloud project
 
@@ -252,7 +253,7 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Choose the zones | `zones = ["us-central1-a", "us-central1-b", "us-central1-c"]` | Nodes run in these zones instead of three GKE picks |
 | Larger database | `postgres = { tier = "db-custom-4-16384" }` | 4 vCPUs and 16 GB |
 | Larger cache | `redis = { memory_size_gb = 8 }` | 8 GB |
-| Larger search disk | `opensearch = { volume_size_gb = 50 }` | 50 GiB for OpenSearch. Set it before the first install; to grow the disk later, see section 10 |
+| Larger search disk | `opensearch = { volume_size_gb = 100 }` | 100 GiB for OpenSearch instead of 50. Set it before the first install; to grow the disk later, see section 10 |
 | No search | `opensearch = { enabled = false }` | No OpenSearch; Plane runs with search indexing off, so search is more limited |
 | Different email domain | `email = { smtp_domain = "mail.example.com" }` | Intake addresses use this domain |
 | Email without a public endpoint | `email = { load_balancer = false }` | The email service runs, but can't receive mail from the internet |
@@ -260,9 +261,30 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Different network ranges | `network = { subnet_cidr = "10.80.0.0/20", … }` | Avoids overlap with networks you peer or connect with |
 | Extra admins | `cluster_admin_members = ["group:platform@example.com"]` | GKE admin role on the project for these users or groups |
 | Labels | `labels = { cost-center = "1234" }` | Added to every resource that supports labels |
+| Files through Plane's api | `use_storage_proxy = true` | Attachments and editor images go through Plane's api instead of straight to the bucket. Read the next section first |
 
 When an object setting appears twice (for example two `email = { … }` lines), Terraform fails: combine the fields
 into one line.
+
+### File uploads and downloads (optional)
+
+`use_storage_proxy` sets how browsers reach files in the uploads bucket.
+
+- **`false` (default):** browsers upload to and download from the bucket directly with short-lived signed URLs, and the
+  bucket allows cross-origin requests (CORS) from your domain.
+- **`true`:** work item attachments, editor images and similar files go through Plane's api, which reaches the bucket
+  with its own identity.
+
+Before you set it to `true`:
+
+- **Not every file moves.** Silo, live and Plane AI don't read this setting, and Plane AI keeps using direct signed URLs
+  in both modes. The bucket keeps its CORS configuration either way, so browsers must still be able to reach Cloud
+  Storage if you use Plane AI.
+- **The api does more work.** Every proxied file passes through it, so add api replicas if you move many or large files
+  (section 10, "More capacity").
+- **The ingress limits file size.** Proxied files are subject to your ingress's request body limit. With option B, raise
+  your controller's limit to fit your largest file (the NGINX command in section 8 sets 20 MB). With any option, try your
+  largest files before you rely on this setting.
 
 ### Plane AI (optional)
 
@@ -270,7 +292,7 @@ Plane AI runs on the same uploads bucket and in-cluster OpenSearch as Plane. It 
 
 - **Plane** at the first release whose Plane AI supports Cloud Storage (named in the module's release notes), and the
   Plane Commercial Helm chart **3.12.2 or later** (the default). The module refuses Plane AI with an older
-  `plane_version`.
+  `plane_version`. If the release notes don't name a release yet, Plane AI isn't available in this module release.
 - **Search on** (`opensearch.enabled`, the default). With Plane AI, OpenSearch gets a larger memory allowance (1.5 GB
   heap, 3 GiB limit).
 - **Two API keys:** OpenAI for chat and Cohere for embeddings (semantic search), each stored in Secret Manager before
@@ -302,10 +324,11 @@ pi = {
 # plane_version = "<a release with Plane AI on Cloud Storage>" # if the module's default is older
 ```
 
-**Other providers.** For Anthropic chat, store the Anthropic key instead and set `chat_provider = "anthropic"`. For
-another embedding model, set `embedding_model` to one of `cohere/embed-english-v3.0`, `cohere/embed-english-v2.0`,
-`openai/text-embedding-ada-002`, `openai/text-embedding-3-small` or `openai/text-embedding-3-large` (the module README
-lists their dimensions); with OpenAI for both chat and embeddings, use the same secret for both keys.
+**Other providers.** For Anthropic chat, store the Anthropic key instead and set
+`pi.api_keys.chat_provider = "anthropic"`. For another embedding model, set `pi.api_keys.embedding_model` to one of
+`cohere/embed-english-v3.0`, `cohere/embed-english-v2.0`, `openai/text-embedding-ada-002`,
+`openai/text-embedding-3-small` or `openai/text-embedding-3-large` (the module README lists their dimensions); with
+OpenAI for both chat and embeddings, use the same secret for both keys.
 
 **Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's search indexes
 are created at the first install with the vector dimension of `pi.api_keys.embedding_model`, whether Plane AI is on or
@@ -358,6 +381,8 @@ terraform output dns_records
 
 - The IPs are static addresses reserved by the module: they don't change while the installation exists, so A records
   are safe. They also work at a zone apex.
+- A value of `null` means there is no record to take from the output: `web` with option B (use your own load balancer's
+  IP), and `email_host` and `email_mx` with `email = { enabled = false }` or `email = { load_balancer = false }`.
 - An MX record can't point at an IP, so the email domain gets both an A record and an MX record naming itself.
 - With `ingress.scheme = "internal"`, the web IP is private: create the record in a DNS zone your users resolve, for
   example a private zone.
@@ -419,7 +444,8 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
    ```
 
    **Other controllers** (GKE Gateway and others): use the generated NGINX Ingress as the route table: each path, the
-   service and port it goes to. Plane needs WebSocket support on `/live/` and an upload size limit of at least 20 MB.
+   service and port it goes to. Plane needs WebSocket support on `/live/` and an upload size limit of at least 20 MB
+   (more with `use_storage_proxy = true`; see section 5).
 4. **Apply the routes:**
    ```bash
    kubectl -n plane apply -f plane-routes.yaml
@@ -431,7 +457,7 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
 1. Open `https://<your domain>` and complete the setup: create the first admin account and your workspace.
 2. Activate your Plane licence key, following the activation steps in Plane's documentation.
 3. Configure outgoing email (SMTP), single sign-on and AI providers in the instance admin panel at
-   `https://<your domain>/god-mode/`. Plane AI reads its keys from the secret you stored in section 5 instead.
+   `https://<your domain>/god-mode/`. Plane AI reads its keys from the secrets you stored in section 5 instead.
 
 **Inbound email:** once the A and MX records resolve, mail sent to your intake addresses becomes work items. The email
 load balancer accepts mail from any sender on ports 25, 465 and 587, as a mail server must.
@@ -443,7 +469,7 @@ before applying.
 
 | Task | How |
 |---|---|
-| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.12.2 or later). Option B: regenerate and re-apply your routes. |
+| Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then `terraform init -backend-config=backend.hcl`, plan and apply. Read the release notes first. Migrations and search indexes run automatically. To pick a version yourself, set `plane_version` (and `chart_version`, 3.12.2 or later). Option B: regenerate and re-apply your routes. |
 | More capacity | Raise the node limit (`node_pool = { max_per_zone = 3 }`); the GKE cluster autoscaler adds nodes when pods need room. Add Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
 | Kubernetes upgrades | Automatic, within the release channel (`release_channel`, default `REGULAR`), on Saturdays and Sundays between 02:00 and 08:00 UTC. Nodes are replaced one at a time. Plane's api, worker, web and live run two replicas and stay up; RabbitMQ and OpenSearch restart briefly when their node is replaced. |
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
@@ -510,10 +536,10 @@ fail (section 12). To grow a disk, resize its claim directly and **leave `volume
    kubectl get storageclass standard-rwo -o jsonpath='{.allowVolumeExpansion}'
    ```
 2. Snapshot the disk first (above).
-3. Ask for the new size, for example 50 GiB for OpenSearch:
+3. Ask for the new size, for example 100 GiB for OpenSearch:
    ```bash
    kubectl -n plane patch pvc pvc-plane-opensearch-vol-plane-opensearch-wl-0 \
-     -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'
+     -p '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}'
    ```
 4. Watch `CAPACITY` in `kubectl -n plane get pvc` reach the new size. If it doesn't after a few minutes,
    `kubectl -n plane describe pvc <pvc>` shows why.
@@ -536,13 +562,6 @@ the web IP changes.
 
 If step 1 fails releasing the web IP, the load balancer is still being removed: wait a few minutes and apply again.
 
-### Redis TLS
-
-Memorystore uses TLS by default (`redis.transit_encryption = true`, port 6378), and Plane trusts its server certificate
-automatically. To use the private network with the AUTH password only, set `redis = { transit_encryption = false }`.
-Decide before the first apply if you can: Memorystore sets in-transit encryption only when it creates an instance, so
-changing it later replaces the cache (check the plan), and Plane reconnects to the new one during the apply.
-
 ## 11. Removing the installation
 
 This deletes Plane and all its data.
@@ -553,7 +572,8 @@ This deletes Plane and all its data.
 2. **Note the disks** of the in-cluster RabbitMQ and OpenSearch (the `DISK` column in section 10). They outlive the
    cluster, and you delete them in step 6.
 3. Turn off the database's deletion protection, and allow deleting the uploads bucket with its files. Without these,
-   `terraform destroy` stops with an error. In `terraform.tfvars`:
+   `terraform destroy` stops with an error. In `terraform.tfvars` (keep the other fields of your `postgres` setting, if
+   any):
    ```hcl
    postgres             = { deletion_protection = false }
    bucket_force_destroy = true
@@ -604,6 +624,7 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 | A RabbitMQ or OpenSearch pod stays `Pending` | Its disk can't be created (SSD quota) or no node has room | `kubectl -n plane describe pvc` and `kubectl -n plane describe pod <pod>`; raise the quota or `node_pool.max_per_zone` |
 | Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |
+| Large files fail, or the api slows down, with `use_storage_proxy = true` | Proxied files are subject to the ingress body limit and add load on the api | Raise the limit to fit your largest file and add api replicas (section 10), or set `use_storage_proxy = false` |
 | Live collaboration doesn't connect (option B) | WebSockets not enabled on `/live/` | Enable WebSocket support for that path |
 | No inbound email | The A or MX record for the email domain is missing or wrong | `dig MX <email domain>` must return the email domain, and `dig <email domain>` the email load balancer's IP |
 | `terraform destroy` fails on the Cloud SQL instance or the bucket | Deletion protection is on, or the bucket isn't empty | Section 11, step 3 |
