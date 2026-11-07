@@ -50,6 +50,7 @@ output "plane_inputs" {
     rabbitmq_secret_name   = azurerm_key_vault_secret.this["plane-rabbitmq"].name
     opensearch_secret_name = var.opensearch_enabled ? azurerm_key_vault_secret.this["plane-opensearch"].name : null
     app_keys_secret_name   = azurerm_key_vault_secret.this["plane-app-keys"].name
+    app_key_names          = keys(random_password.app_keys)
 
     storage_account_name   = azurerm_storage_account.this.name
     storage_container_name = azurerm_storage_container.uploads.name

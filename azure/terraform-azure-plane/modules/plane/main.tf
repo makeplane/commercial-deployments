@@ -110,7 +110,6 @@ locals {
       "plane-db"       = var.data.postgres_secret_name
       "plane-redis"    = var.data.redis_secret_name
       "plane-rabbitmq" = var.data.rabbitmq_secret_name
-      "plane-app-keys" = var.data.app_keys_secret_name
       } : name => {
       apiVersion = "external-secrets.io/v1"
       kind       = "ExternalSecret"
@@ -122,6 +121,21 @@ locals {
         target   = { name = name, creationPolicy = "Orphan" }
         dataFrom = [{ extract = { key = key } }]
       }
+    }
+  }
+
+  # Each key mapped by name: a secret missing one fails to sync rather than Plane starting without it.
+  app_keys_external_secret = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = "plane-app-keys", annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = "plane-app-keys", creationPolicy = "Orphan" }
+      data = [
+        for k in var.data.app_key_names : { secretKey = k, remoteRef = { key = var.data.app_keys_secret_name, property = k } }
+      ]
     }
   }
 
@@ -334,6 +348,7 @@ locals {
       [local.storage_class_object, local.secret_store_object],
       local.certificate_store_objects,
       values(local.external_secret),
+      [local.app_keys_external_secret],
       var.opensearch.enabled ? [local.opensearch_external_secret] : [],
       local.certificate_objects,
       values(local.customer_certificates),

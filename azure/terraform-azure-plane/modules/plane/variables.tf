@@ -156,6 +156,7 @@ variable "data" {
     rabbitmq_secret_name   = string
     opensearch_secret_name = string
     app_keys_secret_name   = string
+    app_key_names          = list(string)
 
     storage_account_name   = string
     storage_container_name = string

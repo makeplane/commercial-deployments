@@ -73,6 +73,7 @@ override_module {
       rabbitmq_secret_name   = "plane-rabbitmq"
       opensearch_secret_name = "plane-opensearch"
       app_keys_secret_name   = "plane-app-keys"
+      app_key_names          = ["AES_SECRET_KEY", "SECRET_KEY"]
       storage_account_name   = "planetestabcd1234"
       storage_container_name = "uploads"
       storage_container_id   = "/subscriptions/mock/resourceGroups/plane-test-rg/providers/Microsoft.Storage/storageAccounts/planetestabcd1234/blobServices/default/containers/uploads"

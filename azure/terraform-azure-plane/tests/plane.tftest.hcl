@@ -49,6 +49,7 @@ variables {
     rabbitmq_secret_name   = "plane-rabbitmq"
     opensearch_secret_name = "plane-opensearch"
     app_keys_secret_name   = "plane-app-keys"
+    app_key_names          = ["AES_SECRET_KEY", "SECRET_KEY"]
     storage_account_name   = "planetestabcd1234"
     storage_container_name = "uploads"
     storage_container_id   = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/plane-test-rg/providers/Microsoft.Storage/storageAccounts/planetestabcd1234/blobServices/default/containers/uploads"
@@ -147,6 +148,21 @@ run "in_cluster_services" {
       "OPENSEARCH_INITIAL_ADMIN_PASSWORD", "OPENSEARCH_INDEX_PREFIX", "OPENSEARCH_EMBEDDING_DIMENSION",
     ])
     error_message = "The OpenSearch Secret must carry exactly the chart's opensearch-secrets keys."
+  }
+  assert {
+    condition = [
+      for o in yamldecode(output.helm_values).extraObjects : o.spec
+      if o.kind == "ExternalSecret" && o.metadata.name == "plane-app-keys"
+      ] == [{
+        refreshInterval = "1h"
+        secretStoreRef  = { name = "azure-key-vault", kind = "SecretStore" }
+        target          = { name = "plane-app-keys", creationPolicy = "Orphan" }
+        data = [
+          { secretKey = "AES_SECRET_KEY", remoteRef = { key = "plane-app-keys", property = "AES_SECRET_KEY" } },
+          { secretKey = "SECRET_KEY", remoteRef = { key = "plane-app-keys", property = "SECRET_KEY" } },
+        ]
+    }]
+    error_message = "The app keys must be synced key by key (no dataFrom), so a missing key fails the sync."
   }
   assert {
     condition     = yamldecode(output.helm_values).extraEnv[0] == { name = "TRUSTED_PROXIES", value = "192.168.0.0/16" }

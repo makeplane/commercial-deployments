@@ -86,6 +86,10 @@ run "defaults" {
     error_message = "The app keys must match the AWS module's list."
   }
   assert {
+    condition     = toset(output.plane_inputs.app_key_names) == toset(keys(random_password.app_keys))
+    error_message = "Plane must sync every generated app key by name."
+  }
+  assert {
     condition     = !azurerm_storage_account.this.shared_access_key_enabled && azurerm_storage_account.this.public_network_access == "Disabled" && azurerm_storage_account.this.account_replication_type == "ZRS"
     error_message = "The storage account must have no shared keys, no public access, and ZRS by default."
   }
