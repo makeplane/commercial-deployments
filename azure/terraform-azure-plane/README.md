@@ -180,6 +180,14 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
   release and namespace are fixed to `plane`. App keys are generated once and never rotated.
 - **In-cluster RabbitMQ and OpenSearch** are single nodes on zone-redundant disks: a zone loss restarts them in another
   zone, but they aren't highly available. Their disks live in the AKS node resource group.
+- **RabbitMQ and OpenSearch passwords** are generated once and never regenerated: the servers take them only at first
+  boot (their users live on their disks), so a new value in Key Vault alone would lock Plane out. To rotate one:
+  1. `terraform apply -replace='module.plane.module.data.random_password.rabbitmq'` (or `.opensearch`): a new value
+     in the Key Vault secret `plane-rabbitmq` (or `plane-opensearch`).
+  2. Set that value on the server: `rabbitmqctl change_password plane '<new>'` in pod `plane-rabbitmq-wl-0`; for
+     OpenSearch, the `admin` and `plane` users through the security plugin's `internalusers` API.
+  3. Sync it now instead of within the hour: `kubectl -n plane annotate externalsecret plane-rabbitmq` (or
+     `plane-opensearch-creds`) `force-sync=$(date +%s) --overwrite`. Reloader then restarts the apps.
 - **Nodes:** 2 by default, the AKS cluster autoscaler keeps the pool between `node_pool.min_count` and `max_count`.
 - **Destroying:** PostgreSQL and the storage account carry delete locks. Set
   `postgres = { deletion_protection = false }` and `storage = { deletion_protection = false }`, apply, then destroy.

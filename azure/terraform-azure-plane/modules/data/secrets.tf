@@ -2,6 +2,11 @@
 resource "random_password" "rabbitmq" {
   length  = 32
   special = false
+
+  lifecycle {
+    # The broker takes it only at first boot (users live on its disk): a new value would lock the apps out.
+    ignore_changes = all
+  }
 }
 
 # The OpenSearch security plugin rejects passwords without a special character.
@@ -13,6 +18,11 @@ resource "random_password" "opensearch" {
   min_lower        = 1
   min_numeric      = 1
   min_special      = 1
+
+  lifecycle {
+    # Set only when the security index is first created (on its disk); see README to rotate it.
+    ignore_changes = all
+  }
 }
 
 # SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data and must never change, so

@@ -23,8 +23,8 @@
    for Containers; destroy order for your own load balancers).
 9. **Sign in and activate your licence**.
 10. **Day-2 operations**: kubectl access (`configure_kubectl`), scaling, upgrades (Plane, chart, AKS), certificate
-    renewal, rotating the Redis access key, backups (PostgreSQL PITR; RabbitMQ and OpenSearch disk snapshots; Blob
-    versioning and soft delete).
+    renewal, rotating the Redis access key and the RabbitMQ and OpenSearch passwords (README, "Things to know"),
+    backups (PostgreSQL PITR; RabbitMQ and OpenSearch disk snapshots; Blob versioning and soft delete).
 11. **Removing the installation**: delete locks off (`postgres` / `storage` `deletion_protection`), destroy, Key Vault
     soft delete and purge protection, leftover disks.
 12. **Troubleshooting**: Azure RBAC propagation (403 from Helm), External Secrets Workload Identity, `PublicIPAddressInUse`
