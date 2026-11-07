@@ -31,6 +31,9 @@ locals {
   secret_arn_regex  = "^arn:aws[a-z-]*:secretsmanager:${local.region}:${local.account_id}:secret:[A-Za-z0-9/_+=.@-]+-[A-Za-z0-9]{6}$"
   secret_arn_format = "a full Secrets Manager secret ARN in this account and region, as aws secretsmanager create-secret prints it (arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:<name>-<6 characters>)"
 
+  # Dotted-quad IPv4 with a prefix; cidrhost() checks the ranges (it also accepts IPv6).
+  ipv4_cidr_regex = "^[0-9]{1,3}(\\.[0-9]{1,3}){3}/[0-9]{1,2}$"
+
   # Plane AI's embedding models (pi/core/embedding_config.py) and their vector dimensions; Bedrock
   # ones with the Bedrock model ID behind pi's key.
   pi_embedding_dimensions = {

@@ -212,6 +212,10 @@ variable "ingress" {
     error_message = "ingress.scheme must be \"internet-facing\" or \"internal\"."
   }
   validation {
+    condition     = length(var.ingress.allowed_cidrs) > 0 && alltrue([for c in var.ingress.allowed_cidrs : can(regex(local.ipv4_cidr_regex, c)) && can(cidrhost(c, 0)) && try(cidrhost(c, 0) == split("/", c)[0], false)])
+    error_message = "ingress.allowed_cidrs must list at least one IPv4 CIDR whose address is the start of the range (e.g. 203.0.113.0/24, or 203.0.113.10/32 for one address)."
+  }
+  validation {
     condition     = var.ingress.mode != "automated" || ((var.acme_email != null) != (var.ingress.tls_certificate_secret_arn != null))
     error_message = "Path A (ingress.mode = \"automated\") needs exactly one web certificate source: acme_email (Let's Encrypt) or ingress.tls_certificate_secret_arn (your own certificate)."
   }
@@ -241,6 +245,15 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.60.0.0/16"
   nullable    = false
+
+  validation {
+    condition     = can(regex(local.ipv4_cidr_regex, var.vpc_cidr)) && can(cidrhost(var.vpc_cidr, 0)) && try(cidrhost(var.vpc_cidr, 0) == split("/", var.vpc_cidr)[0], false)
+    error_message = "vpc_cidr must be an IPv4 CIDR whose address is the start of the range (e.g. 10.60.0.0/16)."
+  }
+  validation {
+    condition     = try(tonumber(split("/", var.vpc_cidr)[1]) >= 16 && tonumber(split("/", var.vpc_cidr)[1]) <= 20, false)
+    error_message = "vpc_cidr must be /16 to /20: AWS allows /16 at most, and the module splits it into /20-/24 subnets (one sixteenth each) whose addresses the EKS pods also use."
+  }
 }
 
 variable "az_count" {
@@ -278,13 +291,27 @@ variable "cluster_endpoint_public_access_cidrs" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
   nullable    = false
+
+  validation {
+    condition     = length(var.cluster_endpoint_public_access_cidrs) > 0 && alltrue([for c in var.cluster_endpoint_public_access_cidrs : can(regex(local.ipv4_cidr_regex, c)) && can(cidrhost(c, 0)) && try(cidrhost(c, 0) == split("/", c)[0], false)])
+    error_message = "cluster_endpoint_public_access_cidrs must list at least one IPv4 CIDR whose address is the start of the range (e.g. 203.0.113.0/24, or 203.0.113.10/32 for one address)."
+  }
 }
 
 variable "cluster_admin_principal_arns" {
-  description = "IAM principal ARNs granted cluster-admin through EKS access entries. The identity running Terraform is added automatically."
+  description = "IAM role or user ARNs granted cluster-admin through EKS access entries (not STS assumed-role session ARNs). The identity running Terraform is added automatically: don't list it again."
   type        = list(string)
   default     = []
   nullable    = false
+
+  validation {
+    condition     = alltrue([for a in var.cluster_admin_principal_arns : can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:(role|user)/[A-Za-z0-9+=,.@_/-]+$", a))])
+    error_message = "cluster_admin_principal_arns entries must be IAM role or user ARNs (arn:aws:iam::<account>:role/<name> or :user/<name>). For an assumed-role session (arn:aws:sts::...:assumed-role/<role>/<session>), use the role's ARN."
+  }
+  validation {
+    condition     = length(distinct(var.cluster_admin_principal_arns)) == length(var.cluster_admin_principal_arns)
+    error_message = "cluster_admin_principal_arns must not repeat an ARN (EKS allows one access entry per principal)."
+  }
 }
 
 variable "node_group" {
@@ -342,18 +369,47 @@ variable "plane_values" {
 ################################################################################
 
 variable "postgres" {
-  description = "RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module."
+  description = <<-EOT
+    RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. storage_type: io1
+    (default), io2 or gp3. iops: io1/io2 default 1000 (1000-256000); gp3 leaves it unset below 400 GiB (a fixed 3000),
+    12000-64000 from 400 GiB.
+  EOT
   type = object({
     engine_version        = optional(string, "15.19")
     instance_class        = optional(string, "db.m6gd.large")
     allocated_storage_gb  = optional(number, 100)
     storage_type          = optional(string, "io1")
-    iops                  = optional(number, 1000)
+    iops                  = optional(number)
     backup_retention_days = optional(number, 14)
     deletion_protection   = optional(bool, true)
   })
   default  = {}
   nullable = false
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+$", var.postgres.engine_version))
+    error_message = "postgres.engine_version must be an RDS for PostgreSQL version such as 15.19 (major.minor)."
+  }
+  validation {
+    condition     = contains(["io1", "io2", "gp3"], var.postgres.storage_type)
+    error_message = "postgres.storage_type must be io1, io2 or gp3 (the storage types of RDS Multi-AZ DB clusters)."
+  }
+  validation {
+    condition     = var.postgres.allocated_storage_gb >= (var.postgres.storage_type == "gp3" ? 20 : 100)
+    error_message = "postgres.allocated_storage_gb must be at least 100 GiB for io1/io2, 20 GiB for gp3."
+  }
+  validation {
+    condition = var.postgres.iops == null ? true : (
+      var.postgres.storage_type == "gp3"
+      ? var.postgres.allocated_storage_gb >= 400 && var.postgres.iops >= 12000 && var.postgres.iops <= 64000
+      : var.postgres.iops >= 1000 && var.postgres.iops <= 256000
+    )
+    error_message = "postgres.iops: io1/io2 take 1000-256000 (default 1000); gp3 takes 12000-64000 and only from 400 GiB (below that it's a fixed 3000; leave iops unset)."
+  }
+  validation {
+    condition     = var.postgres.storage_type != "io1" || coalesce(var.postgres.iops, 1000) <= 50 * var.postgres.allocated_storage_gb
+    error_message = "postgres.iops on io1 can be at most 50 per GiB of postgres.allocated_storage_gb."
+  }
 }
 
 variable "redis" {
@@ -365,6 +421,11 @@ variable "redis" {
   })
   default  = {}
   nullable = false
+
+  validation {
+    condition     = var.redis.replicas >= 0 && var.redis.replicas <= 5 && floor(var.redis.replicas) == var.redis.replicas
+    error_message = "redis.replicas must be a whole number from 0 to 5 (ElastiCache allows up to 5 replicas per primary)."
+  }
 }
 
 variable "rabbitmq" {

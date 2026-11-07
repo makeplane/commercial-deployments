@@ -9,6 +9,11 @@
 - The chart values declare `serviceAccount.cloudIdentity: true` (Plane's ServiceAccount is bound to its role through
   EKS Pod Identity), as on GCP: it changes nothing rendered, and lets `helm upgrade` warn about settings that conflict
   with an attached identity.
+- More inputs checked at plan, as on GCP: `vpc_cidr` (an IPv4 range start, /16 to /20),
+  `cluster_endpoint_public_access_cidrs` and `ingress.allowed_cidrs` (at least one IPv4 CIDR, range start),
+  `cluster_admin_principal_arns` (IAM role or user ARNs, no STS sessions, no repeats), `redis.replicas` (0-5),
+  `postgres.engine_version` (major.minor), `postgres.storage_type` (io1, io2 or gp3) with its size and IOPS rules.
+  `postgres.iops` now defaults to 1000 only for io1/io2; gp3 below 400 GiB takes none.
 
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
