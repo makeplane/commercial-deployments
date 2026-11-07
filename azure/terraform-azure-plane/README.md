@@ -292,7 +292,7 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
 | cluster\_name | AKS cluster name. |
 | configure\_kubectl | Command to point kubectl at the cluster (Entra ID through kubelogin; local accounts are off). |
 | deployment\_mode | Deployment mode in use. |
-| dns\_records | The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. email\_a and email\_mx: with the email load balancer (an MX record needs a hostname, so smtp\_domain gets its own A record). |
+| dns\_records | The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. An MX record can't point at an IP, so with the email load balancer smtp\_domain gets an A record (email\_host) and an MX record naming it (email\_mx). |
 | email\_load\_balancer\_ip | Static public IP of the email load balancer (null without email.load\_balancer). email.smtp\_domain's A record points here. |
 | external\_secrets\_client\_id | Client ID of the managed identity External Secrets uses to read Key Vault (Workload Identity). |
 | key\_vault\_secret\_ids | Versionless IDs of the Key Vault secrets the deployment uses (IDs only, never values). |
@@ -304,7 +304,7 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
 | plane\_url | URL Plane is served on. |
 | postgres\_endpoint | PostgreSQL Flexible Server FQDN (private, resolves inside the VNet). |
 | rabbitmq\_endpoint | In-cluster RabbitMQ Service (AMQP, port 5672). |
-| redis\_endpoint | Azure Managed Redis hostname (TLS, port 10000; private endpoint). |
+| redis\_endpoint | Azure Managed Redis endpoint (host:port; TLS, private endpoint). |
 | resource\_group\_name | Resource group holding the deployment. |
 | storage\_account\_name | Storage account for uploads (Blob). |
 | storage\_container\_name | Blob container for uploads. |

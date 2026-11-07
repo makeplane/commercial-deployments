@@ -24,14 +24,14 @@ output "email_load_balancer_ip" {
 }
 
 output "dns_records" {
-  description = "The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. email_a and email_mx: with the email load balancer (an MX record needs a hostname, so smtp_domain gets its own A record)."
+  description = "The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. An MX record can't point at an IP, so with the email load balancer smtp_domain gets an A record (email_host) and an MX record naming it (email_mx)."
   value = {
     web = local.load_balancer_ip == null ? null : {
       name  = var.domain
       type  = "A"
       value = local.load_balancer_ip
     }
-    email_a = local.email_load_balancer_ip == null ? null : {
+    email_host = local.email_load_balancer_ip == null ? null : {
       name  = local.email.smtp_domain
       type  = "A"
       value = local.email_load_balancer_ip
@@ -90,8 +90,8 @@ output "postgres_endpoint" {
 }
 
 output "redis_endpoint" {
-  description = "Azure Managed Redis hostname (TLS, port 10000; private endpoint)."
-  value       = module.data.redis_host
+  description = "Azure Managed Redis endpoint (host:port; TLS, private endpoint)."
+  value       = "${module.data.plane_inputs.redis_host}:${module.data.plane_inputs.redis_port}"
 }
 
 output "rabbitmq_endpoint" {

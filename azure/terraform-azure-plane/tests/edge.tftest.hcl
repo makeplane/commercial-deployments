@@ -92,12 +92,16 @@ run "path_b_default" {
     error_message = "Path B must not have a Traefik load balancer or a web record."
   }
   assert {
-    condition     = output.dns_records.email_a.value == "20.0.0.10" && output.dns_records.email_a.name == "intake.plane.example.com"
+    condition     = output.dns_records.email_host.value == "20.0.0.10" && output.dns_records.email_host.name == "intake.plane.example.com"
     error_message = "The email load balancer (on by default) must give an A record for smtp_domain on its static IP."
   }
   assert {
     condition     = output.dns_records.email_mx.type == "MX" && output.dns_records.email_mx.value == "10 intake.plane.example.com"
     error_message = "The MX record must point at smtp_domain (which has its own A record)."
+  }
+  assert {
+    condition     = output.redis_endpoint == "plane-test-redis.eastus2.redis.azure.net:10000"
+    error_message = "redis_endpoint must be host:port, as on AWS and GCP."
   }
   assert {
     condition     = !yamldecode(output.plane_helm_values).ingress.enabled
@@ -283,7 +287,7 @@ run "email_off" {
   }
 
   assert {
-    condition     = output.dns_records.email_mx == null && output.dns_records.email_a == null && output.email_load_balancer_ip == null
+    condition     = output.dns_records.email_mx == null && output.dns_records.email_host == null && output.email_load_balancer_ip == null
     error_message = "email.enabled = false must turn off the email load balancer too."
   }
 }
