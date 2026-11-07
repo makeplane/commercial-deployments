@@ -132,9 +132,10 @@ domain = "plane.example.com" # never change after install
 #   }
 # }
 
+# use_storage_proxy    = false # true: attachments and images go through Plane's api instead of signed URLs
 # bucket_force_destroy = false
 
-# plane_version    = "v4.0.1"
+# plane_version   = "v4.0.1"
 # chart_version    = "3.11.3"
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"

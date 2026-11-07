@@ -342,7 +342,7 @@ locals {
       aws_region            = var.region
       aws_access_key        = ""
       aws_secret_access_key = ""
-      use_storage_proxy     = false
+      use_storage_proxy     = var.use_storage_proxy
 
       # As today's managed deployment: any attachment type can be uploaded.
       allow_all_attachment_types = true

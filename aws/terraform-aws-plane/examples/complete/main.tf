@@ -50,6 +50,7 @@ module "plane" {
   rabbitmq                             = var.rabbitmq
   opensearch                           = var.opensearch
   email                                = var.email
+  use_storage_proxy                    = var.use_storage_proxy
   bucket_force_destroy                 = var.bucket_force_destroy
   app_keys_secret_arn                  = var.app_keys_secret_arn
   machine_signature                    = var.machine_signature

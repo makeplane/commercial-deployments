@@ -134,6 +134,7 @@ kubectl --context plane-old -n "$OLD_NS" get deploy plane-api-wl \
 old_env APP_DOMAIN           # your domain: use it as domain
 old_env AWS_S3_BUCKET_NAME   # the old bucket
 old_env MACHINE_SIGNATURE    # Plane 3.x and earlier: use it as machine_signature
+old_env USE_STORAGE_PROXY    # prints nothing if unset: see the note on file traffic below
 ```
 
 Note:
@@ -141,6 +142,9 @@ Note:
   (section 6.2): you'll need the `MACHINE_SIGNATURE` value. If it prints nothing on a 3.x installation, contact Plane
   support before going further.
 - **The email domain** your MX record serves today (`dig MX <email domain>`), if you use inbound email.
+- **File traffic.** If `USE_STORAGE_PROXY` is on (`1` or `true`) on Plane v4.0.1 or later, files go through the old api
+  today: set `use_storage_proxy = true` in step 6.3 to keep it that way. Otherwise leave the default, signed URLs. Earlier
+  versions don't support it on S3. The files in the bucket are the same in both modes.
 - **The old load balancer's hostname** your web record points at, for a rollback.
 
 ## 6. Prepare the new installation
@@ -218,6 +222,9 @@ machine_signature   = "<old MACHINE_SIGNATURE>" # Plane 3.x and earlier only
 
 # Inbound email: the domain your MX record serves today
 email = { smtp_domain = "intake.plane.example.com" }
+
+# Only if the old installation has USE_STORAGE_PROXY on (step 5)
+# use_storage_proxy = true
 
 # Only if the old installation runs Plane AI (the pi-service component). Both keys are required:
 # see the Plane AI section of the module's README.

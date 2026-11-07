@@ -24,6 +24,9 @@
   a single region. The Bedrock embedding models stay in-region model IDs.
 
 ### Added
+- `use_storage_proxy` (default false, as before): true sends work item attachments, editor images and similar through
+  Plane's api instead of direct signed URLs (Plane v4.0.1 or later). silo, live and pi don't read it, and Plane AI keeps
+  signed URLs in both modes, so the bucket's CORS configuration doesn't change.
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
   `app_keys_secret_arn` (bring the existing app keys from a Secrets Manager secret; nothing generated, the keys never
   pass through Terraform, every key required by name) and `machine_signature` (a Plane 3.x installation's signature,

@@ -459,6 +459,7 @@ run "iam_bedrock" {
     chart_name                 = "plane-enterprise"
     acme_email                 = null
     acme_server                = "https://acme-v02.api.letsencrypt.org/directory"
+    use_storage_proxy          = false
     helm_timeout               = 3600
     plane_values               = ""
     addons_ready               = "ready"
@@ -559,6 +560,7 @@ run "iam_api_keys" {
     chart_name                 = "plane-enterprise"
     acme_email                 = null
     acme_server                = "https://acme-v02.api.letsencrypt.org/directory"
+    use_storage_proxy          = false
     helm_timeout               = 3600
     plane_values               = ""
     addons_ready               = "ready"

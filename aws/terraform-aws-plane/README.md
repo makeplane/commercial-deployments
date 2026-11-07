@@ -18,7 +18,7 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
 | Search | Amazon OpenSearch Service, `opensearch.enabled` | On, as today: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
 | Email | Plane's email service (inbound email to work items) on its own internet-facing NLB | On by default: ports 25/465/587, sender IP preserved, receiving mail for `intake.<domain>`; you create the MX record |
-| Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
+| Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain. Browsers use signed URLs, or Plane's api with `use_storage_proxy` |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | **Path A** (`ingress.mode = "automated"`): Traefik behind an NLB (AWS-assigned IPs), Plane's routes, certificates (Let's Encrypt HTTP-01 or yours from Secrets Manager). **Path B** (default): none; you bring your ingress | The module configures no DNS: you create the records (`dns_records` output) |
 | In cluster (Helm) | AWS Load Balancer Controller 2.x, External Secrets, Reloader, metrics-server, **plane-enterprise**; path A also Traefik and (with Let's Encrypt) cert-manager | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
@@ -135,7 +135,8 @@ kubectl -n plane apply -f plane-routes.yaml   # regenerate and re-apply after ev
 ```
 
 Other controllers: use the generated NGINX Ingress as the route table (paths → services and ports). Plane needs
-WebSockets on `/live/` and an upload limit of at least 20 MB.
+WebSockets on `/live/` and an upload limit of at least 20 MB. With `use_storage_proxy = true`, set the limit to at least
+your largest file.
 
 Destroy in path B in reverse: remove your routes, then your ingress controller and its load balancer, then
 `terraform destroy` (a leftover load balancer blocks deleting the VPC).
@@ -264,6 +265,11 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 - **Scaling Plane:** api, worker, web and live run 2 replicas (today's kustomize default was 5 api / 5 worker). For more
   capacity, raise replicas through `plane_values`, e.g. `services: { api: { replicas: 4 }, worker: { replicas: 4 } }`,
   and add nodes to match. There are no autoscalers in this release.
+- **File traffic:** by default browsers upload to and download from the bucket directly with signed URLs, and the bucket
+  allows CORS from `domain`. `use_storage_proxy = true` sends work item attachments, editor images and similar through
+  Plane's api (Plane v4.0.1 or later), which reaches the bucket with its Pod Identity role. Proxied files add load on the
+  api and are subject to the ingress body limit, so size both for large files. silo, live and pi don't read this setting,
+  and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way.
 - **Cache:** Valkey runs a primary and a replica in another AZ with automatic failover (`redis.replicas = 1`), like the
   Multi-AZ database and queue. `redis = { replicas = 0 }` gives a single node for test installs.
 - **PostgreSQL major upgrade** (e.g. 15 to 16): check that Plane supports the new version and that RDS offers the
@@ -351,6 +357,7 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
 | tls\_secret\_name | Path A: name of the Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager (acme\_email) or by External Secrets from ingress.tls\_certificate\_secret\_arn. | `string` | `"plane-tls"` | no |
+| use\_storage\_proxy | How browsers reach files in the uploads bucket. false (default): they upload and download directly from the bucket<br/>with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and similar go<br/>through Plane's api (Plane v4.0.1 or later), which reaches the bucket with its own IAM role. This adds load on the<br/>api and is subject to the ingress body limit, so size both for large files. silo, live and pi don't read this<br/>setting, and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way. | `bool` | `false` | no |
 | vpc\_cidr | CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module. | `string` | `"10.60.0.0/16"` | no |
 
 ## Outputs

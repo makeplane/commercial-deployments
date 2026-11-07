@@ -492,6 +492,19 @@ variable "email" {
   }
 }
 
+variable "use_storage_proxy" {
+  description = <<-EOT
+    How browsers reach files in the uploads bucket. false (default): they upload and download directly from the bucket
+    with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and similar go
+    through Plane's api (Plane v4.0.1 or later), which reaches the bucket with its own IAM role. This adds load on the
+    api and is subject to the ingress body limit, so size both for large files. silo, live and pi don't read this
+    setting, and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way.
+  EOT
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "bucket_force_destroy" {
   description = "Allow terraform destroy to delete the uploads bucket even when it holds objects."
   type        = bool

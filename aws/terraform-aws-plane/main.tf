@@ -170,6 +170,7 @@ module "plane" {
   ingress_enabled   = local.automated
   acme_email        = local.lets_encrypt ? var.acme_email : null
   acme_server       = var.acme_server
+  use_storage_proxy = var.use_storage_proxy
 
   tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
   machine_signature          = var.machine_signature

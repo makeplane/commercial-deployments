@@ -109,6 +109,11 @@ variable "acme_server" {
   type        = string
 }
 
+variable "use_storage_proxy" {
+  description = "Files through the api instead of direct signed URLs (env.use_storage_proxy)."
+  type        = bool
+}
+
 variable "helm_timeout" {
   description = "Seconds to wait for the release."
   type        = number

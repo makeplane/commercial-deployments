@@ -1,5 +1,5 @@
-# Input rules: network ranges, admin principals, PostgreSQL storage and the cache replicas. Mock providers:
-# no AWS credentials or cluster needed. Run: terraform init && terraform test
+# Input rules: network ranges, admin principals, PostgreSQL storage, the cache replicas and the storage proxy.
+# Mock providers: no AWS credentials or cluster needed. Run: terraform init && terraform test
 
 mock_provider "aws" {
   mock_data "aws_availability_zones" {
@@ -255,4 +255,21 @@ run "reject_postgres_gp3_iops_out_of_range" {
   command = plan
   variables { postgres = { storage_type = "gp3", allocated_storage_gb = 500, iops = 80000 } }
   expect_failures = [var.postgres]
+}
+
+run "storage_proxy_off_by_default" {
+  command = plan
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.use_storage_proxy == false
+    error_message = "use_storage_proxy must default to false: browsers use direct signed URLs."
+  }
+}
+
+run "storage_proxy_on_reaches_chart_values" {
+  command = plan
+  variables { use_storage_proxy = true }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.use_storage_proxy == true
+    error_message = "use_storage_proxy = true must reach the chart's env.use_storage_proxy."
+  }
 }
