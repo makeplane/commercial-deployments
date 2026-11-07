@@ -372,7 +372,8 @@ variable "postgres" {
   description = <<-EOT
     RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. storage_type: io1
     (default), io2 or gp3. iops: io1/io2 default 1000 (1000-256000); gp3 leaves it unset below 400 GiB (a fixed 3000),
-    12000-64000 from 400 GiB.
+    12000-64000 from 400 GiB. apply_immediately: false (default) leaves database changes to the maintenance window;
+    set it true for a major version upgrade (engine_version 15.x to 16.x, see the README) and any change you want now.
   EOT
   type = object({
     engine_version        = optional(string, "15.19")
@@ -382,6 +383,7 @@ variable "postgres" {
     iops                  = optional(number)
     backup_retention_days = optional(number, 14)
     deletion_protection   = optional(bool, true)
+    apply_immediately     = optional(bool, false)
   })
   default  = {}
   nullable = false

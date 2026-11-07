@@ -138,7 +138,7 @@ run "existing_app_keys_nothing_generated" {
     vpc_id                    = "vpc-0123456789abcdef0"
     private_subnet_ids        = ["subnet-0a", "subnet-0b", "subnet-0c"]
     allowed_security_group_id = "sg-0123456789abcdef0"
-    postgres                  = { engine_version = "15.19", instance_class = "db.m6gd.large", allocated_storage_gb = 100, storage_type = "io1", iops = 1000, backup_retention_days = 14, deletion_protection = true }
+    postgres                  = { engine_version = "15.19", instance_class = "db.m6gd.large", allocated_storage_gb = 100, storage_type = "io1", iops = 1000, backup_retention_days = 14, deletion_protection = true, apply_immediately = false }
     redis                     = { engine_version = "8.2", node_type = "cache.t3.medium", replicas = 0 }
     rabbitmq                  = { engine_version = "3.13", instance_type = "mq.m7g.medium", deployment_mode = "CLUSTER_MULTI_AZ" }
     opensearch                = { enabled = true, engine_version = "OpenSearch_2.19", instance_type = "r7g.large.search", instance_count = 2, volume_size_gb = 10, index_prefix = "plane" }

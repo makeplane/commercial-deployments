@@ -14,6 +14,9 @@
   `cluster_admin_principal_arns` (IAM role or user ARNs, no STS sessions, no repeats), `redis.replicas` (0-5),
   `postgres.engine_version` (major.minor), `postgres.storage_type` (io1, io2 or gp3) with its size and IOPS rules.
   `postgres.iops` now defaults to 1000 only for io1/io2; gp3 below 400 GiB takes none.
+- PostgreSQL major version upgrades (changing `postgres.engine_version` to a new major) apply in one run: the cluster
+  parameter group of the new family is created before the old one is deleted, and the cluster allows the major
+  upgrade. New `postgres.apply_immediately` (default false) runs it at apply time instead of the maintenance window.
 
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with

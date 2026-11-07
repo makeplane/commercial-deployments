@@ -72,6 +72,7 @@ domain = "plane.example.com" # never change after install
 #   iops                  = 1000   # io1/io2; for gp3 leave unset below 400 GiB
 #   backup_retention_days = 14
 #   deletion_protection   = true
+#   apply_immediately     = false  # true for a major version upgrade (README)
 # }
 
 # redis = {

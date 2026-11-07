@@ -352,6 +352,7 @@ before applying.
 | Task | How |
 |---|---|
 | Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. Option B: regenerate and re-apply your routes. |
+| Upgrade PostgreSQL (major) | Take a snapshot, then set `postgres = { engine_version = "<new version>", apply_immediately = true }`, plan and apply: the module creates the new parameter group first, upgrades the database in place (minutes of downtime) and removes the old group. See the README. |
 | More capacity | Add nodes (`node_group = { desired_size = 3 }`, up to `max_size`) and Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
 | Renew your certificate (A.2, email) | Update the secret's value in Secrets Manager. Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | RDS keeps automated backups for 14 days, and takes a final snapshot if the database is deleted. S3 keeps old versions of files for 30 days. |

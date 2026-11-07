@@ -1,4 +1,4 @@
-# RDS PostgreSQL storage settings. Runs the data module on its own with mock providers.
+# RDS PostgreSQL storage settings and major version upgrades. Runs the data module on its own with mock providers.
 
 mock_provider "aws" {
   mock_data "aws_iam_policy_document" {
@@ -40,6 +40,7 @@ variables {
     iops                  = null
     backup_retention_days = 14
     deletion_protection   = true
+    apply_immediately     = false
   }
   redis                = { engine_version = "8.2", node_type = "cache.t3.medium", replicas = 1 }
   rabbitmq             = { engine_version = "3.13", instance_type = "mq.m7g.medium", deployment_mode = "CLUSTER_MULTI_AZ" }
@@ -75,11 +76,56 @@ run "gp3_small_no_iops" {
       iops                  = null
       backup_retention_days = 14
       deletion_protection   = true
+      apply_immediately     = false
     }
   }
 
   assert {
     condition     = aws_rds_cluster.postgres.storage_type == "gp3" && aws_rds_cluster.postgres.iops == null
     error_message = "gp3 under 400 GiB must not send IOPS (a fixed 3000 baseline)."
+  }
+}
+
+# A major upgrade: install on 15, then change engine_version to 16 in the same state.
+run "install_15" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.postgres.db_cluster_parameter_group_name == "plane-test-pg15" && aws_rds_cluster_parameter_group.postgres.family == "postgres15"
+    error_message = "PostgreSQL 15 must use the postgres15 cluster parameter group."
+  }
+  assert {
+    condition     = aws_rds_cluster.postgres.allow_major_version_upgrade && !aws_rds_cluster.postgres.apply_immediately
+    error_message = "The cluster must allow major upgrades and leave changes to the maintenance window by default."
+  }
+}
+
+run "major_upgrade_16" {
+  command = plan
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      engine_version        = "16.6"
+      instance_class        = "db.m6gd.large"
+      allocated_storage_gb  = 100
+      storage_type          = "io1"
+      iops                  = null
+      backup_retention_days = 14
+      deletion_protection   = true
+      apply_immediately     = true
+    }
+  }
+
+  assert {
+    condition     = aws_rds_cluster_parameter_group.postgres.name == "plane-test-pg16" && aws_rds_cluster_parameter_group.postgres.family == "postgres16"
+    error_message = "A major upgrade must plan a new parameter group of the new family, under a new name (created before the old one is deleted)."
+  }
+  assert {
+    condition     = aws_rds_cluster.postgres.engine_version == "16.6" && aws_rds_cluster.postgres.allow_major_version_upgrade && aws_rds_cluster.postgres.apply_immediately
+    error_message = "A major upgrade must plan the new engine version, allowed and applied immediately."
   }
 }

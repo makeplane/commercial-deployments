@@ -214,6 +214,7 @@ variable "postgres" {
     iops                  = optional(number)
     backup_retention_days = optional(number)
     deletion_protection   = optional(bool)
+    apply_immediately     = optional(bool)
   })
   default = null
 }

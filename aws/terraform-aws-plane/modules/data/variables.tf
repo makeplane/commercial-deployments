@@ -33,6 +33,7 @@ variable "postgres" {
     iops                  = number
     backup_retention_days = number
     deletion_protection   = bool
+    apply_immediately     = bool
   })
 }
 
