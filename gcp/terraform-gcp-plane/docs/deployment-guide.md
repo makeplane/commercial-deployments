@@ -449,6 +449,7 @@ before applying.
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | Cloud SQL keeps the last 14 daily backups and 7 days of logs for point-in-time recovery. The uploads bucket keeps old versions of files for 30 days. Back up RabbitMQ and OpenSearch with disk snapshots (below). |
 | Secrets | Database, cache, RabbitMQ and OpenSearch credentials and Plane's app keys are in Secret Manager as `<name>-plane-*` (`terraform output secret_ids`). |
+| Rotate the RabbitMQ or OpenSearch password | They're generated once and Terraform never changes them, because the servers read them only at first boot. To rotate one, follow the steps in the module README ("Things to know"). |
 | Rotate AI provider keys | Add a new version of the key's secret (`printf %s "<new-key>" \| gcloud secrets versions add plane-openai-key --project <project-id> --data-file=-`). Plane picks it up within an hour and restarts the Plane AI services. Plane AI keeps the embedding key in the OpenSearch connector it created, so a new embedding key also needs that connector updated. |
 
 **Never change** `name` or `domain` after installation, and never delete or change the `<name>-plane-app-keys` secret:

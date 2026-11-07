@@ -259,6 +259,18 @@ the `pi.api_keys` secrets instead.
 - **Never change `domain`.** Plane's licence is bound to it. The release and namespace are fixed to `plane`.
 - **App keys are generated once and never rotated** (`<name>-plane-app-keys`). Changing them makes stored encrypted
   data unreadable.
+- **RabbitMQ and OpenSearch passwords** are generated once and never regenerated: the servers take them only at first
+  boot (their users live on their disks), so a new value in Secret Manager alone would lock Plane out. To rotate one:
+  1. `terraform apply -replace='module.plane.module.data.random_password.rabbitmq'` (or `.opensearch[0]`): a new value
+     in the secret `<name>-plane-rabbitmq` (or `<name>-plane-opensearch`).
+  2. Set that value on the server: `rabbitmqctl change_password plane '<new>'` in pod `plane-rabbitmq-wl-0`; for
+     OpenSearch, the `admin` and `plane` users through the security plugin's `internalusers` API in pod
+     `plane-opensearch-wl-0`.
+  3. Sync it now instead of within the hour: `kubectl -n plane annotate externalsecret plane-rabbitmq` (or
+     `plane-opensearch`) `force-sync=$(date +%s) --overwrite`. Reloader then restarts the apps.
+
+  Turning OpenSearch off and on again generates a new password while its old disk keeps the old one: delete that disk's
+  PVC while OpenSearch is off.
 - **Plane AI (pi) needs a recent Plane and chart:** the first Plane release whose Plane AI supports GCS storage, and
   plane-enterprise 3.12.2+. The module refuses `enable_components.pi = true` with an older `plane_version`.
 - **Disk sizes of the in-cluster RabbitMQ and OpenSearch are set at install** (`rabbitmq.volume_size_gb`,

@@ -51,3 +51,23 @@ run "app_key_names" {
     error_message = "Plane must sync every generated app key by name."
   }
 }
+
+# ignore_changes can't be seen in a plan with mocks, so the source is read directly.
+run "in_cluster_passwords_never_regenerate" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition     = length(regexall("ignore_changes\\s*=\\s*all", file("${path.module}/incluster.tf"))) == 2
+    error_message = "random_password.rabbitmq and .opensearch must ignore all changes: the servers take them only at first boot."
+  }
+  assert {
+    condition     = random_password.rabbitmq.length == 32 && !random_password.rabbitmq.special
+    error_message = "The RabbitMQ password goes into AMQP URLs: no special characters."
+  }
+  assert {
+    condition     = length(random_password.opensearch) == 1 && random_password.opensearch[0].min_special == 2
+    error_message = "OpenSearch rejects passwords without a special character."
+  }
+}
