@@ -101,7 +101,7 @@ run "path_b_default" {
     error_message = "The email load balancer (on by default) must give an A record for the mail host and an MX record."
   }
   assert {
-    condition     = output.dns_records.email_host.value == output.email_load_balancer_ip && output.dns_records.email_host.name == "intake.plane.example.com"
+    condition     = output.dns_records.email_host.value == output.email_load_balancer_ip && output.dns_records.email_host.name == "intake.plane.example.com" && output.dns_records.email_host.type == "A (DNS-only, no proxy)"
     error_message = "The mail host A record must point intake.<domain> at the email load balancer's IP."
   }
   assert {

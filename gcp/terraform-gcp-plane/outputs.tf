@@ -28,7 +28,7 @@ output "dns_records" {
     }
     email_host = module.edge.email_ip == null ? null : {
       name  = local.email.smtp_domain
-      type  = "A"
+      type  = "A (DNS-only, no proxy)"
       value = module.edge.email_ip
     }
     email_mx = module.edge.email_ip == null ? null : {
