@@ -19,6 +19,9 @@
   upgrade. New `postgres.apply_immediately` (default false) runs it at apply time instead of the maintenance window.
 - Destroy waits for the LB controller to remove the email NLB in path B too: the add-ons' readiness (which Plane
   waits for) now depends on the NLB cleanup wait directly, not only through Traefik.
+- `pi.bedrock.chat_model_id` must be a cross-Region inference profile ID (`global.` or a geography prefix such as `us.`
+  or `eu.`): a bare `anthropic.claude-*` ID is rejected at plan, since current Claude models aren't served on demand in
+  a single region. The Bedrock embedding models stay in-region model IDs.
 
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with

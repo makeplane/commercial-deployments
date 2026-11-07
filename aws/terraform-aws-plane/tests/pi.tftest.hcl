@@ -377,6 +377,24 @@ run "reject_bedrock_chat_not_claude" {
   expect_failures = [var.pi]
 }
 
+run "reject_bedrock_chat_bare_model_id" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi                = { provider = "bedrock", bedrock = { chat_model_id = "anthropic.claude-sonnet-4-6" } }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_bedrock_chat_unknown_prefix" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi                = { provider = "bedrock", bedrock = { chat_model_id = "xx.anthropic.claude-sonnet-4-6" } }
+  }
+  expect_failures = [var.pi]
+}
+
 run "reject_mixed_modes" {
   command = plan
   variables {

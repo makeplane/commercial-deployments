@@ -126,7 +126,7 @@ domain = "plane.example.com" # never change after install
 #   provider = "bedrock"
 #   bedrock = {
 #     embedding_model = "bedrock/amazon.titan-embed-text-v2"
-#     chat_model_id   = "global.anthropic.claude-sonnet-4-6" # Claude model or cross-Region inference profile ID
+#     chat_model_id   = "global.anthropic.claude-sonnet-4-6" # cross-Region inference profile ID (global. or us./eu./...)
 #     chat_model_name = "Claude (Amazon Bedrock)"
 #     chat_max_tokens = 64000
 #   }

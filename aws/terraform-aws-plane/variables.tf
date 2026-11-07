@@ -106,8 +106,8 @@ variable "pi" {
     region (full ARN; encrypted with aws/secretsmanager or this module's KMS key; one secret for both when the provider
     is the same). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the
     module creates an application inference profile for each model from bedrock.embedding_model (one of Plane AI's
-    Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude model ID or cross-Region inference profile
-    ID; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
+    Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude cross-Region inference profile ID, global.
+    or a geography prefix such as us. or eu.; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
     (Anthropic: submit the use case form once). Choose the provider and embedding model before the first install, even
     if Plane AI is turned on later: Plane's search indexes are created with its dimension, so changing it afterwards
     needs Plane's search indexes and Plane AI's indexes recreated.
@@ -139,8 +139,8 @@ variable "pi" {
     error_message = "pi.bedrock.embedding_model must be one of: ${join(", ", keys(local.pi_bedrock_embedding_models))}."
   }
   validation {
-    condition     = var.pi.provider != "bedrock" || can(regex("^((us|us-gov|eu|apac|au|jp|ca|in|global)\\.)?anthropic\\.claude-[a-z0-9.:-]+$", var.pi.bedrock.chat_model_id))
-    error_message = "pi.bedrock.chat_model_id must be an Anthropic Claude model ID or cross-Region inference profile ID, e.g. \"global.anthropic.claude-sonnet-4-6\"."
+    condition     = var.pi.provider != "bedrock" || can(regex("^(global|us|us-gov|eu|apac|jp|au|ca|in)\\.anthropic\\.claude-[a-z0-9.:-]+$", var.pi.bedrock.chat_model_id))
+    error_message = "pi.bedrock.chat_model_id must be an Anthropic Claude cross-Region inference profile ID: global. or a geography prefix (us., us-gov., eu., apac., jp., au., ca., in.) before the model ID, e.g. \"global.anthropic.claude-sonnet-4-6\" or \"eu.anthropic.claude-sonnet-4-6\". A bare anthropic.claude-* ID isn't accepted: current Claude models aren't served on demand in a single region."
   }
   validation {
     condition     = var.pi.provider != "bedrock" || (var.pi.api_keys.chat_key_secret_arn == null && var.pi.api_keys.embedding_key_secret_arn == null)
