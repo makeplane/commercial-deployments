@@ -233,8 +233,9 @@ then go through Plane's api, which reaches the bucket with its own IAM role. It 
 default `plane_version`.
 
 - **Size for it.** Proxied files add load on the api and are subject to your ingress's request size limit. For large
-  files, raise that limit to your largest file (in option B, the limit in [section 8](#option-b)) and add api replicas
-  through `plane_values`.
+  files, raise that limit to your largest file and add api replicas through `plane_values`. In option A the limit is
+  20 MiB by default: set `ingress.traefik.maxRequestBodyBytes` there too. In option B, it's the limit in
+  [section 8](#option-b).
 - **Plane AI doesn't change.** silo, live and pi don't read this setting, and Plane AI keeps using direct signed URLs in
   both modes. The bucket keeps its CORS configuration either way, and browsers still need to reach S3 for Plane AI's
   files.
@@ -433,7 +434,7 @@ because those names are still taken.
 | `helm_release.plane` runs for a long time | Database migrations on a new installation (about 15 minutes) | Wait; check with `kubectl -n plane get pods` |
 | Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |
-| Large files fail with `use_storage_proxy = true` | Files go through your ingress and its request size limit | Raise the limit to your largest file, and check the api has capacity (section 5) |
+| Large files fail with `use_storage_proxy = true` | Files go through your ingress and its request size limit | Raise the limit to your largest file (option A: `ingress.traefik.maxRequestBodyBytes` in `plane_values`, 20 MiB by default), and check the api has capacity (section 5) |
 | `terraform destroy` fails deleting the VPC or subnets | Your own load balancer (option B) is still there | Remove your controller (section 11) and run `terraform destroy` again |
 | Live collaboration doesn't connect (option B) | WebSockets not enabled on `/live/` | Enable WebSocket support for that path |
 | No inbound email | The MX record is missing or wrong | `dig MX <email domain>` must return the email load balancer's hostname |
