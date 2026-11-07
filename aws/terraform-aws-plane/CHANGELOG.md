@@ -2,9 +2,39 @@
 
 ## Unreleased
 
+### Changed (breaking)
+- `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
+- `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
+  null: the MX record names the email NLB's hostname directly.
+- The chart values declare `serviceAccount.cloudIdentity: true` (Plane's ServiceAccount is bound to its role through
+  EKS Pod Identity), as on GCP: it changes nothing rendered, and lets `helm upgrade` warn about settings that conflict
+  with an attached identity.
+- More inputs checked at plan, as on GCP: `vpc_cidr` (an IPv4 range start, /16 to /20),
+  `cluster_endpoint_public_access_cidrs` and `ingress.allowed_cidrs` (at least one IPv4 CIDR, range start),
+  `cluster_admin_principal_arns` (IAM role or user ARNs, no STS sessions, no repeats), `redis.replicas` (0-5),
+  `postgres.engine_version` (major.minor), `postgres.storage_type` (io1, io2 or gp3) with its size and IOPS rules.
+  `postgres.iops` now defaults to 1000 only for io1/io2; gp3 below 400 GiB takes none.
+- PostgreSQL major version upgrades (changing `postgres.engine_version` to a new major) apply in one run: the cluster
+  parameter group of the new family is created before the old one is deleted, and the cluster allows the major
+  upgrade. New `postgres.apply_immediately` (default false) runs it at apply time instead of the maintenance window.
+- Destroy waits for the LB controller to remove the email NLB in path B too: the add-ons' readiness (which Plane
+  waits for) now depends on the NLB cleanup wait directly, not only through Traefik.
+- `pi.bedrock.chat_model_id` must be a cross-Region inference profile ID (`global.` or a geography prefix such as `us.`
+  or `eu.`): a bare `anthropic.claude-*` ID is rejected at plan, since current Claude models aren't served on demand in
+  a single region. The Bedrock embedding models stay in-region model IDs.
+
 ### Added
+- `use_storage_proxy` (default false, as before): true sends work item attachments, editor images and similar through
+  Plane's api instead of direct signed URLs (Plane v4.0.1 or later). silo, live and pi don't read it, and Plane AI keeps
+  signed URLs in both modes, so the bucket's CORS configuration doesn't change.
+- Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
+  `app_keys_secret_arn` (bring the existing app keys from a Secrets Manager secret; nothing generated, the keys never
+  pass through Terraform, every key required by name) and `machine_signature` (a Plane 3.x installation's signature,
+  so Plane 4 can move its licences to the new instance key). The app-keys ExternalSecret now maps each key by name for
+  generated keys too.
 - `deployment_mode = "eks"`: VPC, EKS (fixed-size managed node group), RDS PostgreSQL Multi-AZ DB cluster,
-  ElastiCache Valkey (TLS + AUTH + at-rest encryption), Amazon MQ for RabbitMQ, S3, KMS and Secrets Manager.
+  ElastiCache Valkey (TLS + AUTH + at-rest encryption, primary + replica with Multi-AZ failover), Amazon MQ for
+  RabbitMQ, S3, KMS and Secrets Manager.
 - In-cluster add-ons as Helm releases: AWS Load Balancer Controller (2.x), External Secrets, Reloader, metrics-server;
   in path A also Traefik, and cert-manager when `acme_email` is set.
 - Plane (plane-enterprise chart) with secrets from Secrets Manager through External Secrets and keyless S3 through
@@ -33,6 +63,16 @@
   (`ingress.tls_certificate_secret_arn`); **none** (path B, default) installs no ingress controller or routes. The
   module configures no DNS: the `dns_records` output lists the records to create. Email certificate from Secrets
   Manager (`email.certificate_secret_arn`) in either path, else self-signed (a warning in path A).
+- Every Secrets Manager ARN you pass (certificates, Plane AI keys, `app_keys_secret_arn`) is checked at plan: a full
+  ARN with its 6-character suffix, in this account and region (External Secrets is granted each exact ARN).
+- Plane AI set up end to end when `enable_components.pi = true` (`pi` input): chat and semantic search. Default
+  `pi.provider = "api_keys"`: OpenAI chat and Cohere embeddings (or Anthropic chat, OpenAI embeddings), both keys
+  required, from Secrets Manager through External Secrets. Alternative `pi.provider = "bedrock"`, keyless: application
+  inference profiles for Titan Text Embeddings V2 and Claude Sonnet 4.6 (global cross-Region inference), Plane's Pod
+  Identity role allowed to invoke the chat profile, and a role OpenSearch assumes to call the embeddings profile (pi
+  creates the ML connector at startup). Plane AI needs OpenSearch. Plane AI's models are no longer described as configured in the admin UI: pi reads them only from its
+  environment. The OpenSearch embedding dimension follows the embedding model `pi` selects whether Plane AI is on or
+  off, so Plane's search indexes fit a model turned on later: choose it before the first install.
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
   input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
   defaulted input). `terraform.tfvars.example` shows every setting with its default, plus a few examples. CI checks that the example declares exactly the module's inputs.

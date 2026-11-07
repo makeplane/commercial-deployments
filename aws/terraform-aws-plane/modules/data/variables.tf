@@ -33,6 +33,7 @@ variable "postgres" {
     iops                  = number
     backup_retention_days = number
     deletion_protection   = bool
+    apply_immediately     = bool
   })
 }
 
@@ -64,6 +65,11 @@ variable "rabbitmq" {
     instance_type   = string
     deployment_mode = string
   })
+}
+
+variable "app_keys_secret_arn" {
+  description = "Existing app keys in Secrets Manager (null = generate them)."
+  type        = string
 }
 
 variable "bucket_force_destroy" {

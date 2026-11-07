@@ -42,6 +42,23 @@ variable "enable_components" {
   })
 }
 
+variable "pi" {
+  description = "Plane AI's models. mode: null (pi off), \"bedrock\" or \"api_keys\". embedding_dimension: the selected embedding model's, also with pi off (the api sizes its indexes with it). api_key_secrets: env var pi reads => Secrets Manager ARN."
+  type = object({
+    mode                = string
+    embedding_model     = string
+    embedding_dimension = number
+    bedrock = object({
+      embedding_model    = string
+      embedding_model_id = string
+      chat_model_id      = string
+      chat_model_name    = string
+      chat_max_tokens    = number
+    })
+    api_key_secrets = map(string)
+  })
+}
+
 variable "tls_secret_name" {
   description = "TLS Secret Traefik serves."
   type        = string
@@ -92,6 +109,11 @@ variable "acme_server" {
   type        = string
 }
 
+variable "use_storage_proxy" {
+  description = "Files through the api instead of direct signed URLs (env.use_storage_proxy)."
+  type        = bool
+}
+
 variable "helm_timeout" {
   description = "Seconds to wait for the release."
   type        = number
@@ -119,6 +141,7 @@ variable "data" {
     rabbitmq_port       = number
     rabbitmq_secret_arn = string
     app_keys_secret_arn = string
+    app_key_names       = list(string)
 
     opensearch_enabled     = bool
     opensearch_endpoint    = string
@@ -126,6 +149,11 @@ variable "data" {
     opensearch_domain_arn  = string
     opensearch_prefix      = string
   })
+}
+
+variable "machine_signature" {
+  description = "A moved 3.x installation's MACHINE_SIGNATURE (null = the chart's)."
+  type        = string
 }
 
 variable "addons_ready" {

@@ -44,6 +44,11 @@ resource "aws_rds_cluster_parameter_group" "postgres" {
   }
 
   tags = var.tags
+
+  # A major upgrade needs a group of the new family: create it (new name) before the old one goes.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_rds_cluster" "postgres" {
@@ -54,12 +59,16 @@ resource "aws_rds_cluster" "postgres" {
   # checkov:skip=CKV2_AWS_8:An AWS Backup plan is planned (A25); RDS keeps automated backups (14 days) and a final snapshot meanwhile.
   cluster_identifier = "${var.name}-pg"
 
-  engine                    = "postgres"
-  engine_version            = var.postgres.engine_version
-  db_cluster_instance_class = var.postgres.instance_class
-  storage_type              = var.postgres.storage_type
-  allocated_storage         = var.postgres.allocated_storage_gb
-  iops                      = var.postgres.iops
+  engine         = "postgres"
+  engine_version = var.postgres.engine_version
+  # Only the engine_version input changes the major version; RDS never does it on its own.
+  allow_major_version_upgrade = true
+  apply_immediately           = var.postgres.apply_immediately
+  db_cluster_instance_class   = var.postgres.instance_class
+  storage_type                = var.postgres.storage_type
+  allocated_storage           = var.postgres.allocated_storage_gb
+  # io1/io2 need IOPS (1000 by default); gp3 below 400 GiB takes none.
+  iops = var.postgres.storage_type == "gp3" ? var.postgres.iops : coalesce(var.postgres.iops, 1000)
 
   database_name                 = "plane"
   master_username               = "plane"

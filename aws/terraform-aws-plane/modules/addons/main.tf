@@ -55,8 +55,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   depends_on = [terraform_data.cluster_ready, module.lb_controller_pod_identity]
 }
 
-# On destroy, Traefik's Service is deleted first and the LB controller removes the NLB
-# asynchronously. Keep the controller around long enough for that.
+# On destroy, Traefik's and the email Service are deleted first (both depend on this) and the LB
+# controller removes their NLBs asynchronously. Keep the controller around long enough for that.
 resource "time_sleep" "nlb_cleanup" {
   destroy_duration = "120s"
 
