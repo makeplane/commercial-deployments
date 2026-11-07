@@ -1,0 +1,141 @@
+# Copy to terraform.tfvars. Set the project, region, name and domain, pick how traffic reaches Plane, and uncomment
+# anything else you want to change. Commented values are the defaults. For objects, set only the fields you change.
+
+project_id = "my-plane-project" # a project of its own, billing linked
+region     = "us-central1"
+
+name   = "plane"             # never change after install
+domain = "plane.example.com" # never change after install
+
+################################################################################
+# How traffic reaches Plane: pick ONE block and uncomment it.
+# The module configures no DNS. After the apply, create the records shown by:  terraform output dns_records
+################################################################################
+
+# Path A: automated. The module installs Traefik on a reserved static IP, Plane's routes and the certificates.
+
+# A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
+# ingress    = { mode = "automated" }
+# acme_email = "ops@example.com"
+# email      = { certificate_secret = "projects/my-plane-project/secrets/plane-mail-tls" } # optional; else self-signed
+
+# A.2  Your own certificates, stored in Secret Manager in project_id before the apply (JSON keys "tls.crt" and "tls.key")
+# ingress = { mode = "automated", tls_certificate_secret = "projects/my-plane-project/secrets/plane-web-tls" }
+# email   = { certificate_secret = "projects/my-plane-project/secrets/plane-mail-tls" } # optional; same secret if it covers both names
+
+# Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
+# apply Plane's routes, add your certificate and DNS records.
+
+################################################################################
+# Everything else (defaults)
+################################################################################
+
+# labels      = {}
+# zones       = []   # GKE picks three zones of region
+# enable_apis = true # set false if your organisation enables APIs centrally
+
+# ingress = {
+#   mode                   = "none"            # automated (path A) | none (path B)
+#   allowed_cidrs          = ["0.0.0.0/0"]     # path A: who can reach Plane
+#   scheme                 = "internet-facing" # path A: or internal (not with Let's Encrypt); set at install
+#   tls_certificate_secret = null              # path A: your web certificate (A.2)
+# }
+# acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
+# tls_secret_name = "plane-tls"
+
+# master_authorized_networks = ["0.0.0.0/0"] # who can reach the GKE API
+# cluster_admin_members      = []            # e.g. ["group:platform@example.com"]
+
+# network = {
+#   subnet_cidr          = "10.60.0.0/20"
+#   services_cidr        = "10.60.16.0/20"
+#   private_service_cidr = "10.60.32.0/20"
+#   pods_cidr            = "10.61.0.0/16"
+# }
+
+# release_channel = "REGULAR"
+
+# node_pool = {
+#   machine_type = "n2d-standard-4"
+#   min_per_zone = 1
+#   max_per_zone = 2
+#   disk_size_gb = 50
+#   disk_type    = "pd-balanced"
+#   spot         = false
+# }
+
+# postgres = {
+#   database_version       = "POSTGRES_15"
+#   tier                   = "db-custom-2-8192"
+#   edition                = "ENTERPRISE"
+#   availability_type      = "REGIONAL" # or ZONAL
+#   disk_size_gb           = 100
+#   disk_type              = "PD_SSD"
+#   backup_retention_days  = 14
+#   point_in_time_recovery = true
+#   deletion_protection    = true
+#   final_backup           = true # a last backup when the instance is deleted, kept after destroy
+#   final_backup_retention_days = 30 # 1-365
+# }
+
+# redis = {
+#   version             = "REDIS_7_2"
+#   tier                = "STANDARD_HA" # or BASIC
+#   memory_size_gb      = 4
+#   persistence         = true # RDB snapshots, on either tier
+#   rdb_snapshot_period = "TWENTY_FOUR_HOURS" # ONE_HOUR, SIX_HOURS, TWELVE_HOURS
+# }
+
+# rabbitmq = {
+#   volume_size_gb = 10 # set before the first install
+# }
+
+# opensearch = {
+#   enabled        = true
+#   volume_size_gb = 50 # set before the first install
+#   index_prefix   = "plane"
+# }
+
+# email = {
+#   enabled            = true
+#   smtp_domain        = null # default: intake.<domain>
+#   load_balancer      = true
+#   certificate_secret = null # your email certificate; else self-signed
+# }
+
+# enable_components = {
+#   silo   = true
+#   drawio = true
+#   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with GCS support in pi)
+# }
+
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
+# a plain-text Secret Manager secret in project_id; both are required. embedding_model also sets the search indexes'
+# dimension, even with pi off: choose it before the first install.
+# pi = {
+#   api_keys = {
+#     chat_provider        = "openai" # or "anthropic"
+#     chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
+#     embedding_model      = "cohere/embed-v4.0" # or cohere/embed-english-v3.0, cohere/embed-english-v2.0,
+#                                                # openai/text-embedding-ada-002, -3-small or -3-large
+#     embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+#   }
+# }
+
+# use_storage_proxy    = false # true: attachments and editor images go through Plane's api (deployment guide, section 5)
+# bucket_force_destroy = false
+
+# plane_version    = "v4.0.1"
+# chart_version    = "3.12.2"
+# chart_repository = "https://helm.plane.so/"
+# chart_name       = "plane-enterprise"
+# helm_timeout     = 3600
+# plane_values     = "" # extra chart values (YAML), no secrets
+# deployment_mode  = "gke"
+
+# acme_email = null # Let's Encrypt account email (path A, A.1)
+
+# Test install you will destroy:
+#   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
+#   postgres             = { deletion_protection = false, final_backup = false } # no backup left behind
+#   bucket_force_destroy = true
