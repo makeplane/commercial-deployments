@@ -16,7 +16,7 @@ resource "random_password" "opensearch" {
 }
 
 # SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data and must never change, so
-# ignore_changes keeps an edited length or charset from regenerating them.
+# ignore_changes = all keeps any later edit to these arguments from regenerating them.
 resource "random_password" "app_keys" {
   for_each = {
     SECRET_KEY             = 50
@@ -33,7 +33,7 @@ resource "random_password" "app_keys" {
   special = false
 
   lifecycle {
-    ignore_changes = [length, special]
+    ignore_changes = all
   }
 }
 
