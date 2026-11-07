@@ -46,11 +46,13 @@ locals {
     }
   }
 
-  # One SecretStore per certificate vault; the DNS suffix comes from the module's vault (sovereign clouds).
+  # One SecretStore per customer vault; the DNS suffix comes from the module's vault (sovereign clouds).
   key_vault_dns_suffix = regex("^https://[^.]+\\.([^/]+)", var.data.key_vault_uri)[0]
-  certificate_stores   = { for v in distinct([for c in values(var.certificates) : c.vault]) : v => "key-vault-${v}" }
-  certificate_store_objects = [
-    for vault, store in local.certificate_stores : {
+  customer_stores = {
+    for v in distinct(compact(concat([for c in values(var.certificates) : c.vault], [var.pi.api_keys_vault]))) : v => "key-vault-${v}"
+  }
+  customer_store_objects = [
+    for vault, store in local.customer_stores : {
       apiVersion = "external-secrets.io/v1"
       kind       = "SecretStore"
       metadata   = { name = store, annotations = local.hook.store }
@@ -79,7 +81,7 @@ locals {
       metadata   = { name = local.certificate_targets[k].name, annotations = local.hook.secrets }
       spec = {
         refreshInterval = "1h"
-        secretStoreRef  = { name = local.certificate_stores[c.vault], kind = "SecretStore" }
+        secretStoreRef  = { name = local.customer_stores[c.vault], kind = "SecretStore" }
         target = {
           name           = local.certificate_targets[k].secret
           creationPolicy = "Orphan"
@@ -139,6 +141,21 @@ locals {
     }
   }
 
+  # The customer's provider keys, each in the env var pi reads; the root module checks the IDs.
+  # pi puts the embedding key into the OpenSearch connector it creates.
+  ai_providers_secret = "plane-ai-providers"
+  pi_api_keys_object = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = local.ai_providers_secret, annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = try(local.customer_stores[var.pi.api_keys_vault], ""), kind = "SecretStore" }
+      target          = { name = local.ai_providers_secret, creationPolicy = "Orphan" }
+      data            = [for env, name in var.pi.api_key_names : { secretKey = env, remoteRef = { key = "secret/${name}" } }]
+    }
+  }
+
   # Keys mirror the chart-internal <release>-opensearch-secrets: re-check them on every chart bump.
   opensearch_secret = "${local.release}-opensearch-creds"
   opensearch_external_secret = {
@@ -160,7 +177,7 @@ locals {
             OPENSEARCH_PASSWORD               = "{{ .password }}"
             OPENSEARCH_INITIAL_ADMIN_PASSWORD = "{{ .password }}"
             OPENSEARCH_INDEX_PREFIX           = var.opensearch.index_prefix
-            OPENSEARCH_EMBEDDING_DIMENSION    = "1536"
+            OPENSEARCH_EMBEDDING_DIMENSION    = tostring(var.pi.embedding_dimension)
           }
         }
       }
@@ -215,8 +232,12 @@ locals {
     redis    = { local_setup = false }
     minio    = local.blob_minio
     # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.12.2+).
-    rabbitmq   = { local_setup = true, volumeSize = "${var.rabbitmq.volume_size_gb}Gi" }
-    opensearch = { local_setup = var.opensearch.enabled, volumeSize = "${var.opensearch.volume_size_gb}Gi" }
+    rabbitmq = { local_setup = true, volumeSize = "${var.rabbitmq.volume_size_gb}Gi" }
+    opensearch = merge(
+      { local_setup = var.opensearch.enabled, volumeSize = "${var.opensearch.volume_size_gb}Gi" },
+      # A chart default (a 768 MB heap) can't hold pi's vectors. Chart 3.12.2+.
+      var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
+    )
   }
 
   # Chart 3.11.3+. Without a certificate the email app self-signs (fine for port 25's opportunistic TLS).
@@ -255,8 +276,15 @@ locals {
   component_services = {
     email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
-    pi            = { enabled = var.enable_components.pi }
-    drawio        = { local_setup = var.enable_components.drawio }
+    pi = merge(
+      { enabled = var.enable_components.pi },
+      var.enable_components.pi ? {
+        ai_providers = {
+          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension }
+        }
+      } : {},
+    )
+    drawio = { local_setup = var.enable_components.drawio }
   }
 
   reloader_services = {
@@ -329,11 +357,12 @@ locals {
     }, local.blob_env)
 
     external_secrets = {
-      database                  = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
-      redis                     = { secretName = "plane-redis", passwordKey = "password" }
-      rabbitmq                  = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
-      app_keys_existingSecret   = "plane-app-keys"
-      opensearch_existingSecret = var.opensearch.enabled ? local.opensearch_secret : ""
+      database                    = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
+      redis                       = { secretName = "plane-redis", passwordKey = "password" }
+      rabbitmq                    = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
+      app_keys_existingSecret     = "plane-app-keys"
+      opensearch_existingSecret   = var.opensearch.enabled ? local.opensearch_secret : ""
+      ai_providers_existingSecret = var.enable_components.pi ? local.ai_providers_secret : ""
     }
 
     # No chart value for TRUSTED_PROXIES yet (C-8). With CNI Overlay, requests reach the api from
@@ -346,10 +375,11 @@ locals {
 
     extraObjects = concat(
       [local.storage_class_object, local.secret_store_object],
-      local.certificate_store_objects,
+      local.customer_store_objects,
       values(local.external_secret),
       [local.app_keys_external_secret],
       var.opensearch.enabled ? [local.opensearch_external_secret] : [],
+      var.enable_components.pi ? [local.pi_api_keys_object] : [],
       local.certificate_objects,
       values(local.customer_certificates),
     )

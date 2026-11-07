@@ -58,8 +58,8 @@ variable "key_vault_id" {
   type        = string
 }
 
-variable "certificate_scopes" {
-  description = "Key Vault secret IDs of the customer's certificates (web, email) External Secrets may read."
+variable "customer_secret_scopes" {
+  description = "Key Vault secret IDs of the customer's certificates (web, email) and Plane AI keys External Secrets may read."
   type        = list(string)
 }
 

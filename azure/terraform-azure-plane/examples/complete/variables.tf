@@ -64,11 +64,24 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) isn't available on Azure yet: it reads attachments through the S3 API only, and Plane's Azure Blob support doesn't cover it."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with Azure Blob support in Plane AI."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
     pi     = optional(bool, false)
+  })
+  default = null
+}
+
+variable "pi" {
+  description = "Plane AI's models (with enable_components.pi = true): OpenAI chat and Cohere embeddings by default, both keys required, each a plain-text secret in one Key Vault of yours, by versionless resource ID. The embedding model also sets the search indexes' dimension with pi off: choose it before the first install."
+  type = object({
+    api_keys = optional(object({
+      chat_provider           = optional(string, "openai")
+      chat_key_secret_id      = optional(string)
+      embedding_model         = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret_id = optional(string)
+    }), {})
   })
   default = null
 }

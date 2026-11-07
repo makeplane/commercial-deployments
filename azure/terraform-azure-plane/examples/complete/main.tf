@@ -43,6 +43,7 @@ module "plane" {
   acme_email                      = var.acme_email
   acme_server                     = var.acme_server
   enable_components               = var.enable_components
+  pi                              = var.pi
   tags                            = var.tags
   ingress                         = var.ingress
   tls_secret_name                 = var.tls_secret_name

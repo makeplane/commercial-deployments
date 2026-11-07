@@ -52,6 +52,16 @@ variable "enable_components" {
   })
 }
 
+variable "pi" {
+  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off), and its keys: the customer vault holding them, and env var pi reads => secret name."
+  type = object({
+    embedding_model     = string
+    embedding_dimension = number
+    api_keys_vault      = optional(string)
+    api_key_names       = map(string)
+  })
+}
+
 variable "tls_secret_name" {
   description = "TLS Secret Traefik serves."
   type        = string

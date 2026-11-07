@@ -24,6 +24,7 @@ variables {
   tls_secret_name       = "plane-tls"
   ingress_enabled       = false
   certificates          = {}
+  pi                    = { embedding_model = "cohere/embed-v4.0", embedding_dimension = 1536, api_key_names = {} }
   email                 = { enabled = true, smtp_domain = "intake.plane.example.com", load_balancer = true, certificate_secret_id = null }
   email_public_ip_name  = "plane-test-email-pip"
   chart_repository      = "https://helm.plane.so/"

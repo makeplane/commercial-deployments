@@ -15,6 +15,7 @@ can't install a working Plane until they ship:
 | Needs | Why | Status |
 |---|---|---|
 | **Plane with native Azure Blob storage** (api, silo; proxy-only, Workload Identity) | Uploads go to Blob; Plane has no Azure storage backend today (S3 and GCS only) | Being built. `plane_version` default (`v4.0.1`) is a **placeholder** for that release |
+| **Plane with Plane AI on Azure Blob** (only with `enable_components.pi`) | Plane AI stores attachments in the same container, through its own proxy routes | Being built with the same Plane PR. The module refuses pi below a floor (`v99.0.0`) that is a **placeholder** until that release is known; preview tags aren't checked |
 | **plane-enterprise chart with the Azure Blob values** (`env.storage_provider: AZURE`, `env.azure_storage_account_name`, `env.azure_storage_container_name`, `env.azure_storage_blob_endpoint`, `env.use_storage_proxy: true`) | The module sets these values; the chart has to render them for the api and silo | **Agreed contract**, kept in one block in [`modules/plane/main.tf`](modules/plane/main.tf) ("AZURE BLOB STORAGE") and pinned by `tests/plane.tftest.hcl`. `chart_version` default is a **placeholder** for that release |
 | **plane-enterprise chart 3.12.2**: bundled RabbitMQ reading `external_secrets.rabbitmq` | The broker and the apps read one Secret synced from Key Vault (no password in Helm values). Earlier charts refuse this pairing at render time | Being built in parallel |
 
@@ -37,7 +38,7 @@ When they ship: set the real versions as defaults, check the Blob block against 
 | Edge | **Path A** (`ingress.mode = "automated"`): Traefik on a static public IP (or a fixed private IP), Plane's routes, certificates (Let's Encrypt HTTP-01 or yours from Key Vault). **Path B** (default): none; you bring your ingress | The module configures no DNS: you create the records (`dns_records` output). The addresses are static and known after the first plan |
 | Email | Plane's email service (inbound email to work items) on its own static public IP | On by default: ports 25/465/587, sender IP preserved, receiving mail for `intake.<domain>`; you create the A and MX records |
 | In cluster (Helm) | External Secrets, Reloader, **plane-enterprise**; path A also Traefik and (with Let's Encrypt) cert-manager | External Secrets and Plane use **Azure Workload Identity**: no client secrets or storage keys anywhere |
-| Plane workloads | As on AWS: web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus outbox-poller, automation-consumer, runner, agent-consumer, webhook-consumer, iframely, worker-importers, email | api, worker, web and live run 2 replicas spread across nodes, with PodDisruptionBudgets. Plane AI (pi) isn't available on Azure yet (it needs S3) |
+| Plane workloads | As on AWS: web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus outbox-poller, automation-consumer, runner, agent-consumer, webhook-consumer, iframely, worker-importers, email | api, worker, web and live run 2 replicas spread across nodes, with PodDisruptionBudgets. Plane AI (pi) is off by default (see [Plane AI](#plane-ai)) |
 
 Encryption at rest uses platform-managed keys everywhere in this release; customer-managed keys come later.
 
@@ -155,6 +156,9 @@ the file to Blob over the private endpoint with its workload identity. Downloads
 **Trade-off:** every upload and download passes through the api pods. Size them for your file traffic, and keep the
 ingress body limit at least as large as the upload size limit.
 
+**Plane AI** does the same with its own routes: its signed URLs and mobile upload forms point at Plane AI, which reads
+and writes Blob with the same identity. See [Plane AI](#plane-ai).
+
 **Direct uploads on Azure** would be possible later, but they need more than configuration: an Azure `PUT` upload path
 in every Plane client, a size check after upload (deleting oversized files), browser access to the storage account
 (public network access or an allow-list) with CORS rules, and an account-level role for user-delegation SAS.
@@ -165,6 +169,75 @@ On by default, as on AWS. Azure has no managed OpenSearch, so it runs in the clu
 zone-redundant Premium SSD, its password generated into Key Vault. The chart's `plane-api-search-index` Job creates the
 indexes after every install and upgrade. `opensearch = { enabled = false }` runs Plane with search indexing off. It is
 a single node: back it up with disk snapshots, or re-index from the database (`manage_search_index document index`).
+
+## Plane AI
+
+Off by default. `enable_components = { pi = true }` turns it on, and the module then sets up everything it needs: a
+chat model and semantic search, on the same Blob container (through Plane's Workload Identity: no new role on the
+storage account) and the `plane_pi` database the module already creates. Plane AI reads its models from its
+environment, which the module sets; there is nothing to configure in the admin UI. It needs:
+
+- **`opensearch.enabled`** (the default): at its first start, Plane AI creates the embedding model in the in-cluster
+  OpenSearch (an ML connector to the provider), its pipelines and its indexes. With pi on, the module gives OpenSearch
+  a 1.5 GB heap in a 3 GiB memory limit.
+- **`plane_version`**: the first Plane release whose Plane AI supports Azure Blob storage (named in this module's
+  release notes). The module refuses older versions.
+- **OpenAI and Cohere API keys.** Chat on OpenAI (`pi.api_keys.chat_provider`; or `anthropic`) and embeddings on
+  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or another model below). Both keys are required:
+  the module refuses Plane AI without them. Before the apply, store each as a plain-text secret in **one Key Vault of
+  yours** in this subscription (RBAC permission model; the module's own vault doesn't exist yet), and pass each
+  secret's versionless resource ID; for OpenAI chat and embeddings, one secret:
+
+  ```bash
+  az keyvault secret set --vault-name my-vault --name plane-openai-key --value "$OPENAI_API_KEY"
+  az keyvault secret set --vault-name my-vault --name plane-cohere-key --value "$COHERE_API_KEY"
+  ```
+
+```hcl
+enable_components = { pi = true }
+pi = {
+  api_keys = {
+    chat_key_secret_id      = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/my-vault/secrets/plane-openai-key"
+    embedding_key_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/my-vault/secrets/plane-cohere-key"
+  }
+}
+```
+
+The module adds a SecretStore for that vault, grants External Secrets' identity *Key Vault Secrets User* on those two
+secrets only, and copies each into the env var Plane AI reads for its provider (`OPENAI_API_KEY` or `CLAUDE_API_KEY` for
+chat, `COHERE_API_KEY` or `OPENAI_API_KEY` for embeddings) in the `plane-ai-providers` Secret; the keys never pass
+through Terraform or Helm values. Both secrets must be in one vault, which can also hold your certificates. If that
+vault has a firewall, allow `nat_public_ip`. Terraform needs permission to create role assignments on the vault.
+
+**Embedding model:** one of Plane AI's Cohere or OpenAI models, and its vector dimension:
+
+| `pi.api_keys.embedding_model` | Dimension |
+|---|---|
+| `cohere/embed-v4.0` (default) | 1536 |
+| `cohere/embed-english-v3.0` | 1024 |
+| `cohere/embed-english-v2.0` | 4096 |
+| `openai/text-embedding-ada-002` | 1536 |
+| `openai/text-embedding-3-small` | 1536 |
+| `openai/text-embedding-3-large` | 3072 |
+
+**Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's own search
+indexes (work items, pages) are created at the first install with the model's dimension, whether Plane AI is on or not
+(the module sets `OPENSEARCH_EMBEDDING_DIMENSION` from it). The model is registered in OpenSearch at Plane AI's first
+start, and its dimension fixes Plane AI's indexes too. Changing the embedding model afterwards needs Plane's search
+indexes and Plane AI's indexes recreated. The chat model changes with an apply.
+
+**Files:** the storage account stays private, so browsers and the mobile app reach files through Plane AI's routes
+(`/pi/api/v1/blob/`) on your domain, authorised by a short-lived signature (`PI_INTERNAL_SECRET`, generated by the
+module). Every Plane AI file passes through the pi pods, as uploads pass through the api. In path B, your routes must
+send `/pi/` to Plane AI and allow request bodies as large as the upload limit.
+
+**Egress:** the pi pods call the chat provider's API, and the OpenSearch pod calls the embedding provider's API, over
+the internet through the module's NAT gateway. If you restrict egress, allow HTTPS to the providers you use
+(`api.openai.com`, `api.cohere.ai`, `api.anthropic.com`).
+
+**Rotating keys:** add a new version of the secret. It's picked up within an hour, and Reloader restarts the pi
+workloads. Plane AI puts the embedding key into the OpenSearch connector it creates, so a rotated embedding key also
+needs the connector updated.
 
 ## Email
 
@@ -262,7 +335,7 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
 | cluster\_admin\_object\_ids | Entra ID object IDs (GUIDs of users, groups or service principals) granted "Azure Kubernetes Service RBAC Cluster Admin". The identity running Terraform is added automatically. | `list(string)` | `[]` | no |
 | deployment\_mode | How Plane runs. Only "aks" is available in this release. | `string` | `"aks"` | no |
 | email | Plane's email service (inbound email to work items). On by default with its own internet-facing Azure load balancer<br/>on a static public IP (ports 25 SMTP, 465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is the<br/>domain that receives mail (default "intake.<domain>"): create its A record pointing at email\_load\_balancer\_ip and<br/>its MX record pointing at smtp\_domain itself (see dns\_records). Certificate: your own via certificate\_secret\_id (a<br/>Key Vault certificate, like ingress.tls\_certificate\_secret\_id), else the email app's own self-signed certificate<br/>(fine for receiving mail). load\_balancer = false keeps the service running with no load balancer (not reachable<br/>from the internet); enabled = false turns the service and its load balancer off. Needs plane-enterprise chart 3.11.3+. | <pre>object({<br/>    enabled               = optional(bool, true)<br/>    smtp_domain           = optional(string)<br/>    load_balancer         = optional(bool, true)<br/>    certificate_secret_id = optional(string)<br/>  })</pre> | `{}` | no |
-| enable\_components | Optional Plane workloads. pi (Plane AI) isn't available on Azure yet: it reads attachments through the S3 API only, and Plane's Azure Blob support doesn't cover it. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
+| enable\_components | Optional Plane workloads. pi (Plane AI) needs both pi.api\_keys secrets, opensearch.enabled and a plane\_version with Azure Blob support in Plane AI. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
 | ingress | How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind an Azure load balancer on<br/>a static IP, Plane's routes and the certificates (Let's Encrypt via acme\_email, or your own via<br/>tls\_certificate\_secret\_id). mode = "none" (path B, default): the module installs no ingress controller or routes; you<br/>bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the records are<br/>yours in both paths (see the dns\_records output). Path A only: allowed\_cidrs (who can reach Plane), scheme<br/>(internet-facing: a static public IP; internal: a fixed private IP in the AKS subnet; set at install, as changing it<br/>in place removes or adds the public IP while Traefik's load balancer still uses it: to switch, apply with<br/>mode = "none" first, see the README) and tls\_certificate\_secret\_id (the versionless resource ID of a Key Vault certificate in this subscription, PEM or PFX, full chain:<br/>/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>). | <pre>object({<br/>    mode                      = optional(string, "none")<br/>    allowed_cidrs             = optional(list(string), ["0.0.0.0/0"])<br/>    scheme                    = optional(string, "internet-facing")<br/>    tls_certificate_secret_id = optional(string)<br/>  })</pre> | `{}` | no |
 | key\_vault | The Key Vault holding the generated secrets (RBAC mode). Its public endpoint stays on, gated by Entra ID RBAC;<br/>allowed\_ips turns on its firewall (include the address Terraform runs from; the cluster's NAT IP is added<br/>automatically) and private\_endpoint\_enabled adds a private endpoint in the VNet. With purge protection (default), a<br/>destroyed vault stays soft-deleted for soft\_delete\_retention\_days. | <pre>object({<br/>    purge_protection_enabled   = optional(bool, true)<br/>    soft_delete_retention_days = optional(number, 30)<br/>    allowed_ips                = optional(list(string), [])<br/>    private_endpoint_enabled   = optional(bool, false)<br/>  })</pre> | `{}` | no |
@@ -270,8 +343,9 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
 | node\_pool | The AKS node pool (one pool, system mode, Azure Linux): starts at node\_count nodes and the AKS cluster autoscaler<br/>keeps it between min\_count and max\_count (2 to 4 by default). Terraform sets node\_count only at creation and<br/>leaves the autoscaler's changes alone. sku\_tier is the AKS control-plane tier (Standard: uptime SLA). | <pre>object({<br/>    vm_size         = optional(string, "Standard_D4ds_v5")<br/>    min_count       = optional(number, 2)<br/>    max_count       = optional(number, 4)<br/>    node_count      = optional(number, 2)<br/>    os_disk_size_gb = optional(number, 128)<br/>    sku_tier        = optional(string, "Standard")<br/>  })</pre> | `{}` | no |
 | opensearch | OpenSearch for Plane's search, on by default as on AWS. Azure has no managed OpenSearch, so it runs in the cluster<br/>from the chart (one node, a Premium ZRS disk of volume\_size\_gb), with its password from Key Vault. Set<br/>volume\_size\_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README).<br/>The chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    mode           = optional(string, "in-cluster")<br/>    volume_size_gb = optional(number, 50)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
 | persistent\_volume\_sku | Azure disk SKU for the in-cluster RabbitMQ and OpenSearch volumes. Premium\_ZRS lets their pods move to another zone. Set at install: changing it later needs the StatefulSets recreated. | `string` | `"Premium_ZRS"` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api\_keys.chat\_provider;<br/>or Anthropic) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0; or another Cohere or OpenAI<br/>model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,<br/>openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text<br/>Key Vault secret you create before the apply, given by its versionless resource ID, both in one RBAC vault in this<br/>subscription (one secret for both when OpenAI does chat and embeddings). The search indexes take the embedding<br/>model's dimension even with pi off, so choose the model before the first install, even if pi is enabled later:<br/>changing it later needs the search indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider           = optional(string, "openai")<br/>      chat_key_secret_id      = optional(string)<br/>      embedding_model         = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_id = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
-| plane\_version | Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, "Requires"). | `string` | `"v4.0.1"` | no |
+| plane\_version | Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, "Requires"). Plane AI (enable\_components.pi) needs the first release whose pi supports Azure Blob; the module checks it. | `string` | `"v4.0.1"` | no |
 | postgres | Azure Database for PostgreSQL Flexible Server: VNet-integrated (no public access), TLS required, zone-redundant HA,<br/>databases plane and plane\_pi. deletion\_protection puts a CanNotDelete lock on the server: set it to false and apply<br/>before a destroy. | <pre>object({<br/>    engine_version               = optional(string, "15")<br/>    sku_name                     = optional(string, "GP_Standard_D2ds_v5")<br/>    storage_mb                   = optional(number, 131072)<br/>    high_availability_mode       = optional(string, "ZoneRedundant")<br/>    backup_retention_days        = optional(number, 14)<br/>    geo_redundant_backup_enabled = optional(bool, false)<br/>    deletion_protection          = optional(bool, true)<br/>  })</pre> | `{}` | no |
 | rabbitmq | RabbitMQ. Azure has no managed AMQP 0-9-1 service, so it runs in the cluster from the chart (one node, a Premium ZRS disk of volume\_size\_gb), with its credentials from Key Vault. Set volume\_size\_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README). | <pre>object({<br/>    mode           = optional(string, "in-cluster")<br/>    volume_size_gb = optional(number, 10)<br/>  })</pre> | `{}` | no |
 | redis | Azure Managed Redis: private endpoint only, TLS (port 10000), access-key auth (Plane's clients send a password only). | <pre>object({<br/>    sku_name                  = optional(string, "Balanced_B1")<br/>    high_availability_enabled = optional(bool, true)<br/>    clustering_policy         = optional(string, "NoCluster")<br/>  })</pre> | `{}` | no |

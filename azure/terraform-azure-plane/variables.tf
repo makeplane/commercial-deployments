@@ -35,10 +35,20 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, \"Requires\")."
+  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, \"Requires\"). Plane AI (enable_components.pi) needs the first release whose pi supports Azure Blob; the module checks it."
   type        = string
   default     = "v4.0.1"
   nullable    = false
+
+  validation {
+    # Releases (vX.Y.Z) compared as one number; other tags (preview or on-demand builds) aren't checked.
+    condition = !var.enable_components.pi || try(
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
+      true
+    )
+    error_message = "enable_components.pi needs plane_version ${local.pi_min_plane_version} or later (the first Plane release whose Plane AI supports Azure Blob storage)."
+  }
 }
 
 variable "chart_version" {
@@ -81,7 +91,7 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) isn't available on Azure yet: it reads attachments through the S3 API only, and Plane's Azure Blob support doesn't cover it."
+  description = "Optional Plane workloads. pi (Plane AI) needs both pi.api_keys secrets, opensearch.enabled and a plane_version with Azure Blob support in Plane AI."
   type = object({
     silo   = optional(bool, true)
     drawio = optional(bool, true)
@@ -91,8 +101,64 @@ variable "enable_components" {
   nullable = false
 
   validation {
-    condition     = !var.enable_components.pi
-    error_message = "enable_components.pi isn't supported on Azure yet: Plane AI (pi) needs S3-compatible storage, and its Azure Blob support isn't released."
+    condition     = !var.enable_components.pi || var.opensearch.enabled
+    error_message = "enable_components.pi needs opensearch.enabled: Plane AI creates its embedding model and indexes in the in-cluster OpenSearch."
+  }
+}
+
+variable "pi" {
+  description = <<-EOT
+    Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
+    (pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api_keys.chat_provider;
+    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or another Cohere or OpenAI
+    model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,
+    openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text
+    Key Vault secret you create before the apply, given by its versionless resource ID, both in one RBAC vault in this
+    subscription (one secret for both when OpenAI does chat and embeddings). The search indexes take the embedding
+    model's dimension even with pi off, so choose the model before the first install, even if pi is enabled later:
+    changing it later needs the search indexes recreated.
+  EOT
+  type = object({
+    api_keys = optional(object({
+      chat_provider           = optional(string, "openai")
+      chat_key_secret_id      = optional(string)
+      embedding_model         = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret_id = optional(string)
+    }), {})
+  })
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = !var.enable_components.pi || (var.pi.api_keys.chat_key_secret_id != null && var.pi.api_keys.embedding_key_secret_id != null)
+    error_message = "Plane AI needs both API keys: pi.api_keys.chat_key_secret_id and pi.api_keys.embedding_key_secret_id."
+  }
+  validation {
+    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+  }
+  validation {
+    condition     = contains(keys(local.pi_embedding_dimensions), var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", keys(local.pi_embedding_dimensions))}."
+  }
+  validation {
+    condition = alltrue([
+      for id in [var.pi.api_keys.chat_key_secret_id, var.pi.api_keys.embedding_key_secret_id] :
+      id == null || can(regex(local.key_vault_secret_regex, id))
+    ])
+    error_message = "pi.api_keys secret IDs must be ${local.key_vault_secret_format}."
+  }
+  validation {
+    # One ExternalSecret reads through one SecretStore, and a SecretStore names one vault.
+    condition = length(distinct([
+      for id in compact([var.pi.api_keys.chat_key_secret_id, var.pi.api_keys.embedding_key_secret_id]) :
+      lower(try(regex(local.key_vault_object_pattern, id).vault, id))
+    ])) <= 1
+    error_message = "pi.api_keys secrets must be in one Key Vault."
+  }
+  validation {
+    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || lower(coalesce(var.pi.api_keys.chat_key_secret_id, "-")) == lower(coalesce(var.pi.api_keys.embedding_key_secret_id, "-"))
+    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret for both."
   }
 }
 

@@ -117,7 +117,19 @@ location = "eastus2"
 # enable_components = {
 #   silo   = true
 #   drawio = true
-#   pi     = false # not available on Azure yet
+#   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with Azure Blob support in pi)
+# }
+
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
+# a plain-text secret in one Key Vault of yours, created before the apply. The embedding model sets the search indexes'
+# dimension, even with pi off: choose it before the first install.
+# pi = {
+#   api_keys = {
+#     chat_provider           = "openai" # or "anthropic"
+#     chat_key_secret_id      = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-openai-key"
+#     embedding_model         = "cohere/embed-v4.0"
+#     embedding_key_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-cohere-key"
+#   }
 # }
 
 # plane_version    = "v4.0.1" # placeholder: the first Plane release with Azure Blob support

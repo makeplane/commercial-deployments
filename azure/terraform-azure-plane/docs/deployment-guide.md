@@ -16,7 +16,8 @@
    RBAC vault, the versionless resource ID).
 4. **Set up Terraform state**: storage account with Entra ID auth (`use_azuread_auth`), versioning, soft delete,
    Storage Blob Data Contributor for the deployer.
-5. **Configure**: `terraform.tfvars`, `backend.hcl`, `api_server_authorized_ip_ranges`.
+5. **Configure**: `terraform.tfvars`, `backend.hcl`, `api_server_authorized_ip_ranges`; Plane AI (optional, README,
+   "Plane AI"): the two API keys in a Key Vault before the apply, choosing the embedding model before the first install.
 6. **Deploy**: `az login`, `terraform init` / `apply`, timings, what to watch (`kubectl get pods -n plane`).
 7. **Create the DNS records**: `terraform output dns_records` (A for `domain`, A + MX for `smtp_domain`).
 8. **Finish the ingress setup**: A.1 (certificate issuance), A.2, B (routes for Traefik / NGINX / Application Gateway
@@ -31,4 +32,4 @@
     soft delete and purge protection, leftover disks.
 12. **Troubleshooting**: Azure RBAC propagation (403 from Helm), External Secrets Workload Identity, `PublicIPAddressInUse`
     on destroy or after changing `ingress.scheme` / `zones`, StatefulSet `Forbidden` after changing a `volume_size_gb`,
-    Let's Encrypt HTTP-01, Key Vault firewall, Blob access from Plane.
+    Let's Encrypt HTTP-01, Key Vault firewall, Blob access from Plane, Plane AI key secrets not syncing.

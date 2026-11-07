@@ -29,13 +29,38 @@ locals {
   # Near the end of the AKS subnet (nodes fill from the start), so it's known before the apply.
   internal_ingress_ip = cidrhost(local.aks_subnet_cidr, -10)
 
+  # Placeholder until the Plane release carrying pi Azure Blob support is known: it keeps pi refused until then.
+  pi_min_plane_version = "v99.0.0"
+
+  # Plane AI's Cohere and OpenAI embedding models (pi/core/embedding_config.py) and their vector dimensions.
+  pi_embedding_dimensions = {
+    "cohere/embed-v4.0"             = 1536
+    "cohere/embed-english-v3.0"     = 1024
+    "cohere/embed-english-v2.0"     = 4096
+    "openai/text-embedding-ada-002" = 1536
+    "openai/text-embedding-3-small" = 1536
+    "openai/text-embedding-3-large" = 3072
+  }
+  # The api sizes its search indexes with this too, so it follows the model whether pi is on or off.
+  pi_embedding_dimension = local.pi_embedding_dimensions[var.pi.api_keys.embedding_model]
+
+  # The env var pi reads each key from => the secret holding it.
+  pi_api_key_ids = var.enable_components.pi ? merge(
+    { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret_id },
+    { "${upper(split("/", var.pi.api_keys.embedding_model)[0])}_API_KEY" = var.pi.api_keys.embedding_key_secret_id },
+  ) : {}
+  pi_api_keys = { for env, id in local.pi_api_key_ids : env => local.customer_secrets[id] if id != null }
+
   # External Secrets reads each certificate's backing secret, which holds the private key.
   certificate_ids = {
     web  = local.automated ? var.ingress.tls_certificate_secret_id : null
     mail = local.email.enabled ? local.email.certificate_secret_id : null
   }
-  certificates = {
-    for k, id in local.certificate_ids : k => {
+  certificates = { for k, id in local.certificate_ids : k => local.customer_secrets[id] if id != null }
+
+  # Every Key Vault object of the customer's that External Secrets may read, by the ID given.
+  customer_secrets = {
+    for id in distinct(compact(concat(values(local.certificate_ids), values(local.pi_api_key_ids)))) : id => {
       vault = lower(regex(local.key_vault_object_pattern, id).vault)
       name  = regex(local.key_vault_object_pattern, id).name
       secret_scope = format(
@@ -45,7 +70,7 @@ locals {
         regex(local.key_vault_object_pattern, id).vault,
         regex(local.key_vault_object_pattern, id).name,
       )
-    } if id != null
+    }
   }
   key_vault_object_pattern = "(?i)^/subscriptions/(?P<subscription>[^/]+)/resourceGroups/(?P<resource_group>[^/]+)/providers/Microsoft\\.KeyVault/vaults/(?P<vault>[^/]+)/(?:certificates|secrets)/(?P<name>[^/]+)$"
 
@@ -54,6 +79,9 @@ locals {
   subscription_id         = data.azurerm_client_config.current.subscription_id
   key_vault_object_regex  = "(?i)^/subscriptions/${local.subscription_id}/resourceGroups/[-\\w.()]{0,89}[-\\w()]/providers/Microsoft\\.KeyVault/vaults/[a-z][a-z0-9-]{1,22}[a-z0-9]/(certificates|secrets)/[a-z0-9-]{1,127}$"
   key_vault_object_format = "the versionless resource ID of a Key Vault certificate in this subscription: /subscriptions/${local.subscription_id}/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>"
+  # Plane AI's keys are plain secrets, not certificates.
+  key_vault_secret_regex  = replace(local.key_vault_object_regex, "(certificates|secrets)", "secrets")
+  key_vault_secret_format = "the versionless resource ID of a Key Vault secret in this subscription: /subscriptions/${local.subscription_id}/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/<name>"
 
   # Azure tag names can't contain "/".
   tags = merge(var.tags, {
@@ -165,7 +193,7 @@ module "addons" {
   internal_ingress_ip    = local.internal_ingress_ip
   issue_certificate      = local.lets_encrypt
   key_vault_id           = module.data.key_vault_id
-  certificate_scopes     = distinct([for c in values(local.certificates) : c.secret_scope])
+  customer_secret_scopes = distinct([for s in values(local.customer_secrets) : s.secret_scope])
   tags                   = local.tags
 
   # A signal, not depends_on: a module-level depends_on would defer every data source inside it.
@@ -175,25 +203,31 @@ module "addons" {
 module "plane" {
   source = "./modules/plane"
 
-  name                  = var.name
-  location              = var.location
-  resource_group_name   = local.resource_group_name
-  tenant_id             = data.azurerm_client_config.current.tenant_id
-  oidc_issuer_url       = module.cluster.oidc_issuer_url
-  domain                = var.domain
-  plane_version         = var.plane_version
-  chart_version         = var.chart_version
-  pod_cidr              = local.pod_cidr
-  enable_components     = var.enable_components
-  tls_secret_name       = var.tls_secret_name
-  email                 = local.email
-  email_public_ip_name  = module.edge.email_public_ip_name
-  chart_repository      = var.chart_repository
-  chart_name            = var.chart_name
-  ingress_enabled       = local.automated
-  acme_email            = local.lets_encrypt ? var.acme_email : null
-  acme_server           = var.acme_server
-  certificates          = local.certificates
+  name                 = var.name
+  location             = var.location
+  resource_group_name  = local.resource_group_name
+  tenant_id            = data.azurerm_client_config.current.tenant_id
+  oidc_issuer_url      = module.cluster.oidc_issuer_url
+  domain               = var.domain
+  plane_version        = var.plane_version
+  chart_version        = var.chart_version
+  pod_cidr             = local.pod_cidr
+  enable_components    = var.enable_components
+  tls_secret_name      = var.tls_secret_name
+  email                = local.email
+  email_public_ip_name = module.edge.email_public_ip_name
+  chart_repository     = var.chart_repository
+  chart_name           = var.chart_name
+  ingress_enabled      = local.automated
+  acme_email           = local.lets_encrypt ? var.acme_email : null
+  acme_server          = var.acme_server
+  certificates         = local.certificates
+  pi = {
+    embedding_model     = var.pi.api_keys.embedding_model
+    embedding_dimension = local.pi_embedding_dimension
+    api_keys_vault      = one(distinct([for k in values(local.pi_api_keys) : k.vault]))
+    api_key_names       = { for env, k in local.pi_api_keys : env => k.name }
+  }
   rabbitmq              = var.rabbitmq
   opensearch            = var.opensearch
   persistent_volume_sku = var.persistent_volume_sku

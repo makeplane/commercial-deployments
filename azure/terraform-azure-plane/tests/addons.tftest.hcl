@@ -22,7 +22,7 @@ variables {
   internal_ingress_ip    = "10.60.15.246"
   issue_certificate      = false
   key_vault_id           = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/plane-test-rg/providers/Microsoft.KeyVault/vaults/plane-test-kv"
-  certificate_scopes     = []
+  customer_secret_scopes = []
   cluster_ready          = "plane-test"
   tags                   = {}
 }
@@ -109,7 +109,7 @@ run "external_secrets_workload_identity" {
   }
   variables {
     issue_certificate = true
-    certificate_scopes = [
+    customer_secret_scopes = [
       "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/secrets/plane-web",
     ]
   }

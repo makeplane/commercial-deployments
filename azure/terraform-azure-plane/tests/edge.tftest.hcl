@@ -273,14 +273,6 @@ run "reject_certificate_uri" {
   expect_failures = [var.ingress]
 }
 
-run "reject_pi" {
-  command = plan
-  variables {
-    enable_components = { pi = true }
-  }
-  expect_failures = [var.enable_components]
-}
-
 run "email_off" {
   variables {
     email = { enabled = false }
