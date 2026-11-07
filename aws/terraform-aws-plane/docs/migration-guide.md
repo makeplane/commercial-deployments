@@ -105,7 +105,8 @@ Work through this list before you book the window.
       [deployment guide](deployment-guide.md#3-choose-how-traffic-reaches-plane)). For the shortest window, use your
       own certificate (A.2 or B): with Let's Encrypt (A.1), the certificate is issued only after DNS points at the new
       installation, so browsers show a warning for a few minutes after the switch.
-- [ ] Your certificates are in Secrets Manager (A.2, and the email certificate if you use one).
+- [ ] Your certificates are in Secrets Manager (A.2, and the email certificate if you use one), and Plane AI's two API
+      keys if the old installation runs Plane AI.
 - [ ] The app keys secret exists and holds all eight keys (step 6.1).
 - [ ] The infrastructure is created and the files are pre-copied (steps 6.3 and 6.4).
 - [ ] You've rehearsed the database copy and know how long it takes (step 6.5).
@@ -217,17 +218,31 @@ machine_signature   = "<old MACHINE_SIGNATURE>" # Plane 3.x and earlier only
 
 # Inbound email: the domain your MX record serves today
 email = { smtp_domain = "intake.plane.example.com" }
+
+# Only if the old installation runs Plane AI (the pi-service component). Both keys are required:
+# see the Plane AI section of the module's README.
+# enable_components = { pi = true }
+# pi = {
+#   api_keys = {
+#     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/openai-key-..."
+#     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/cohere-key-..."
+#   }
+# }
 ```
 
 Set `app_keys_secret_arn` and `machine_signature` from the very first apply, and never remove them: removing
-`app_keys_secret_arn` later makes the module generate new keys.
+`app_keys_secret_arn` later makes the module generate new keys. Set Plane AI's settings then too, so the step 7.5 plan
+only adds Plane.
 
-Now create everything **except Plane**. Targeting the add-ons and the load balancer brings in the network, the cluster
-and the data services they depend on:
+Now create everything **except Plane**, by targeting every other part of the module. Name them all: Terraform creates
+only what a target references, so targeting just the add-ons would leave out the uploads bucket, the cache, the queue,
+search and the database's security group rule.
 
 ```bash
 terraform init -backend-config=backend.hcl
-terraform plan -target=module.plane.module.addons -target=module.plane.module.edge -out infra.tfplan
+terraform plan -target=module.plane.module.network -target=module.plane.module.cluster \
+  -target=module.plane.module.data -target=module.plane.module.addons -target=module.plane.module.edge \
+  -out infra.tfplan
 terraform apply infra.tfplan
 ```
 
@@ -274,7 +289,7 @@ Then run the checks in [step 7.4](#74-check-the-copy), and empty the new databas
 
 ```bash
 kubectl --context plane-new -n plane-migration exec db-restore -- \
-  psql -d postgres -c 'DROP DATABASE plane' -c 'CREATE DATABASE plane'
+  psql -d postgres -c 'DROP DATABASE plane' -c 'CREATE DATABASE plane' -c 'DROP DATABASE IF EXISTS plane_pi'
 ```
 
 **Don't install Plane on this copy** (no full `terraform apply` yet). Plane's first start moves the licence identity
@@ -420,7 +435,7 @@ kubectl --context plane-new -n plane-migration exec -i db-restore -- \
   pg_restore --no-owner --no-privileges --no-comments --exit-on-error --single-transaction --dbname=plane_pi < plane_pi.dump
 ```
 
-and set `enable_components = { pi = true }` in `terraform.tfvars`.
+Plane AI's settings are already in `terraform.tfvars` (step 6.3).
 
 ### 7.4 Check the copy
 
