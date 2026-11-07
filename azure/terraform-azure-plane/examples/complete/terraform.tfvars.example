@@ -1,0 +1,150 @@
+# Copy to terraform.tfvars. Set name, domain and location, pick how traffic reaches Plane, and uncomment anything
+# else you want to change. Commented values are the defaults. For objects, set only the fields you change.
+
+name     = "plane"             # never change after install
+domain   = "plane.example.com" # never change after install
+location = "eastus2"
+
+# subscription_id = "00000000-0000-0000-0000-000000000000" # default: ARM_SUBSCRIPTION_ID or the Azure CLI's
+
+################################################################################
+# How traffic reaches Plane: pick ONE block and uncomment it.
+# The module configures no DNS. After the apply, create the records shown by:  terraform output dns_records
+################################################################################
+
+# Path A: automated. The module installs Traefik (on a static public IP), Plane's routes and the certificates.
+
+# A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
+# ingress    = { mode = "automated" }
+# acme_email = "ops@example.com"
+# email      = { certificate_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/plane-mail" } # optional; else self-signed
+
+# A.2  Your own certificates, imported into Key Vault before the apply (PEM or PFX, full chain)
+# ingress = { mode = "automated", tls_certificate_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/plane-web" }
+# email   = { certificate_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/plane-mail" } # optional; same ID if it covers both names
+
+# Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
+# apply Plane's routes, add your certificate and DNS records.
+
+################################################################################
+# Everything else (defaults)
+################################################################################
+
+# tags = {}
+
+# ingress = {
+#   mode                      = "none"            # automated (path A) | none (path B)
+#   allowed_cidrs             = ["0.0.0.0/0"]     # path A: who can reach Plane
+#   scheme                    = "internet-facing" # path A: or internal (a fixed private IP; not with Let's Encrypt); set at install
+#   tls_certificate_secret_id = null              # path A: your web certificate (A.2)
+# }
+# acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
+# tls_secret_name = "plane-tls"
+
+# api_server_authorized_ip_ranges = [] # who can reach the AKS API; empty = everyone
+# cluster_admin_object_ids        = [] # Entra ID users/groups/service principals; you are added automatically
+
+# resource_group = {
+#   create = true # false: use an existing, empty resource group (set name)
+#   name   = null # default: <name>-rg
+# }
+# vnet_cidr = "10.60.0.0/16"
+# zones     = ["1", "2", "3"] # set at install
+
+# kubernetes_version = "1.35"
+
+# node_pool = {
+#   vm_size         = "Standard_D4ds_v5"
+#   min_count       = 2
+#   max_count       = 4
+#   node_count      = 2
+#   os_disk_size_gb = 128
+#   sku_tier        = "Standard" # Free | Standard | Premium
+# }
+
+# postgres = {
+#   engine_version               = "15"
+#   sku_name                     = "GP_Standard_D2ds_v5"
+#   storage_mb                   = 131072
+#   high_availability_mode       = "ZoneRedundant" # SameZone | Disabled
+#   backup_retention_days        = 14
+#   geo_redundant_backup_enabled = false
+#   deletion_protection          = true
+# }
+
+# redis = {
+#   sku_name                  = "Balanced_B3"
+#   high_availability_enabled = true
+#   clustering_policy         = "NoCluster"
+#   persistence               = true # RDB snapshot every 12 hours; needs high_availability_enabled
+# }
+
+# rabbitmq = {
+#   volume_size_gb = 10 # set before the first install
+# }
+
+# opensearch = {
+#   enabled        = true
+#   volume_size_gb = 50 # set before the first install
+#   index_prefix   = "plane"
+# }
+
+# storage = {
+#   replication_type           = "ZRS"
+#   container_name             = "uploads"
+#   versioning_enabled         = true # previous versions are deleted 30 days after they were first written
+#   soft_delete_retention_days = 7
+#   deletion_protection        = true
+# }
+
+# use_storage_proxy = true # Azure supports only true: every upload and download goes through Plane
+
+# key_vault = {
+#   purge_protection_enabled   = true
+#   soft_delete_retention_days = 30
+#   allowed_ips                = [] # turns the firewall on; include the address Terraform runs from
+#   private_endpoint_enabled   = false
+# }
+
+# persistent_volume_sku = "Premium_ZRS"
+
+# email = {
+#   enabled               = true
+#   smtp_domain           = null # default: intake.<domain>
+#   load_balancer         = true
+#   certificate_secret_id = null # your email certificate; else self-signed
+# }
+
+# enable_components = {
+#   silo   = true
+#   drawio = true
+#   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with Azure Blob support in pi)
+# }
+
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
+# a plain-text secret in one Key Vault of yours, created before the apply. The embedding model sets the search indexes'
+# dimension, even with pi off: choose it before the first install.
+# pi = {
+#   api_keys = {
+#     chat_provider           = "openai" # or "anthropic"
+#     chat_key_secret_id      = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-openai-key"
+#     embedding_model         = "cohere/embed-v4.0"
+#     embedding_key_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-cohere-key"
+#   }
+# }
+
+# plane_version    = "v4.0.1" # placeholder: the first Plane release with Azure Blob support
+# chart_version    = "3.12.2" # placeholder: the first chart release with the Azure Blob values
+# chart_repository = "https://helm.plane.so/"
+# chart_name       = "plane-enterprise"
+# helm_timeout     = 3600
+# plane_values     = "" # extra chart values (YAML), no secrets
+# deployment_mode  = "aks"
+
+# acme_email = null # Let's Encrypt account email (path A, A.1)
+
+# Test install you will destroy:
+#   acme_server = "https://acme-staging-v02.api.letsencrypt.org/directory"
+#   postgres    = { deletion_protection = false }
+#   storage     = { deletion_protection = false }
+#   key_vault   = { purge_protection_enabled = false }
