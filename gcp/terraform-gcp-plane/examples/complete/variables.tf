@@ -202,18 +202,22 @@ variable "postgres" {
   description = <<-EOT
     Cloud SQL for PostgreSQL: private IP only, TLS required (ENCRYPTED_ONLY), regional high availability, backups with
     point-in-time recovery. The module creates the databases plane and plane_pi and the user plane (password generated,
-    in Secret Manager). deletion_protection turns on both Terraform's and Cloud SQL's own protection.
+    in Secret Manager). deletion_protection turns on both Terraform's and Cloud SQL's own protection. final_backup: Cloud
+    SQL takes a last backup when the instance is deleted and keeps it for final_backup_retention_days (1-365), after
+    terraform destroy; automated backups are deleted with the instance. Changing it restarts the instance.
   EOT
   type = object({
-    database_version       = optional(string)
-    tier                   = optional(string)
-    edition                = optional(string)
-    availability_type      = optional(string)
-    disk_size_gb           = optional(number)
-    disk_type              = optional(string)
-    backup_retention_days  = optional(number)
-    point_in_time_recovery = optional(bool)
-    deletion_protection    = optional(bool)
+    database_version            = optional(string)
+    tier                        = optional(string)
+    edition                     = optional(string)
+    availability_type           = optional(string)
+    disk_size_gb                = optional(number)
+    disk_type                   = optional(string)
+    backup_retention_days       = optional(number)
+    point_in_time_recovery      = optional(bool)
+    deletion_protection         = optional(bool)
+    final_backup                = optional(bool)
+    final_backup_retention_days = optional(number)
   })
   default = null
 }

@@ -15,15 +15,17 @@ variables {
   labels                = {}
 
   postgres = {
-    database_version       = "POSTGRES_15"
-    tier                   = "db-custom-2-8192"
-    edition                = "ENTERPRISE"
-    availability_type      = "REGIONAL"
-    disk_size_gb           = 100
-    disk_type              = "PD_SSD"
-    backup_retention_days  = 14
-    point_in_time_recovery = true
-    deletion_protection    = true
+    database_version            = "POSTGRES_15"
+    tier                        = "db-custom-2-8192"
+    edition                     = "ENTERPRISE"
+    availability_type           = "REGIONAL"
+    disk_size_gb                = 100
+    disk_type                   = "PD_SSD"
+    backup_retention_days       = 14
+    point_in_time_recovery      = true
+    deletion_protection         = true
+    final_backup                = true
+    final_backup_retention_days = 30
   }
   redis = {
     version            = "REDIS_7_2"
@@ -69,5 +71,52 @@ run "in_cluster_passwords_never_regenerate" {
   assert {
     condition     = length(random_password.opensearch) == 1 && random_password.opensearch[0].min_special == 2
     error_message = "OpenSearch rejects passwords without a special character."
+  }
+}
+
+run "final_backup_on_delete" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition = (
+      google_sql_database_instance.postgres.settings[0].final_backup_config[0].enabled &&
+      google_sql_database_instance.postgres.settings[0].final_backup_config[0].retention_days == 30
+    )
+    error_message = "Cloud SQL must keep a final backup for 30 days by default."
+  }
+  assert {
+    condition     = google_sql_database_instance.postgres.deletion_protection && google_sql_database_instance.postgres.settings[0].deletion_protection_enabled
+    error_message = "Deletion protection stays on until the customer turns it off."
+  }
+}
+
+run "final_backup_off" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      database_version            = "POSTGRES_15"
+      tier                        = "db-custom-2-8192"
+      edition                     = "ENTERPRISE"
+      availability_type           = "REGIONAL"
+      disk_size_gb                = 100
+      disk_type                   = "PD_SSD"
+      backup_retention_days       = 14
+      point_in_time_recovery      = true
+      deletion_protection         = false
+      final_backup                = false
+      final_backup_retention_days = 30
+    }
+  }
+
+  assert {
+    condition = (
+      !google_sql_database_instance.postgres.settings[0].final_backup_config[0].enabled &&
+      google_sql_database_instance.postgres.settings[0].final_backup_config[0].retention_days == null
+    )
+    error_message = "With the final backup off, the module must turn it off explicitly and send no retention."
   }
 }

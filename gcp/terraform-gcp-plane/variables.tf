@@ -379,18 +379,22 @@ variable "postgres" {
   description = <<-EOT
     Cloud SQL for PostgreSQL: private IP only, TLS required (ENCRYPTED_ONLY), regional high availability, backups with
     point-in-time recovery. The module creates the databases plane and plane_pi and the user plane (password generated,
-    in Secret Manager). deletion_protection turns on both Terraform's and Cloud SQL's own protection.
+    in Secret Manager). deletion_protection turns on both Terraform's and Cloud SQL's own protection. final_backup: Cloud
+    SQL takes a last backup when the instance is deleted and keeps it for final_backup_retention_days (1-365), after
+    terraform destroy; automated backups are deleted with the instance. Changing it restarts the instance.
   EOT
   type = object({
-    database_version       = optional(string, "POSTGRES_15")
-    tier                   = optional(string, "db-custom-2-8192")
-    edition                = optional(string, "ENTERPRISE")
-    availability_type      = optional(string, "REGIONAL")
-    disk_size_gb           = optional(number, 100)
-    disk_type              = optional(string, "PD_SSD")
-    backup_retention_days  = optional(number, 14)
-    point_in_time_recovery = optional(bool, true)
-    deletion_protection    = optional(bool, true)
+    database_version            = optional(string, "POSTGRES_15")
+    tier                        = optional(string, "db-custom-2-8192")
+    edition                     = optional(string, "ENTERPRISE")
+    availability_type           = optional(string, "REGIONAL")
+    disk_size_gb                = optional(number, 100)
+    disk_type                   = optional(string, "PD_SSD")
+    backup_retention_days       = optional(number, 14)
+    point_in_time_recovery      = optional(bool, true)
+    deletion_protection         = optional(bool, true)
+    final_backup                = optional(bool, true)
+    final_backup_retention_days = optional(number, 30)
   })
   default  = {}
   nullable = false
@@ -406,6 +410,10 @@ variable "postgres" {
   validation {
     condition     = contains(["ENTERPRISE", "ENTERPRISE_PLUS"], var.postgres.edition)
     error_message = "postgres.edition must be ENTERPRISE or ENTERPRISE_PLUS."
+  }
+  validation {
+    condition     = var.postgres.final_backup_retention_days >= 1 && var.postgres.final_backup_retention_days <= 365
+    error_message = "postgres.final_backup_retention_days must be between 1 and 365."
   }
 }
 

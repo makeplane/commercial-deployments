@@ -74,6 +74,8 @@ domain = "plane.example.com" # never change after install
 #   backup_retention_days  = 14
 #   point_in_time_recovery = true
 #   deletion_protection    = true
+#   final_backup           = true # a last backup when the instance is deleted, kept after destroy
+#   final_backup_retention_days = 30 # 1-365
 # }
 
 # redis = {
@@ -134,5 +136,5 @@ domain = "plane.example.com" # never change after install
 
 # Test install you will destroy:
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
-#   postgres             = { deletion_protection = false }
+#   postgres             = { deletion_protection = false, final_backup = false } # no backup left behind
 #   bucket_force_destroy = true

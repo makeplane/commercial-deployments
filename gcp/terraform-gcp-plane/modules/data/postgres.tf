@@ -42,6 +42,12 @@ resource "google_sql_database_instance" "postgres" {
       }
     }
 
+    # Cloud SQL reads this when the instance is deleted, so turning it off needs an apply before the destroy.
+    final_backup_config {
+      enabled        = var.postgres.final_backup
+      retention_days = var.postgres.final_backup ? var.postgres.final_backup_retention_days : null
+    }
+
     maintenance_window {
       day          = 7
       hour         = 4

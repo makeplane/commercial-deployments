@@ -447,7 +447,7 @@ before applying.
 | More capacity | Raise the node limit (`node_pool = { max_per_zone = 3 }`); the GKE cluster autoscaler adds nodes when pods need room. Add Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
 | Kubernetes upgrades | Automatic, within the release channel (`release_channel`, default `REGULAR`), on Saturdays and Sundays between 02:00 and 08:00 UTC. Nodes are replaced one at a time. Plane's api, worker, web and live run two replicas and stay up; RabbitMQ and OpenSearch restart briefly when their node is replaced. |
 | Renew your certificate (A.2, email) | Add a new version of the secret (below). Plane picks it up within an hour. Option A.1 renews automatically. |
-| Backups | Cloud SQL keeps the last 14 daily backups and 7 days of logs for point-in-time recovery. The uploads bucket keeps old versions of files for 30 days. Back up RabbitMQ and OpenSearch with disk snapshots (below). |
+| Backups | Cloud SQL keeps the last 14 daily backups and 7 days of logs for point-in-time recovery, and takes a final backup if the instance is deleted (section 11). The uploads bucket keeps old versions of files for 30 days. Back up RabbitMQ and OpenSearch with disk snapshots (below). |
 | Secrets | Database, cache, RabbitMQ and OpenSearch credentials and Plane's app keys are in Secret Manager as `<name>-plane-*` (`terraform output secret_ids`). |
 | Rotate the RabbitMQ or OpenSearch password | They're generated once and Terraform never changes them, because the servers read them only at first boot. To rotate one, follow the steps in the module README ("Things to know"). |
 | Rotate AI provider keys | Add a new version of the key's secret (`printf %s "<new-key>" \| gcloud secrets versions add plane-openai-key --project <project-id> --data-file=-`). Plane picks it up within an hour and restarts the Plane AI services. Plane AI keeps the embedding key in the OpenSearch connector it created, so a new embedding key also needs that connector updated. |
@@ -559,8 +559,12 @@ This deletes Plane and all its data.
    bucket_force_destroy = true
    ```
    Then `terraform apply`.
-4. **Keep a copy of the database if you may need it.** Deleting the Cloud SQL instance also deletes its automated
-   backups. Export the data first (`gcloud sql export sql`, see Cloud SQL's documentation).
+4. **Decide about the database's final backup.** Deleting the Cloud SQL instance also deletes its automated backups,
+   but Cloud SQL takes a final backup first and keeps it for 30 days (`postgres.final_backup_retention_days`), billed
+   like any other backup. To skip it, set `postgres = { deletion_protection = false, final_backup = false }` and apply
+   (the instance restarts). A restore also needs Plane's app keys, and `terraform destroy` deletes their secret at once:
+   if you may restore, save it first (`gcloud secrets versions access latest --secret <name>-plane-app-keys
+   --project <project-id>`).
 5. `terraform destroy`.
 6. Delete the persistent disks you noted:
    ```bash
@@ -573,6 +577,8 @@ What stays:
 - The project APIs the module enabled (other resources in the project may use them).
 - Your state bucket, and your certificate and AI provider secrets in Secret Manager.
 - The disk snapshots you took.
+- The database's final backup, until its retention ends (`gcloud sql backups list --project <project-id>`; remove it
+  early with `gcloud sql backups delete <backup-name>`).
 
 You can reinstall with the same `name`: the Cloud SQL instance and the uploads bucket get a random suffix, so Cloud
 SQL's week-long reservation of deleted instance names doesn't block you.

@@ -523,6 +523,23 @@ run "reject_bad_embedding_model" {
   expect_failures = [var.pi]
 }
 
+run "data_service_defaults" {
+  command = plan
+
+  assert {
+    condition     = var.postgres.final_backup && var.postgres.final_backup_retention_days == 30
+    error_message = "A final Cloud SQL backup, kept 30 days, is on by default (AWS keeps a final snapshot)."
+  }
+}
+
+run "reject_final_backup_retention_too_long" {
+  command = plan
+  variables {
+    postgres = { final_backup_retention_days = 366 }
+  }
+  expect_failures = [var.postgres]
+}
+
 run "reject_bad_zone" {
   command = plan
   variables {

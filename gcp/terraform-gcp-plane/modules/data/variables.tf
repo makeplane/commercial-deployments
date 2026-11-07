@@ -31,15 +31,17 @@ variable "private_service_range" {
 variable "postgres" {
   description = "Cloud SQL settings."
   type = object({
-    database_version       = string
-    tier                   = string
-    edition                = string
-    availability_type      = string
-    disk_size_gb           = number
-    disk_type              = string
-    backup_retention_days  = number
-    point_in_time_recovery = bool
-    deletion_protection    = bool
+    database_version            = string
+    tier                        = string
+    edition                     = string
+    availability_type           = string
+    disk_size_gb                = number
+    disk_type                   = string
+    backup_retention_days       = number
+    point_in_time_recovery      = bool
+    deletion_protection         = bool
+    final_backup                = bool
+    final_backup_retention_days = number
   })
 }
 
