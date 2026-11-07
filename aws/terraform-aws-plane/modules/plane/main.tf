@@ -288,7 +288,9 @@ locals {
 
     ssl = { tls_secret_name = var.tls_secret_name }
 
-    serviceAccount = { create = true }
+    # Bound to Plane's role by an EKS Pod Identity association (outside the chart). Renders nothing;
+    # it lets helm upgrade warn about settings that conflict with an attached identity.
+    serviceAccount = { create = true, cloudIdentity = true }
 
     podDisruptionBudget = { enabled = true }
 

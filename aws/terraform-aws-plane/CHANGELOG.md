@@ -6,6 +6,9 @@
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
 - `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
   null: the MX record names the email NLB's hostname directly.
+- The chart values declare `serviceAccount.cloudIdentity: true` (Plane's ServiceAccount is bound to its role through
+  EKS Pod Identity), as on GCP: it changes nothing rendered, and lets `helm upgrade` warn about settings that conflict
+  with an attached identity.
 
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with

@@ -114,6 +114,10 @@ run "path_b_default" {
     error_message = "dns_records must have the same keys as on GCP and Azure; email_host is null on AWS (the MX names the NLB hostname)."
   }
   assert {
+    condition     = yamldecode(output.plane_helm_values).serviceAccount == { create = true, cloudIdentity = true }
+    error_message = "Plane's ServiceAccount must be declared bound to a cloud identity (EKS Pod Identity), with no annotations."
+  }
+  assert {
     condition     = output.redis_endpoint == "redis.mock:6379"
     error_message = "redis_endpoint must be host:port, as on GCP and Azure."
   }
