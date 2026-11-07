@@ -123,7 +123,7 @@ run "in_cluster_rabbitmq_and_opensearch" {
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).external_secrets.rabbitmq.secretName == "plane-rabbitmq"
-    error_message = "The bundled RabbitMQ and the apps must read the External Secrets Secret (chart 3.11.6 contract)."
+    error_message = "The bundled RabbitMQ and the apps must read the External Secrets Secret (chart 3.12.2 contract)."
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.local_setup && yamldecode(output.plane_helm_values).external_secrets.opensearch_existingSecret == "plane-opensearch"
@@ -507,7 +507,7 @@ run "plane_identity" {
   variables {
     pods_cidr          = "10.61.0.0/16"
     plane_version      = "v4.0.1"
-    chart_version      = "3.11.6"
+    chart_version      = "3.12.2"
     chart_repository   = "https://helm.plane.so/"
     chart_name         = "plane-enterprise"
     enable_components  = { silo = true, drawio = true, pi = false }

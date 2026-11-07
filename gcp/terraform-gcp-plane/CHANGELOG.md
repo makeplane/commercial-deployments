@@ -11,7 +11,7 @@
   a GCS uploads bucket and Secret Manager secrets (regional replication).
 - RabbitMQ and OpenSearch run in the cluster from the chart (GCP has neither as a managed service), on
   `standard-rwo` persistent disks, with generated credentials in Secret Manager synced by External Secrets. Needs
-  plane-enterprise chart 3.11.6 (pending release) for the bundled RabbitMQ to read its credentials from that Secret.
+  plane-enterprise chart 3.12.2 (pending release) for the bundled RabbitMQ to read its credentials from that Secret.
 - In-cluster add-ons as Helm releases: External Secrets (GCP Secret Manager through Workload Identity, CRDs kept on
   uninstall), Reloader; in path A also Traefik, and cert-manager when `acme_email` is set.
 - Plane (plane-enterprise chart) with keyless GCS through GKE Workload Identity (bucket-scoped roles, signed URLs
@@ -34,7 +34,7 @@
   External Secrets into the env var Plane AI reads (the keys never pass through Terraform). pi needs
   `opensearch.enabled` and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known;
   until then pi is refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise
-  chart 3.11.6.
+  chart 3.12.2.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything; the example declares every module
   input under the same name (`nullable = false` on every defaulted input). CI checks that it declares exactly the

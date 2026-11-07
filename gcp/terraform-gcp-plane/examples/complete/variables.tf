@@ -23,7 +23,7 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.11.6 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
+  description = "plane-enterprise Helm chart version. 3.12.2 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
   type        = string
   default     = null
 }
@@ -222,7 +222,7 @@ variable "redis" {
   description = <<-EOT
     Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD_HA
     keeps a replica in another zone with automatic failover. transit_encryption (default true) turns on TLS (port 6378)
-    with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.11.6+);
+    with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.12.2+);
     false keeps AUTH over the private network without TLS.
   EOT
   type = object({
