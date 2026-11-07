@@ -52,7 +52,8 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **Bring your own VPC first, then your own cluster.** Inputs to skip creating the network (`vpc_id`, subnet IDs)
   and later the EKS cluster (`cluster_name`). Needed by customers with an existing landing zone.
 - **Node autoscaling.** Cluster Autoscaler on the managed node group's 2–4 range first (the group already has the
-  range; nothing scales it); Karpenter or EKS Auto Mode later.
+  range; nothing scales it); Karpenter or EKS Auto Mode later, with an optional Spot node group (GCP already offers
+  spot nodes).
 - **Pod autoscaling.** Revive the chart HPA PR helm-charts#133 for api, worker, agent-consumer and webhook-consumer
   (CPU, 2–5 replicas). metrics-server is already installed. Ship it with node autoscaling, or the extra pods only use
   spare capacity.
@@ -74,6 +75,17 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **Version and upgrade policy.** Pin and upgrade EKS, add-ons, the chart and Plane through module releases;
   Renovate on customer templates. Add a pre-upgrade RDS snapshot keyed on the Plane version and a rollback runbook
   (Helm rollback doesn't undo database migrations).
+- **Maintenance windows and reinstalls.** Set RDS and ElastiCache maintenance windows (today AWS picks them; GCP
+  sets weekend windows). Add a random suffix to the RDS final snapshot so a destroyed install can be reinstalled
+  under the same name without deleting the snapshot first.
+- **Engine upgrades.** The ElastiCache parameter group embeds the Valkey major version without
+  `create_before_destroy` (the RDS one was fixed), so a Valkey major upgrade needs the same treatment. RDS minor
+  auto-upgrades also leave `postgres.engine_version` behind, so the next plan tries a downgrade: pin only the major
+  version, or ignore minor drift.
+- **WAF.** An NLB can't take AWS WAF. Document CloudFront + WAF in front of the web load balancer, or add an ALB
+  option for customers who need WAF rules.
+- **Chart render check in CI and generated-values tests.** Run `helm template` on the `plane_helm_values` output
+  for every example in CI (all modules), and add tests on the generated chart values for AWS as GCP has.
 - **AWS Backup plan** as an option, beyond RDS automated backups and the final snapshot.
 - **KMS options.** A `kms_key_arn` input (bring your own key) and optional per-service keys. Today one
   module-managed key encrypts RDS, Valkey, S3, Secrets Manager, OpenSearch and EKS secrets.
