@@ -163,7 +163,8 @@ Clients keep posting the same form; the api checks the signed policy (key, conte
 the file to Blob over the private endpoint with its workload identity. Downloads go through the api the same way.
 
 **Trade-off:** every upload and download passes through the api pods. Size them for your file traffic, and keep the
-ingress body limit at least as large as the upload size limit.
+ingress body limit at least as large as the upload size limit (path A: `ingress.traefik.maxRequestBodyBytes` in
+`plane_values`, 20 MiB by default).
 
 **Plane AI** does the same with its own routes: its signed URLs and mobile upload forms point at Plane AI, which reads
 and writes Blob with the same identity. See [Plane AI](#plane-ai).

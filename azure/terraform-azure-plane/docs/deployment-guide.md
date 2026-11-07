@@ -56,7 +56,8 @@ highly available. You operate them: back them up with disk snapshots (section 10
 
 **Files go through Plane.** On Azure, every upload and download passes through Plane's api pods, which read and write
 Blob over the private endpoint. Browsers never talk to the storage account, so there is no SAS and no CORS. Size the api
-pods for your file traffic, and keep any ingress body limit at least as large as your upload limit. The module's
+pods for your file traffic, and keep any ingress body limit at least as large as your upload limit. On path A that limit
+is 20 MiB by default: raise it with `ingress.traefik.maxRequestBodyBytes` in `plane_values`. The module's
 `use_storage_proxy` input can only be `true` on Azure; the module refuses `false`, as do the chart and the api.
 [Plane AI](#plane-ai-optional) is optional and off by default.
 
@@ -603,7 +604,7 @@ reinstall generates new app keys, so talk to Plane support before restoring old 
 | `PublicIPAddressInUse` | `ingress.scheme` or `zones` was changed after the first install, or a load balancer is still releasing the IP during a destroy | Set the value back and apply again; to change the scheme, see section 10. During a destroy, wait and run it again. Changing `zones` replaces every static public IP, so treat it as fixed |
 | A RabbitMQ or OpenSearch pod stays `Pending` | Its disk can't be created, or no node has room | `kubectl -n plane describe pvc` and `kubectl -n plane describe pod <pod>`; raise the quota or `node_pool.max_count` |
 | Uploads or downloads fail with 403 errors in the api logs | Plane's identity can't reach Blob yet: its role or federated credential is still taking effect, or the pod has no workload identity | Wait a few minutes. Then check `kubectl -n plane get sa plane-srv-account -o yaml` for the `azure.workload.identity/client-id` annotation, and that the pod has the label `azure.workload.identity/use: "true"` |
-| Uploads fail with a 413 error (path B) | Your controller's request size limit is too low | Allow at least your upload limit. On Azure every upload passes through it |
+| Uploads fail with a 413 error | The ingress request size limit is too low. On Azure every upload passes through it | Path A: raise `ingress.traefik.maxRequestBodyBytes` in `plane_values` (20 MiB by default). Path B: raise your controller's limit. Allow at least your upload limit |
 | Live collaboration doesn't connect or drops (path B) | WebSockets aren't enabled on `/live/`, or the load balancer's idle timeout cuts them | Enable WebSocket support for that path, and set the idle timeout annotation (section 8) |
 | No inbound email | The A or MX record for the email domain is missing or wrong | `dig MX <email domain>` must return the email domain, and `dig <email domain>` the email load balancer's IP |
 | `ScopeLocked` | A delete lock is still on during a destroy (section 11, step 5). Or you turned off `storage.versioning_enabled`: the storage account's lock also covers the policy that deletes old versions | For versioning, set `storage = { versioning_enabled = false, deletion_protection = false }` and apply, then turn `deletion_protection` back on and apply |
