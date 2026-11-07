@@ -282,8 +282,9 @@ Before you set it to `true`:
   Storage if you use Plane AI.
 - **The api does more work.** Every proxied file passes through it, so add api replicas if you move many or large files
   (section 10, "More capacity").
-- **The ingress limits file size.** Proxied files are subject to your ingress's request body limit. With option B, raise
-  your controller's limit to fit your largest file (the NGINX command in section 8 sets 20 MB). With any option, try your
+- **The ingress limits file size.** Proxied files are subject to your ingress's request body limit. With option A it's
+  20 MiB by default: set `ingress.traefik.maxRequestBodyBytes` through `plane_values`. With option B, raise your
+  controller's limit to fit your largest file (the NGINX command in section 8 sets 20 MB). With any option, try your
   largest files before you rely on this setting.
 
 ### Plane AI (optional)
@@ -624,7 +625,7 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 | A RabbitMQ or OpenSearch pod stays `Pending` | Its disk can't be created (SSD quota) or no node has room | `kubectl -n plane describe pvc` and `kubectl -n plane describe pod <pod>`; raise the quota or `node_pool.max_per_zone` |
 | Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |
-| Large files fail, or the api slows down, with `use_storage_proxy = true` | Proxied files are subject to the ingress body limit and add load on the api | Raise the limit to fit your largest file and add api replicas (section 10), or set `use_storage_proxy = false` |
+| Large files fail, or the api slows down, with `use_storage_proxy = true` | Proxied files are subject to the ingress body limit and add load on the api | Raise the limit to fit your largest file (option A: `ingress.traefik.maxRequestBodyBytes` in `plane_values`, 20 MiB by default) and add api replicas (section 10), or set `use_storage_proxy = false` |
 | Live collaboration doesn't connect (option B) | WebSockets not enabled on `/live/` | Enable WebSocket support for that path |
 | No inbound email | The A or MX record for the email domain is missing or wrong | `dig MX <email domain>` must return the email domain, and `dig <email domain>` the email load balancer's IP |
 | `terraform destroy` fails on the Cloud SQL instance or the bucket | Deletion protection is on, or the bucket isn't empty | Section 11, step 3 |
