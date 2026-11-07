@@ -24,8 +24,11 @@
 9. **Sign in and activate your licence**.
 10. **Day-2 operations**: kubectl access (`configure_kubectl`), scaling, upgrades (Plane, chart, AKS), certificate
     renewal, rotating the Redis access key and the RabbitMQ and OpenSearch passwords (README, "Things to know"),
-    backups (PostgreSQL PITR; RabbitMQ and OpenSearch disk snapshots; Blob versioning and soft delete).
+    backups (PostgreSQL PITR; RabbitMQ and OpenSearch disk snapshots; Blob versioning and soft delete), growing the
+    RabbitMQ or OpenSearch disk (patch the PVC; `volume_size_gb` is set at install), changing `ingress.scheme` (via
+    `mode = "none"`; README, "Things to know").
 11. **Removing the installation**: delete locks off (`postgres` / `storage` `deletion_protection`), destroy, Key Vault
     soft delete and purge protection, leftover disks.
 12. **Troubleshooting**: Azure RBAC propagation (403 from Helm), External Secrets Workload Identity, `PublicIPAddressInUse`
-    on destroy, Let's Encrypt HTTP-01, Key Vault firewall, Blob access from Plane.
+    on destroy or after changing `ingress.scheme` / `zones`, StatefulSet `Forbidden` after changing a `volume_size_gb`,
+    Let's Encrypt HTTP-01, Key Vault firewall, Blob access from Plane.

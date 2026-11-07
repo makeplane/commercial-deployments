@@ -86,8 +86,9 @@ variable "ingress" {
     tls_certificate_secret_id). mode = "none" (path B, default): the module installs no ingress controller or routes; you
     bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the records are
     yours in both paths (see the dns_records output). Path A only: allowed_cidrs (who can reach Plane), scheme
-    (internet-facing: a static public IP; internal: a fixed private IP in the AKS subnet) and tls_certificate_secret_id
-    (the versionless resource ID of a Key Vault certificate in this subscription, PEM or PFX, full chain:
+    (internet-facing: a static public IP; internal: a fixed private IP in the AKS subnet; set at install, as changing it
+    in place removes or adds the public IP while Traefik's load balancer still uses it: to switch, apply with
+    mode = "none" first, see the README) and tls_certificate_secret_id (the versionless resource ID of a Key Vault certificate in this subscription, PEM or PFX, full chain:
     /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>).
   EOT
   type = object({
@@ -145,7 +146,7 @@ variable "vnet_cidr" {
 }
 
 variable "zones" {
-  description = "Availability zones for the nodes, the static IPs and PostgreSQL HA (primary in the first, standby in the second)."
+  description = "Availability zones for the nodes, the static IPs and PostgreSQL HA (primary in the first, standby in the second). Set at install: changing it replaces the static public IPs (new addresses), which fails while their load balancers use them."
   type        = list(string)
   default     = null
 }
@@ -226,7 +227,7 @@ variable "redis" {
 }
 
 variable "rabbitmq" {
-  description = "RabbitMQ. Azure has no managed AMQP 0-9-1 service, so it runs in the cluster from the chart (one node, a Premium ZRS disk), with its credentials from Key Vault."
+  description = "RabbitMQ. Azure has no managed AMQP 0-9-1 service, so it runs in the cluster from the chart (one node, a Premium ZRS disk of volume_size_gb), with its credentials from Key Vault. Set volume_size_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README)."
   type = object({
     mode           = optional(string, "in-cluster")
     volume_size_gb = optional(number, 10)
@@ -237,8 +238,10 @@ variable "rabbitmq" {
 variable "opensearch" {
   description = <<-EOT
     OpenSearch for Plane's search, on by default as on AWS. Azure has no managed OpenSearch, so it runs in the cluster
-    from the chart (one node, a Premium ZRS disk), with its password from Key Vault. The chart's Job creates the search
-    indexes after every install and upgrade. enabled = false: Plane runs with search indexing off.
+    from the chart (one node, a Premium ZRS disk of volume_size_gb), with its password from Key Vault. Set
+    volume_size_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README).
+    The chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search
+    indexing off.
   EOT
   type = object({
     enabled        = optional(bool, true)

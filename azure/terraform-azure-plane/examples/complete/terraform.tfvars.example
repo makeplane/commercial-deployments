@@ -35,7 +35,7 @@ location = "eastus2"
 # ingress = {
 #   mode                      = "none"            # automated (path A) | none (path B)
 #   allowed_cidrs             = ["0.0.0.0/0"]     # path A: who can reach Plane
-#   scheme                    = "internet-facing" # path A: or internal (a fixed private IP; not with Let's Encrypt)
+#   scheme                    = "internet-facing" # path A: or internal (a fixed private IP; not with Let's Encrypt); set at install
 #   tls_certificate_secret_id = null              # path A: your web certificate (A.2)
 # }
 # acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
@@ -49,7 +49,7 @@ location = "eastus2"
 #   name   = null # default: <name>-rg
 # }
 # vnet_cidr = "10.60.0.0/16"
-# zones     = ["1", "2", "3"]
+# zones     = ["1", "2", "3"] # set at install
 
 # kubernetes_version = "1.35"
 
@@ -80,13 +80,13 @@ location = "eastus2"
 
 # rabbitmq = {
 #   mode           = "in-cluster"
-#   volume_size_gb = 10
+#   volume_size_gb = 10 # set before the first install
 # }
 
 # opensearch = {
 #   enabled        = true
 #   mode           = "in-cluster"
-#   volume_size_gb = 50
+#   volume_size_gb = 50 # set before the first install
 #   index_prefix   = "plane"
 # }
 
