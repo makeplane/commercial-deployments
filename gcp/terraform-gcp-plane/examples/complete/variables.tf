@@ -227,13 +227,17 @@ variable "redis" {
     Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager). STANDARD_HA
     keeps a replica in another zone with automatic failover. transit_encryption (default true) turns on TLS (port 6378)
     with Memorystore's server CA trusted through the chart's customCA (every Plane service, plane-enterprise 3.12.2+);
-    false keeps AUTH over the private network without TLS.
+    false keeps AUTH over the private network without TLS. persistence (default true) takes an RDB snapshot every
+    rdb_snapshot_period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS or TWENTY_FOUR_HOURS), on every tier: STANDARD_HA restores from
+    the replica first and the snapshot only if that fails; BASIC restores from the snapshot after a restart.
   EOT
   type = object({
-    version            = optional(string)
-    tier               = optional(string)
-    memory_size_gb     = optional(number)
-    transit_encryption = optional(bool)
+    version             = optional(string)
+    tier                = optional(string)
+    memory_size_gb      = optional(number)
+    transit_encryption  = optional(bool)
+    persistence         = optional(bool)
+    rdb_snapshot_period = optional(string)
   })
   default = null
 }

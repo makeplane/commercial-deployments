@@ -48,10 +48,12 @@ variable "postgres" {
 variable "redis" {
   description = "Memorystore for Redis settings."
   type = object({
-    version            = string
-    tier               = string
-    memory_size_gb     = number
-    transit_encryption = bool
+    version             = string
+    tier                = string
+    memory_size_gb      = number
+    transit_encryption  = bool
+    persistence         = bool
+    rdb_snapshot_period = string
   })
 }
 

@@ -14,6 +14,11 @@ resource "google_redis_instance" "this" {
   auth_enabled            = true
   transit_encryption_mode = var.redis.transit_encryption ? "SERVER_AUTHENTICATION" : "DISABLED"
 
+  persistence_config {
+    persistence_mode    = var.redis.persistence ? "RDB" : "DISABLED"
+    rdb_snapshot_period = var.redis.persistence ? var.redis.rdb_snapshot_period : null
+  }
+
   maintenance_policy {
     weekly_maintenance_window {
       day = "SUNDAY"

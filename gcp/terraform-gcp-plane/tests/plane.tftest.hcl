@@ -530,6 +530,18 @@ run "data_service_defaults" {
     condition     = var.postgres.final_backup && var.postgres.final_backup_retention_days == 30
     error_message = "A final Cloud SQL backup, kept 30 days, is on by default (AWS keeps a final snapshot)."
   }
+  assert {
+    condition     = var.redis.persistence && var.redis.rdb_snapshot_period == "TWENTY_FOUR_HOURS"
+    error_message = "Memorystore persistence is on by default, with a daily snapshot."
+  }
+}
+
+run "reject_bad_rdb_snapshot_period" {
+  command = plan
+  variables {
+    redis = { rdb_snapshot_period = "THIRTY_MINUTES" }
+  }
+  expect_failures = [var.redis]
 }
 
 run "reject_final_backup_retention_too_long" {

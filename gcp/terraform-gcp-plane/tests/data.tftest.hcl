@@ -28,10 +28,12 @@ variables {
     final_backup_retention_days = 30
   }
   redis = {
-    version            = "REDIS_7_2"
-    tier               = "STANDARD_HA"
-    memory_size_gb     = 4
-    transit_encryption = true
+    version             = "REDIS_7_2"
+    tier                = "STANDARD_HA"
+    memory_size_gb      = 4
+    transit_encryption  = true
+    persistence         = true
+    rdb_snapshot_period = "TWENTY_FOUR_HOURS"
   }
   opensearch = {
     enabled        = true
@@ -118,5 +120,68 @@ run "final_backup_off" {
       google_sql_database_instance.postgres.settings[0].final_backup_config[0].retention_days == null
     )
     error_message = "With the final backup off, the module must turn it off explicitly and send no retention."
+  }
+}
+
+run "redis_rdb_persistence" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition = (
+      google_redis_instance.this.persistence_config[0].persistence_mode == "RDB" &&
+      google_redis_instance.this.persistence_config[0].rdb_snapshot_period == "TWENTY_FOUR_HOURS"
+    )
+    error_message = "Memorystore must take a daily RDB snapshot by default."
+  }
+}
+
+run "redis_rdb_persistence_on_basic_tier" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    redis = {
+      version             = "REDIS_7_2"
+      tier                = "BASIC"
+      memory_size_gb      = 4
+      transit_encryption  = true
+      persistence         = true
+      rdb_snapshot_period = "SIX_HOURS"
+    }
+  }
+
+  assert {
+    condition = (
+      google_redis_instance.this.tier == "BASIC" &&
+      google_redis_instance.this.persistence_config[0].persistence_mode == "RDB" &&
+      google_redis_instance.this.persistence_config[0].rdb_snapshot_period == "SIX_HOURS"
+    )
+    error_message = "BASIC takes RDB snapshots too, at the chosen period."
+  }
+}
+
+run "redis_persistence_off" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    redis = {
+      version             = "REDIS_7_2"
+      tier                = "STANDARD_HA"
+      memory_size_gb      = 4
+      transit_encryption  = true
+      persistence         = false
+      rdb_snapshot_period = "TWENTY_FOUR_HOURS"
+    }
+  }
+
+  assert {
+    condition = (
+      google_redis_instance.this.persistence_config[0].persistence_mode == "DISABLED" &&
+      google_redis_instance.this.persistence_config[0].rdb_snapshot_period == null
+    )
+    error_message = "With persistence off, the mode is DISABLED and no period is sent."
   }
 }
