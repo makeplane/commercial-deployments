@@ -87,7 +87,7 @@ variable "ingress" {
     bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the records are
     yours in both paths (see the dns_records output). Path A only: allowed_cidrs (who can reach Plane), scheme
     (internet-facing: a static public IP; internal: a fixed private IP in the AKS subnet) and tls_certificate_secret_id
-    (the versionless resource ID of a Key Vault certificate, PEM or PFX, full chain:
+    (the versionless resource ID of a Key Vault certificate in this subscription, PEM or PFX, full chain:
     /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>).
   EOT
   type = object({
@@ -163,7 +163,7 @@ variable "api_server_authorized_ip_ranges" {
 }
 
 variable "cluster_admin_object_ids" {
-  description = "Entra ID object IDs (users, groups or service principals) granted \"Azure Kubernetes Service RBAC Cluster Admin\". The identity running Terraform is added automatically."
+  description = "Entra ID object IDs (GUIDs of users, groups or service principals) granted \"Azure Kubernetes Service RBAC Cluster Admin\". The identity running Terraform is added automatically."
   type        = list(string)
   default     = null
 }

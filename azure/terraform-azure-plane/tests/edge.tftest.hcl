@@ -141,8 +141,8 @@ run "a1_lets_encrypt" {
 
 run "a2_own_certificates" {
   variables {
-    ingress = { mode = "automated", tls_certificate_secret_id = "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/Customer-KV/certificates/plane-web" }
-    email   = { certificate_secret_id = "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-mail" }
+    ingress = { mode = "automated", tls_certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/Customer-KV/certificates/plane-web" }
+    email   = { certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-mail" }
   }
 
   assert {
@@ -186,7 +186,7 @@ run "a2_internal" {
       mode                      = "automated"
       scheme                    = "internal"
       allowed_cidrs             = ["10.0.0.0/8"]
-      tls_certificate_secret_id = "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-web"
+      tls_certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-web"
     }
   }
 
@@ -204,7 +204,7 @@ run "a2_internal" {
 
 run "path_b_email_certificate" {
   variables {
-    email = { certificate_secret_id = "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-mail" }
+    email = { certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-mail" }
   }
 
   assert {
@@ -236,7 +236,7 @@ run "reject_automated_without_certificate" {
 run "reject_automated_with_both_certificates" {
   command = plan
   variables {
-    ingress    = { mode = "automated", tls_certificate_secret_id = "/subscriptions/0000/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-web" }
+    ingress    = { mode = "automated", tls_certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-web" }
     acme_email = "ops@example.com"
   }
   expect_failures = [var.ingress]

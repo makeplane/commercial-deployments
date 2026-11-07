@@ -115,7 +115,7 @@ variable "ingress" {
     bring your controller, routes, certificate and DNS after the apply. The module configures no DNS: the records are
     yours in both paths (see the dns_records output). Path A only: allowed_cidrs (who can reach Plane), scheme
     (internet-facing: a static public IP; internal: a fixed private IP in the AKS subnet) and tls_certificate_secret_id
-    (the versionless resource ID of a Key Vault certificate, PEM or PFX, full chain:
+    (the versionless resource ID of a Key Vault certificate in this subscription, PEM or PFX, full chain:
     /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>).
   EOT
   type = object({
@@ -144,8 +144,8 @@ variable "ingress" {
     error_message = "Let's Encrypt (acme_email) uses HTTP-01, which needs Plane reachable from the internet on port 80: ingress.allowed_cidrs must include 0.0.0.0/0 and ingress.scheme must be internet-facing. Use your own certificate (ingress.tls_certificate_secret_id) to restrict access."
   }
   validation {
-    condition     = var.ingress.tls_certificate_secret_id == null || can(regex("(?i)^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+/(certificates|secrets)/[^/]+$", var.ingress.tls_certificate_secret_id))
-    error_message = "ingress.tls_certificate_secret_id must be a versionless Key Vault certificate ID: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>."
+    condition     = var.ingress.tls_certificate_secret_id == null || can(regex(local.key_vault_object_regex, var.ingress.tls_certificate_secret_id))
+    error_message = "ingress.tls_certificate_secret_id must be ${local.key_vault_object_format}."
   }
 }
 
@@ -176,8 +176,8 @@ variable "email" {
   nullable = false
 
   validation {
-    condition     = var.email.certificate_secret_id == null || can(regex("(?i)^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+/(certificates|secrets)/[^/]+$", var.email.certificate_secret_id))
-    error_message = "email.certificate_secret_id must be a versionless Key Vault certificate ID: /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>."
+    condition     = var.email.certificate_secret_id == null || can(regex(local.key_vault_object_regex, var.email.certificate_secret_id))
+    error_message = "email.certificate_secret_id must be ${local.key_vault_object_format}."
   }
 }
 
@@ -248,10 +248,15 @@ variable "api_server_authorized_ip_ranges" {
 }
 
 variable "cluster_admin_object_ids" {
-  description = "Entra ID object IDs (users, groups or service principals) granted \"Azure Kubernetes Service RBAC Cluster Admin\". The identity running Terraform is added automatically."
+  description = "Entra ID object IDs (GUIDs of users, groups or service principals) granted \"Azure Kubernetes Service RBAC Cluster Admin\". The identity running Terraform is added automatically."
   type        = list(string)
   default     = []
   nullable    = false
+
+  validation {
+    condition     = alltrue([for id in var.cluster_admin_object_ids : can(regex("^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$", id))])
+    error_message = "cluster_admin_object_ids must be Entra ID object IDs (GUIDs), not names or emails."
+  }
 }
 
 variable "node_pool" {

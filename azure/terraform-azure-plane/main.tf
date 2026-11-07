@@ -49,6 +49,12 @@ locals {
   }
   key_vault_object_pattern = "(?i)^/subscriptions/(?P<subscription>[^/]+)/resourceGroups/(?P<resource_group>[^/]+)/providers/Microsoft\\.KeyVault/vaults/(?P<vault>[^/]+)/(?:certificates|secrets)/(?P<name>[^/]+)$"
 
+  # Validates customer certificate IDs: versionless (External Secrets is granted that exact secret) and
+  # in this subscription. "secrets/<name>" is accepted too.
+  subscription_id         = data.azurerm_client_config.current.subscription_id
+  key_vault_object_regex  = "(?i)^/subscriptions/${local.subscription_id}/resourceGroups/[-\\w.()]{0,89}[-\\w()]/providers/Microsoft\\.KeyVault/vaults/[a-z][a-z0-9-]{1,22}[a-z0-9]/(certificates|secrets)/[a-z0-9-]{1,127}$"
+  key_vault_object_format = "the versionless resource ID of a Key Vault certificate in this subscription: /subscriptions/${local.subscription_id}/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/certificates/<name>"
+
   # Azure tag names can't contain "/".
   tags = merge(var.tags, {
     "plane-deployment" = var.name

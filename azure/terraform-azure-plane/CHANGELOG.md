@@ -28,6 +28,8 @@
   `dns_records` output lists the A and MX records to create.
 - Email service on by default with its own static public IP (ports 25/465/587, sender IP preserved), certificate from
   Key Vault (`email.certificate_secret_id`) or self-signed.
+- Every Key Vault certificate ID you pass (`ingress.tls_certificate_secret_id`, `email.certificate_secret_id`) is checked
+  at plan: a full, versionless resource ID in this subscription. `cluster_admin_object_ids` must be GUIDs.
 - Plane AI (`enable_components.pi`) is rejected by a validation: it needs S3-compatible storage.
 - `examples/complete` declares every module input 1:1 (`terraform.tfvars.example` shows every default); mock-provider
   tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values and the data layer; CI workflow
