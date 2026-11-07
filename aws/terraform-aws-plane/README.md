@@ -167,8 +167,9 @@ receiving mail for **`intake.<domain>`** (set `email.smtp_domain` for another do
 - **Load balancer:** ports 25 SMTP, 465 SMTPS, 587 submission, named `<name>-email`, with instance targets and
   `externalTrafficPolicy: Local`, so the email service sees the sender's real IP (SPF). The hostname is the
   `email_load_balancer_dns_name` output.
-- **MX record:** yours: `<smtp_domain> MX 10 <email NLB>` (see `dns_records`). The default is a subdomain so it never
-  collides with a CNAME on `domain` (an MX record can't share a name with a CNAME).
+- **MX record:** yours: `<smtp_domain> MX 10 <email NLB>` (`email_mx` in `dns_records`). It names the NLB's hostname
+  directly, so `email_host` (the A record other clouds need) is always null on AWS. The default is a subdomain so it
+  never collides with a CNAME on `domain` (an MX record can't share a name with a CNAME).
 - **Certificate** (STARTTLS/SMTPS): yours from Secrets Manager (`email.certificate_secret_arn`, see above); otherwise the
   email service generates a self-signed one at startup. Mail servers delivering on port 25 use opportunistic TLS and
   accept it; mail clients on 465/587 will warn. In path A with the email load balancer on, the module shows a warning
@@ -355,7 +356,7 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 | cluster\_name | EKS cluster name. |
 | configure\_kubectl | Command to point kubectl at the cluster. |
 | deployment\_mode | Deployment mode in use. |
-| dns\_records | The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. |
+| dns\_records | The DNS records to create (the module creates none), with the same keys on every cloud. web: path A only; in path B, point domain at your own ingress load balancer. email\_host is always null on AWS: the MX record (email\_mx) names the email NLB's hostname directly, so no A record is needed. |
 | email\_load\_balancer\_dns\_name | Hostname of the email NLB (null without email.load\_balancer). email.smtp\_domain's MX record points here. |
 | kms\_key\_arn | KMS key encrypting RDS, ElastiCache, S3 and the secrets. |
 | load\_balancer\_dns\_name | Path A: hostname of the Traefik NLB (null in path B). Point domain here with a CNAME (or an alias record in Route 53), never A records to its current IPs: AWS assigns them and they can change. |
@@ -365,7 +366,7 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 | private\_subnet\_ids | Private subnet IDs. |
 | rabbitmq\_endpoint | Amazon MQ AMQPS host. |
 | rds\_endpoint | RDS cluster writer endpoint. |
-| redis\_endpoint | ElastiCache primary endpoint (TLS). |
+| redis\_endpoint | ElastiCache primary endpoint (host:port, TLS). |
 | s3\_bucket\_name | Uploads bucket. |
 | secret\_arns | Secrets Manager ARNs the deployment uses (ARNs only, never values). |
 | vpc\_id | VPC ID. |

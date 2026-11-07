@@ -254,7 +254,10 @@ terraform output dns_records
 |---|---|---|---|
 | Web (options A.1 and A.2) | your `domain` | CNAME | the `web` value: the load balancer's hostname |
 | Web (option B) | your `domain` | CNAME | your own ingress controller's load balancer |
-| Email | your email domain (`intake.<domain>`) | MX | `10 <email load balancer hostname>` |
+| Email | your email domain (`intake.<domain>`) | MX | the `email_mx` value: `10 <email load balancer hostname>` |
+
+The output has the same keys on every cloud (`web`, `email_host`, `email_mx`). On AWS `email_host` is always null: the MX
+record names the email load balancer's hostname, so no A record is needed.
 
 - Always point at the load balancer's **hostname** with a CNAME (or an alias record in Route 53). Never create A records
   with its IP addresses: AWS assigns them and can change them.

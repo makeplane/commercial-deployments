@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changed (breaking)
+- `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
+- `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
+  null: the MX record names the email NLB's hostname directly.
+
 ### Added
 - Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
   `app_keys_secret_arn` (bring the existing app keys from a Secrets Manager secret; nothing generated, the keys never

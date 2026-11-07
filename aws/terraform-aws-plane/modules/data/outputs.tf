@@ -13,6 +13,11 @@ output "redis_host" {
   value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
 }
 
+output "redis_port" {
+  description = "ElastiCache port (TLS)."
+  value       = aws_elasticache_replication_group.valkey.port
+}
+
 output "rabbitmq_host" {
   description = "Amazon MQ AMQPS host."
   value       = local.rabbitmq_host

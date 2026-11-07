@@ -61,6 +61,7 @@ override_module {
     kms_key_arn   = "arn:aws:kms:us-east-1:123456789012:key/mock"
     postgres_host = "postgres.mock"
     redis_host    = "redis.mock"
+    redis_port    = 6379
     rabbitmq_host = "rabbitmq.mock"
     bucket_name   = "plane-test-uploads"
     secret_arns = {

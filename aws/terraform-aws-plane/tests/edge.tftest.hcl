@@ -61,6 +61,7 @@ override_module {
     kms_key_arn   = "arn:aws:kms:us-east-1:123456789012:key/mock"
     postgres_host = "postgres.mock"
     redis_host    = "redis.mock"
+    redis_port    = 6379
     rabbitmq_host = "rabbitmq.mock"
     bucket_name   = "plane-test-uploads"
     secret_arns = {
@@ -107,6 +108,14 @@ run "path_b_default" {
   assert {
     condition     = output.dns_records.email_mx != null
     error_message = "The email NLB (on by default) must give an MX record."
+  }
+  assert {
+    condition     = toset(keys(output.dns_records)) == toset(["web", "email_host", "email_mx"]) && output.dns_records.email_host == null
+    error_message = "dns_records must have the same keys as on GCP and Azure; email_host is null on AWS (the MX names the NLB hostname)."
+  }
+  assert {
+    condition     = output.redis_endpoint == "redis.mock:6379"
+    error_message = "redis_endpoint must be host:port, as on GCP and Azure."
   }
   assert {
     condition     = !yamldecode(output.plane_helm_values).ingress.enabled
