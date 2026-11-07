@@ -46,7 +46,8 @@ output "plane_inputs" {
     opensearch_enabled = var.opensearch.enabled
 
     # Short IDs: the SecretStore is scoped to project_id.
-    secret_names = { for k, s in google_secret_manager_secret.this : k => s.secret_id }
+    secret_names  = { for k, s in google_secret_manager_secret.this : k => s.secret_id }
+    app_key_names = keys(random_password.app_keys)
   }
 
   # Every secret has a value before the ExternalSecrets that read it are created.

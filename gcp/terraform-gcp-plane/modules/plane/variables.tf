@@ -140,6 +140,7 @@ variable "data" {
     redis_ca           = string
     opensearch_enabled = bool
     secret_names       = map(string)
+    app_key_names      = list(string)
   })
 }
 

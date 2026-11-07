@@ -67,6 +67,7 @@ override_module {
       redis_tls          = false
       redis_ca           = null
       opensearch_enabled = true
+      app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names = {
         postgres   = "plane-test-plane-db"
         redis      = "plane-test-plane-redis"
@@ -140,6 +141,35 @@ run "in_cluster_rabbitmq_and_opensearch" {
   }
 }
 
+run "app_keys_sync_key_by_key" {
+  assert {
+    condition = [
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec
+      if o.kind == "ExternalSecret" && o.metadata.name == "plane-app-keys"
+      ] == [{
+        refreshInterval = "1h"
+        secretStoreRef  = { name = "gcp-secret-manager", kind = "SecretStore" }
+        target          = { name = "plane-app-keys", creationPolicy = "Orphan" }
+        data = [
+          { secretKey = "AES_SECRET_KEY", remoteRef = { key = "plane-test-plane-app-keys", property = "AES_SECRET_KEY" } },
+          { secretKey = "SECRET_KEY", remoteRef = { key = "plane-test-plane-app-keys", property = "SECRET_KEY" } },
+        ]
+    }]
+    error_message = "The app keys must be synced key by key (no dataFrom), so a missing key fails the sync, with an Orphan target."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.annotations
+      if o.kind == "ExternalSecret" && o.metadata.name == "plane-app-keys"
+    ])["helm.sh/hook"] == "pre-install,pre-upgrade"
+    error_message = "The app keys ExternalSecret must stay a Helm hook, created before the workloads."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).external_secrets.app_keys_existingSecret == "plane-app-keys"
+    error_message = "The chart must read the app keys from the synced Secret."
+  }
+}
+
 run "secret_store_and_no_secret_values" {
   assert {
     condition     = one([for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.provider.gcpsm.projectID if o.kind == "SecretStore"]) == "plane-test-project"
@@ -210,6 +240,7 @@ run "redis_tls" {
         redis_tls          = true
         redis_ca           = "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----"
         opensearch_enabled = true
+        app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
         secret_names = {
           postgres   = "plane-test-plane-db"
           redis      = "plane-test-plane-redis"
@@ -259,6 +290,7 @@ run "opensearch_off" {
         redis_tls          = false
         redis_ca           = null
         opensearch_enabled = false
+        app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
         secret_names = {
           postgres = "plane-test-plane-db"
           redis    = "plane-test-plane-redis"
@@ -536,6 +568,7 @@ run "plane_identity" {
       redis_tls          = false
       redis_ca           = null
       opensearch_enabled = true
+      app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names       = { postgres = "a", redis = "b", rabbitmq = "c", opensearch = "d", app_keys = "e" }
     }
   }

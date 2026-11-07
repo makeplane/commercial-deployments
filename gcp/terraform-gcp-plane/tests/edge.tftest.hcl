@@ -68,6 +68,7 @@ override_module {
       redis_tls          = false
       redis_ca           = null
       opensearch_enabled = true
+      app_key_names      = ["AES_SECRET_KEY", "SECRET_KEY"]
       secret_names = {
         postgres   = "plane-test-plane-db"
         redis      = "plane-test-plane-redis"
