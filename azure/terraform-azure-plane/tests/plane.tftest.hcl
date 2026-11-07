@@ -18,7 +18,7 @@ variables {
   oidc_issuer_url       = "https://eastus2.oic.prod-aks.azure.com/tenant/issuer/"
   domain                = "plane.example.com"
   plane_version         = "v4.0.1"
-  chart_version         = "3.11.6"
+  chart_version         = "3.12.2"
   pod_cidr              = "192.168.0.0/16"
   enable_components     = { silo = true, drawio = true, pi = false }
   tls_secret_name       = "plane-tls"
@@ -114,7 +114,7 @@ run "in_cluster_services" {
 
   assert {
     condition     = yamldecode(output.helm_values).services.rabbitmq.local_setup && yamldecode(output.helm_values).external_secrets.rabbitmq.secretName == "plane-rabbitmq"
-    error_message = "The bundled RabbitMQ and the apps must read one Secret synced from Key Vault (external_secrets.rabbitmq, chart 3.11.6)."
+    error_message = "The bundled RabbitMQ and the apps must read one Secret synced from Key Vault (external_secrets.rabbitmq, chart 3.12.2)."
   }
   assert {
     condition     = !strcontains(output.helm_values, "default_password") && !strcontains(output.helm_values, "root_password")
