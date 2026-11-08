@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security
+- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
+  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+
 ### Changed (breaking)
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
 - `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always

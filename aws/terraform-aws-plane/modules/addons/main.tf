@@ -18,7 +18,7 @@ locals {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs
     # installed with kubectl, which breaks the Helm-only rule.
     aws_load_balancer_controller = "1.17.1"
-    traefik                      = "42.1.3"
+    traefik                      = "42.3.1"
     cert_manager                 = "v1.21.3"
     external_secrets             = "2.14.0"
     reloader                     = "2.2.19"
