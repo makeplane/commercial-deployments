@@ -10,7 +10,7 @@ locals {
   cert_manager_enabled = var.issue_certificate
 
   chart_versions = {
-    traefik          = "42.1.3"
+    traefik          = "42.3.1"
     cert_manager     = "v1.21.3"
     external_secrets = "2.14.0"
     reloader         = "2.2.19"

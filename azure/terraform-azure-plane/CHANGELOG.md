@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security
+- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
+  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+
 > **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and the plane-enterprise
 > chart release that renders it, plus chart 3.12.2 (bundled RabbitMQ reading `external_secrets.rabbitmq`). The Blob
 > chart values follow the **agreed contract** (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version`
