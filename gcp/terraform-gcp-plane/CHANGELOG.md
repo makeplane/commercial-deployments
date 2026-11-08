@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security
+- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
+  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+
 ### Changed
 - TLS to Memorystore is always on, as on AWS and Azure: `redis.transit_encryption` is removed, and a value left in
   `terraform.tfvars` is ignored. An instance created with it off is replaced on the next apply.
