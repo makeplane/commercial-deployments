@@ -44,12 +44,16 @@
   sender's IP preserved, receiving mail for `intake.<domain>` by default. Email certificate from Secret Manager
   (`email.certificate_secret`) in either path, else self-signed (a warning in path A).
 - Plane AI (pi) on GKE, off by default: `enable_components.pi = true` runs it on the GCS bucket (Plane's Workload
-  Identity, no new IAM) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). OpenAI chat and
-  Cohere embeddings (`cohere/embed-v4.0`) by default, or Anthropic chat (`pi.api_keys.chat_provider`) and another of
-  Plane AI's Cohere or OpenAI embedding models. The search indexes' dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows
-  `pi.api_keys.embedding_model`, with pi on or off (1536 by default). Both keys are
-  required, each a plain-text Secret Manager secret in `project_id` (one secret when OpenAI does both), copied by
-  External Secrets into the env var Plane AI reads (the keys never pass through Terraform). pi needs
+  Identity, no new IAM) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). Chat on a vendor
+  key (`pi.api_keys.chat_provider`: `openai`, the default, `anthropic`, `xai`, `baseten` or `meta`), with that vendor's
+  built-in models, or `custom`: your own model on any OpenAI-compatible API (Plane AI's custom LLM; requires the OpenAI
+  Chat Completions API at `chat_base_url`, with `chat_model`, and optionally `chat_model_name` and `chat_max_tokens`,
+  default 128000). Embeddings on Cohere (`cohere/embed-v4.0` by default, or another Cohere model). The search indexes'
+  dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows `pi.api_keys.embedding_model`, with pi on or off (1536 by
+  default). Both keys are required, each a Secret Manager secret in `project_id`, plain text or a JSON field
+  (`chat_key_json_field`, `embedding_key_json_field`; one JSON secret can hold both), copied by External Secrets into
+  the env var Plane AI reads, in the Secret the chart mounts on the Plane AI workloads (the keys never pass through
+  Terraform). pi needs
   `opensearch.enabled` and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known;
   until then pi is refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise
   chart 3.12.2.

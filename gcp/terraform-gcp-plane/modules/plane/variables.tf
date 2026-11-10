@@ -109,11 +109,17 @@ variable "opensearch" {
 }
 
 variable "pi" {
-  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off) and api_key_secrets: env var pi reads => Secret Manager secret (projects/<project>/secrets/<name>)."
+  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off), custom_llm: the chat model on an OpenAI-compatible API (null with a vendor key), and api_key_secrets: env var pi reads => Secret Manager secret (projects/<project>/secrets/<name>) and JSON field (null: plain text)."
   type = object({
     embedding_model     = string
     embedding_dimension = number
-    api_key_secrets     = map(string)
+    custom_llm = object({
+      base_url   = string
+      model      = string
+      name       = string
+      max_tokens = number
+    })
+    api_key_secrets = map(object({ secret = string, property = string }))
   })
 }
 

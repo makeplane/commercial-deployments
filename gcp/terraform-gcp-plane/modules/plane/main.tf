@@ -88,8 +88,8 @@ locals {
     }
   }
 
-  # The customer's provider keys, each in the env var pi reads; the root module checks the project.
-  # pi puts the embedding key into the OpenSearch connector it creates.
+  # The customer's provider keys, each in the env var pi reads, from a plain-text secret or a JSON field.
+  # The root module checks the project; pi puts the embedding key into the OpenSearch connector it creates.
   pi_api_keys_object = {
     apiVersion = "external-secrets.io/v1"
     kind       = "ExternalSecret"
@@ -98,7 +98,10 @@ locals {
       refreshInterval = "1h"
       secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
       target          = { name = local.ai_providers_secret, creationPolicy = "Orphan" }
-      data            = [for env, secret in var.pi.api_key_secrets : { secretKey = env, remoteRef = { key = regex("[^/]+$", secret) } }]
+      data = [for env, s in var.pi.api_key_secrets : {
+        secretKey = env
+        remoteRef = merge({ key = regex("[^/]+$", s.secret) }, s.property == null ? {} : { property = s.property })
+      }]
     }
   }
 
@@ -229,9 +232,20 @@ locals {
     pi = merge(
       { enabled = var.enable_components.pi },
       var.enable_components.pi ? {
-        ai_providers = {
-          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension }
-        }
+        ai_providers = merge(
+          { embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension } },
+          # Only for chat_provider "custom"; vendor keys come from the Secret alone (chart openai/claude blocks stay off).
+          var.pi.custom_llm == null ? {} : {
+            custom_llm = {
+              enabled    = true
+              provider   = "openai"
+              base_url   = var.pi.custom_llm.base_url
+              model_key  = var.pi.custom_llm.model
+              name       = var.pi.custom_llm.name
+              max_tokens = var.pi.custom_llm.max_tokens
+            }
+          },
+        )
       } : {},
     )
     drawio = { local_setup = var.enable_components.drawio }

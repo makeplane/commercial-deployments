@@ -42,7 +42,7 @@ each as a single instance on a persistent disk. You operate them: back them up w
 zone holding one of their disks is unavailable, that service is down until the zone returns. Search is optional: set
 `opensearch = { enabled = false }` to turn it off.
 
-**Plane AI is optional and off by default.** It needs API keys from your AI providers (OpenAI and Cohere by default) and
+**Plane AI is optional and off by default.** It needs two API keys (a chat key, OpenAI by default, and Cohere) and
 a recent Plane release; see [Plane AI](#plane-ai-optional) in section 5.
 
 **Security defaults:**
@@ -296,11 +296,11 @@ Plane AI runs on the same uploads bucket and in-cluster OpenSearch as Plane. It 
   `plane_version`. If the release notes don't name a release yet, Plane AI isn't available in this module release.
 - **Search on** (`opensearch.enabled`, the default). With Plane AI, OpenSearch gets a larger memory allowance (1.5 GB
   heap, 3 GiB limit).
-- **Two API keys:** OpenAI for chat and Cohere for embeddings (semantic search), each stored in Secret Manager before
-  the apply. The module refuses Plane AI without both keys.
+- **Two API keys:** one for chat (OpenAI by default, or another provider below) and Cohere for embeddings (semantic
+  search), each stored in Secret Manager before the apply. The module refuses Plane AI without both keys.
 
 **1. Store the provider keys.** Create two secrets in the **same project** as Plane (`project_id`), each holding only
-the key, as plain text:
+the key, as plain text (or one JSON secret holding both, below):
 
 ```bash
 printf %s "<openai-key>" | gcloud secrets create plane-openai-key --project <project-id> \
@@ -325,11 +325,38 @@ pi = {
 # plane_version = "<a release with Plane AI on Cloud Storage>" # if the module's default is older
 ```
 
-**Other providers.** For Anthropic chat, store the Anthropic key instead and set
-`pi.api_keys.chat_provider = "anthropic"`. For another embedding model, set `pi.api_keys.embedding_model` to one of
-`cohere/embed-english-v3.0`, `cohere/embed-english-v2.0`, `openai/text-embedding-ada-002`,
-`openai/text-embedding-3-small` or `openai/text-embedding-3-large` (the module README lists their dimensions); with
-OpenAI for both chat and embeddings, use the same secret for both keys.
+**Other chat providers.** Set `pi.api_keys.chat_provider` and store that provider's key as the chat key:
+
+- `anthropic`, `xai`, `baseten` or `meta`: that vendor's built-in models, as with OpenAI. Nothing else to set.
+- `custom`: your own model on any OpenAI-compatible API (Plane AI's custom LLM), for example Azure OpenAI, vLLM,
+  Ollama, LiteLLM, OpenRouter or Vertex AI's OpenAI-compatible endpoint. It **requires an OpenAI-compatible API**: the
+  OpenAI Chat Completions API at `chat_base_url` (for example `https://my-llm.example.com/v1`, serving
+  `/chat/completions`), with a bearer key. Other APIs, such as Anthropic's native API or Vertex AI's native Gemini API,
+  don't work with `custom`: use the vendor value, or an OpenAI-compatible gateway such as LiteLLM. Plane AI then offers
+  exactly this one model, without web search.
+
+```hcl
+pi = {
+  api_keys = {
+    chat_provider        = "custom"
+    chat_base_url        = "https://my-llm.example.com/v1"
+    chat_model           = "gpt-oss-120b"      # the model ID that API expects
+    chat_model_name      = "GPT-OSS 120B"      # optional: shown in Plane AI (default chat_model)
+    chat_max_tokens      = 128000              # optional: the model's context window (default 128000)
+    chat_key_secret      = "projects/my-plane-project/secrets/plane-llm-key"
+    embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+  }
+}
+```
+
+The module refuses `chat_base_url`, `chat_model`, `chat_model_name` and `chat_max_tokens` with a vendor provider.
+
+**One JSON secret for both keys.** Instead of two plain-text secrets, store one JSON secret such as
+`{"chat_key":"<chat-key>","cohere_key":"<cohere-key>"}`, point both `chat_key_secret` and `embedding_key_secret` at it,
+and set `chat_key_json_field = "chat_key"` and `embedding_key_json_field = "cohere_key"`.
+
+**Other embedding models.** Set `pi.api_keys.embedding_model` to `cohere/embed-english-v3.0` or
+`cohere/embed-english-v2.0` (the module README lists their dimensions).
 
 **Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's search indexes
 are created at the first install with the vector dimension of `pi.api_keys.embedding_model`, whether Plane AI is on or
@@ -340,7 +367,8 @@ recreated.
 
 **Outbound access.** Plane AI calls your providers' APIs over the internet through the module's Cloud NAT: the Plane AI
 pods call the language model, and the OpenSearch pod calls the embedding API. If your organisation restricts outbound
-traffic, allow HTTPS to the providers you use, for example `api.cohere.ai`, `api.openai.com` and `api.anthropic.com`.
+traffic, allow HTTPS to the providers you use, for example `api.cohere.ai`, `api.openai.com`, `api.anthropic.com`, or
+your `chat_base_url` host.
 
 ## 6. Deploy
 
@@ -610,9 +638,9 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 |---|---|---|
 | Browser certificate warning (A.1) | The certificate isn't issued yet: DNS doesn't resolve to the load balancer, the record is proxied, or port 80 isn't reachable from the internet | Check the record (`dig <domain>`), make it DNS-only, then `kubectl -n plane describe certificate plane-tls` and `kubectl -n plane get challenges` |
 | Browser certificate warning (A.2) | The certificate secret has the wrong keys or doesn't cover the domain | Keys must be `tls.crt` and `tls.key`; `kubectl -n plane describe externalsecret plane-web-tls` |
-| An ExternalSecret isn't `SecretSynced` | The secret doesn't exist in `project_id`, has no version, or isn't JSON with the expected keys (the AI provider keys are plain text) | `kubectl -n plane describe externalsecret <name>`. Right after the first apply, Workload Identity can take a minute or two to work: the error clears on its own |
+| An ExternalSecret isn't `SecretSynced` | The secret doesn't exist in `project_id`, has no version, or isn't JSON with the expected keys (the AI provider keys are plain text, or JSON with the `*_key_json_field` you set) | `kubectl -n plane describe externalsecret <name>`. Right after the first apply, Workload Identity can take a minute or two to work: the error clears on its own |
 | `Invalid value for variable "ingress"` | Option A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret`; with Let's Encrypt keep the load balancer internet-facing and open |
-| `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | Plane AI is on without search or without both API keys, with a Plane release older than the minimum, a secret in another project, or an unsupported provider or embedding model | Keep `opensearch.enabled`, set both `pi.api_keys` secrets (one secret when OpenAI does both), raise `plane_version`, or pick a supported provider and model (section 5) |
+| `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | Plane AI is on without search or without both API keys, with a Plane release older than the minimum, a secret in another project, an unsupported provider or embedding model, or `custom`-only settings with a vendor provider | Keep `opensearch.enabled`, set both `pi.api_keys` secrets, raise `plane_version`, pick a supported provider and Cohere model, or set `chat_base_url` and `chat_model` only with `chat_provider = "custom"` (section 5) |
 | `Warning: Check block assertion failed` (email certificate) | No email certificate given | Informational: the email service uses a self-signed certificate. Set `email.certificate_secret` for a trusted one |
 | Apply fails because an API "has not been used in project … or it is disabled" | A newly enabled API wasn't ready yet, or `enable_apis = false` and the API is off | Wait a few minutes and apply again, or enable the API (section 2) |
 | Apply fails with `Insufficient regional quota` or `QUOTA_EXCEEDED` | Quota too low (often N2D CPUs or external IPs) | Raise the quota (section 2) and apply again |

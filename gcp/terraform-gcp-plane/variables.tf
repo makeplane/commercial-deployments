@@ -110,20 +110,30 @@ variable "enable_components" {
 variable "pi" {
   description = <<-EOT
     Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
-    (pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api_keys.chat_provider;
-    or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0; or another Cohere or OpenAI
-    model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,
-    openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text
-    Secret Manager secret in project_id, as "projects/<project_id>/secrets/<name>" (one secret for both when OpenAI does
-    chat and embeddings). The search indexes take the embedding model's dimension even with pi off, so choose the model
-    before the first install, even if pi is enabled later: changing it later needs the search indexes recreated.
+    (pi creates the embedding model in OpenSearch at startup) and chat. Chat (api_keys.chat_provider): a vendor key,
+    "openai" (default), "anthropic", "xai", "baseten" or "meta", which gives that vendor's built-in models; or "custom":
+    your own model on any OpenAI-compatible API (pi's custom LLM). "custom" requires an OpenAI-compatible API: the OpenAI
+    Chat Completions API at api_keys.chat_base_url (e.g. https://host/v1, serving /chat/completions, with a bearer
+    key); set it with chat_base_url and chat_model (required), chat_model_name (default chat_model) and chat_max_tokens
+    (default 128000), and these four are only for "custom". Embeddings on Cohere (api_keys.embedding_model,
+    cohere/embed-v4.0; or cohere/embed-english-v3.0, cohere/embed-english-v2.0). Both keys are required, each a Secret
+    Manager secret in project_id, as "projects/<project_id>/secrets/<name>": plain text, or JSON with *_key_json_field
+    naming the field (one JSON secret can hold both). The search indexes take the embedding model's dimension even with
+    pi off, so choose the model before the first install, even if pi is enabled later: changing it later needs the
+    search indexes recreated.
   EOT
   type = object({
     api_keys = optional(object({
-      chat_provider        = optional(string, "openai")
-      chat_key_secret      = optional(string)
-      embedding_model      = optional(string, "cohere/embed-v4.0")
-      embedding_key_secret = optional(string)
+      chat_provider            = optional(string, "openai")
+      chat_key_secret          = optional(string)
+      chat_key_json_field      = optional(string)
+      chat_base_url            = optional(string)
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number)
+      embedding_model          = optional(string, "cohere/embed-v4.0")
+      embedding_key_secret     = optional(string)
+      embedding_key_json_field = optional(string)
     }), {})
   })
   default  = {}
@@ -134,12 +144,37 @@ variable "pi" {
     error_message = "Plane AI needs both API keys: pi.api_keys.chat_key_secret and pi.api_keys.embedding_key_secret."
   }
   validation {
-    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
-    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+    condition     = contains(keys(local.pi_chat_key_envs), var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be one of: ${join(", ", keys(local.pi_chat_key_envs))}."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_provider != "custom" || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
+    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\": chat_provider = \"custom\" requires it."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_provider != "custom" || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
+    error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_model, the model ID that API expects."
+  }
+  validation {
+    condition = var.pi.api_keys.chat_provider == "custom" || (
+      var.pi.api_keys.chat_base_url == null && var.pi.api_keys.chat_model == null &&
+      var.pi.api_keys.chat_model_name == null && var.pi.api_keys.chat_max_tokens == null
+    )
+    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API): a vendor key gives that vendor's own models."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_max_tokens == null || try(var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens, false)
+    error_message = "pi.api_keys.chat_max_tokens must be a whole number of at least 1000: the chat model's context window."
+  }
+  validation {
+    condition = alltrue([
+      for f in [var.pi.api_keys.chat_key_json_field, var.pi.api_keys.embedding_key_json_field] : f == null || can(regex("^\\S+$", f))
+    ])
+    error_message = "pi.api_keys.*_key_json_field must be the name of a field in the JSON secret (no spaces), or unset for a plain-text secret."
   }
   validation {
     condition     = contains(keys(local.pi_embedding_dimensions), var.pi.api_keys.embedding_model)
-    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", keys(local.pi_embedding_dimensions))}."
+    error_message = "pi.api_keys.embedding_model must be a Cohere model: ${join(", ", keys(local.pi_embedding_dimensions))}."
   }
   validation {
     condition = alltrue([
@@ -147,10 +182,6 @@ variable "pi" {
       s == null || can(regex("^projects/${var.project_id}/secrets/[A-Za-z0-9_-]{1,255}$", s))
     ])
     error_message = "pi.api_keys secrets must be Secret Manager secrets in project_id, as \"projects/<project_id>/secrets/<name>\"."
-  }
-  validation {
-    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret == var.pi.api_keys.embedding_key_secret
-    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret for both."
   }
 }
 

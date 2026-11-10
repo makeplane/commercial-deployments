@@ -12,23 +12,36 @@ locals {
   # Placeholder until the Plane release carrying pi GCS support is known: it keeps pi refused until then.
   pi_min_plane_version = "v99.0.0"
 
-  # Plane AI's Cohere and OpenAI embedding models (pi/core/embedding_config.py) and their vector dimensions.
+  # Plane AI's Cohere embedding models (pi/core/embedding_config.py) and their vector dimensions.
   pi_embedding_dimensions = {
-    "cohere/embed-v4.0"             = 1536
-    "cohere/embed-english-v3.0"     = 1024
-    "cohere/embed-english-v2.0"     = 4096
-    "openai/text-embedding-ada-002" = 1536
-    "openai/text-embedding-3-small" = 1536
-    "openai/text-embedding-3-large" = 3072
+    "cohere/embed-v4.0"         = 1536
+    "cohere/embed-english-v3.0" = 1024
+    "cohere/embed-english-v2.0" = 4096
   }
   # The api sizes its search indexes with this too, so it follows the model whether pi is on or off.
   pi_embedding_dimension = local.pi_embedding_dimensions[var.pi.api_keys.embedding_model]
 
-  # The env var pi reads each key from => the secret holding it.
-  pi_api_key_secrets = var.enable_components.pi ? merge(
-    { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret },
-    { "${upper(split("/", var.pi.api_keys.embedding_model)[0])}_API_KEY" = var.pi.api_keys.embedding_key_secret },
-  ) : {}
+  # The env var pi reads the chat key from, per chat_provider (custom: your own model, pi's custom LLM).
+  pi_chat_key_envs = {
+    openai    = "OPENAI_API_KEY"
+    anthropic = "CLAUDE_API_KEY"
+    xai       = "XAI_API_KEY"
+    baseten   = "BASETEN_API_KEY"
+    meta      = "META_API_KEY"
+    custom    = "CUSTOM_LLM_API_KEY"
+  }
+  # The env var pi reads each key from => the secret holding it, and the JSON field (null: plain text).
+  pi_api_key_secrets = var.enable_components.pi ? {
+    (local.pi_chat_key_envs[var.pi.api_keys.chat_provider]) = { secret = var.pi.api_keys.chat_key_secret, property = var.pi.api_keys.chat_key_json_field }
+    COHERE_API_KEY                                          = { secret = var.pi.api_keys.embedding_key_secret, property = var.pi.api_keys.embedding_key_json_field }
+  } : {}
+  # custom: your own model on any OpenAI-compatible API (pi's custom LLM); vendor keys need none.
+  pi_custom_llm = var.enable_components.pi && var.pi.api_keys.chat_provider == "custom" ? {
+    base_url   = var.pi.api_keys.chat_base_url
+    model      = var.pi.api_keys.chat_model
+    name       = var.pi.api_keys.chat_model_name != null ? var.pi.api_keys.chat_model_name : var.pi.api_keys.chat_model
+    max_tokens = var.pi.api_keys.chat_max_tokens != null ? var.pi.api_keys.chat_max_tokens : 128000
+  } : null
 
   labels = merge(var.labels, {
     "plane-deployment" = var.name
@@ -108,7 +121,7 @@ module "addons" {
   customer_secrets = concat(compact([
     local.automated ? var.ingress.tls_certificate_secret : null,
     local.email.enabled ? local.email.certificate_secret : null,
-  ]), distinct(values(local.pi_api_key_secrets)))
+  ]), distinct([for s in values(local.pi_api_key_secrets) : s.secret]))
   secret_ids = module.data.secret_ids
 
   # Waits for the node pool. A module-level depends_on would defer every data source and make plans noisy.
@@ -139,6 +152,7 @@ module "plane" {
   pi = {
     embedding_model     = var.pi.api_keys.embedding_model
     embedding_dimension = local.pi_embedding_dimension
+    custom_llm          = local.pi_custom_llm
     api_key_secrets     = local.pi_api_key_secrets
   }
 

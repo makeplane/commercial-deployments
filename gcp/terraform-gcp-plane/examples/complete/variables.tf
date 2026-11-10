@@ -68,13 +68,19 @@ variable "enable_components" {
 }
 
 variable "pi" {
-  description = "Plane AI's models (with enable_components.pi = true): OpenAI chat and Cohere embeddings by default, both keys required, each a plain-text Secret Manager secret in project_id. The embedding model also sets the search indexes' dimension with pi off: choose it before the first install."
+  description = "Plane AI's models (with enable_components.pi = true): chat on a vendor key (openai by default, anthropic, xai, baseten, meta) or chat_provider = \"custom\", your own model on any OpenAI-compatible API (OpenAI Chat Completions at chat_base_url); Cohere embeddings. Both keys required, each a Secret Manager secret in project_id, as plain text or a JSON field. The embedding model also sets the search indexes' dimension with pi off: choose it before the first install."
   type = object({
     api_keys = optional(object({
-      chat_provider        = optional(string)
-      chat_key_secret      = optional(string)
-      embedding_model      = optional(string)
-      embedding_key_secret = optional(string)
+      chat_provider            = optional(string)
+      chat_key_secret          = optional(string)
+      chat_key_json_field      = optional(string)
+      chat_base_url            = optional(string)
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number)
+      embedding_model          = optional(string)
+      embedding_key_secret     = optional(string)
+      embedding_key_json_field = optional(string)
     }))
   })
   default = null

@@ -109,16 +109,24 @@ domain = "plane.example.com" # never change after install
 #   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with GCS support in pi)
 # }
 
-# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
-# a plain-text Secret Manager secret in project_id; both are required. embedding_model also sets the search indexes'
-# dimension, even with pi off: choose it before the first install.
+# Plane AI (enable_components.pi = true): semantic search and chat. Both keys are required, each a Secret Manager
+# secret in project_id: plain text, or JSON with *_key_json_field naming the field (one JSON secret can hold both).
+# embedding_model also sets the search indexes' dimension, even with pi off: choose it before the first install.
 # pi = {
 #   api_keys = {
-#     chat_provider        = "openai" # or "anthropic"
-#     chat_key_secret      = "projects/my-plane-project/secrets/plane-openai-key"
-#     embedding_model      = "cohere/embed-v4.0" # or cohere/embed-english-v3.0, cohere/embed-english-v2.0,
-#                                                # openai/text-embedding-ada-002, -3-small or -3-large
-#     embedding_key_secret = "projects/my-plane-project/secrets/plane-cohere-key"
+#     chat_provider            = "openai" # or "anthropic", "xai", "baseten", "meta" (that vendor's models), or "custom"
+#     chat_key_secret          = "projects/my-plane-project/secrets/plane-openai-key"
+#     chat_key_json_field      = null     # the JSON field holding the key; null for a plain-text secret
+#     # chat_provider = "custom" only: your own model on any OpenAI-compatible API. It requires the OpenAI Chat
+#     # Completions API at chat_base_url (serving /chat/completions, bearer key); Anthropic's native API or
+#     # Vertex AI's native Gemini API don't work (use the vendor value or a gateway such as LiteLLM).
+#     # chat_base_url   = "https://my-llm.example.com/v1"
+#     # chat_model      = "gpt-oss-120b" # the model ID that API expects
+#     # chat_model_name = "GPT-OSS 120B" # shown in Plane AI; default chat_model
+#     # chat_max_tokens = 128000         # the model's context window
+#     embedding_model          = "cohere/embed-v4.0" # or cohere/embed-english-v3.0, cohere/embed-english-v2.0
+#     embedding_key_secret     = "projects/my-plane-project/secrets/plane-cohere-key"
+#     embedding_key_json_field = null
 #   }
 # }
 
