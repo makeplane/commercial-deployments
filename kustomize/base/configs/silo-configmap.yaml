@@ -23,8 +23,12 @@ data:
   API_BASE_URL: "http://plane-api:8000/"
   SILO_API_BASE_URL: "https://plane.example.com"
 
-  PAYMENT_SERVER_BASE_URL: "http://plane-monitor:8080/"
-  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-monitor:8080/"
+  # Monitor is gone: the api answers feature flags for the other services at an
+  # internal-only path, and the payment server is prime itself (the overlay
+  # fans PRIME_HOST into PAYMENT_SERVER_BASE_URL).
+  PAYMENT_SERVER_BASE_URL: "https://prime.plane.so"
+  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-api:8000"
+  FEATURE_FLAG_SERVER_PATH: "/services/feature-flags/"
 
   SENTRY_DSN: ""
   SENTRY_ENVIRONMENT: "production"

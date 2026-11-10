@@ -116,8 +116,6 @@ data:
   # Optional: EKS IRSA for Plane workloads (ServiceAccount annotation)
   # PLANE_SERVICE_ACCOUNT_ROLE_ARN moved to secrets-vars.yaml (contains account ID)
 
-  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3)
-  MONITOR_STORAGE_CLASS: "gp2"
 
   # OpenSearch configuration
   OPENSEARCH_INDEX_PREFIX: "plane"
