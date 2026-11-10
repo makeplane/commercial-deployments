@@ -35,12 +35,17 @@
 - Every Key Vault certificate ID you pass (`ingress.tls_certificate_secret_id`, `email.certificate_secret_id`) is checked
   at plan: a full, versionless resource ID in this subscription. `cluster_admin_object_ids` must be GUIDs.
 - Plane AI (pi) on AKS, off by default: `enable_components.pi = true` runs it on the Blob container (Plane's Workload
-  Identity) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). OpenAI chat and Cohere embeddings
-  (`cohere/embed-v4.0`) by default, or Anthropic chat (`pi.api_keys.chat_provider`) and another of Plane AI's Cohere or
-  OpenAI embedding models. The search indexes' dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows
-  `pi.api_keys.embedding_model`, with pi on or off (1536 by default). Both keys are required, as secrets in one Key Vault
-  of yours, by ID: External Secrets gets read on those secrets only and copies them into the env var Plane AI reads (the
-  keys never pass through Terraform). pi needs `opensearch.enabled` and a `plane_version` whose Plane AI supports Azure
+  Identity) and the in-cluster OpenSearch, with chat and semantic search (`pi` input). Chat on a vendor key
+  (`pi.api_keys.chat_provider`: `openai` by default, `anthropic`, `xai`, `baseten` or `meta`; that vendor's models, Plane
+  AI picks the default) or `custom`: your own model on any OpenAI-compatible API (Plane AI's custom LLM; `chat_base_url`,
+  `chat_model`, optional `chat_model_name` and `chat_max_tokens`, default 128000), such as Azure OpenAI's `/openai/v1`
+  endpoint. `custom` requires the OpenAI Chat Completions API at `chat_base_url`; the module refuses the `custom` inputs
+  with a vendor. Embeddings on Cohere (`cohere/embed-v4.0` by default, or another Cohere model). The search indexes'
+  dimension (`OPENSEARCH_EMBEDDING_DIMENSION`) follows `pi.api_keys.embedding_model`, with pi on or off (1536 by
+  default). Both keys are required, in one Key Vault of yours, by ID, as plain-text secrets or JSON fields
+  (`chat_key_json_field`, `embedding_key_json_field`; one JSON secret can hold both): External Secrets gets read on
+  those secrets only and copies them into the env var Plane AI reads, in the Secret the chart mounts on Plane AI
+  (`external_secrets.ai_providers_existingSecret`; the keys never pass through Terraform). pi needs `opensearch.enabled` and a `plane_version` whose Plane AI supports Azure
   Blob (the floor is set once that release is known; until then pi is refused, except on preview tags). With pi on,
   OpenSearch gets a 1.5 GB heap in a 3 GiB limit.
 - Aligned with the AWS and GCP modules: `redis.sku_name` defaults to `Balanced_B3` (was `Balanced_B1`); `redis.persistence`

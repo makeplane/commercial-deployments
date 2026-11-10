@@ -121,15 +121,33 @@ location = "eastus2"
 #   pi     = false # Plane AI: also set pi below (needs opensearch and a plane_version with Azure Blob support in pi)
 # }
 
-# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
-# a plain-text secret in one Key Vault of yours, created before the apply. The embedding model sets the search indexes'
-# dimension, even with pi off: choose it before the first install.
+# Plane AI (enable_components.pi = true): semantic search and chat. Chat on a vendor key (chat_provider: "openai", the
+# default, "anthropic", "xai", "baseten" or "meta": that vendor's models) or "custom": your own model on any
+# OpenAI-compatible API. "custom" requires the OpenAI Chat Completions API at chat_base_url (https://host/v1 serving
+# /chat/completions, bearer key), e.g. Azure OpenAI's /openai/v1; other APIs such as Anthropic's native one don't work.
+# Embeddings on Cohere. Both keys are required, in one Key Vault of yours, created before the apply: plain-text secrets,
+# or JSON with *_key_json_field naming the field. The embedding model sets the search indexes' dimension, even with pi
+# off: choose it before the first install.
 # pi = {
 #   api_keys = {
-#     chat_provider           = "openai" # or "anthropic"
+#     chat_provider           = "openai" # or "anthropic", "xai", "baseten", "meta", "custom"
 #     chat_key_secret_id      = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-openai-key"
 #     embedding_model         = "cohere/embed-v4.0"
 #     embedding_key_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-cohere-key"
+#   }
+# }
+# Or a custom model, e.g. on Azure OpenAI, with both keys in one JSON secret:
+# pi = {
+#   api_keys = {
+#     chat_provider            = "custom"
+#     chat_base_url            = "https://<resource>.openai.azure.com/openai/v1" # OpenAI-compatible (Chat Completions)
+#     chat_model               = "<deployment name>"                            # the model ID that API expects
+#     chat_model_name          = "GPT (Azure OpenAI)"                           # shown in Plane AI; default chat_model
+#     chat_max_tokens          = 128000                                         # the model's context window
+#     chat_key_secret_id       = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-ai-keys"
+#     chat_key_json_field      = "chat_key" # omit for a plain-text secret
+#     embedding_key_secret_id  = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-ai-keys"
+#     embedding_key_json_field = "cohere_key"
 #   }
 # }
 

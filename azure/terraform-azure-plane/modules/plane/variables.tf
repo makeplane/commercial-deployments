@@ -53,12 +53,18 @@ variable "enable_components" {
 }
 
 variable "pi" {
-  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off), and its keys: the customer vault holding them, and env var pi reads => secret name."
+  description = "Plane AI's embedding model, its dimension (the search indexes use it with pi on or off), and its keys: the customer vault holding them, and env var pi reads => secret name and JSON field (null: plain text). custom_llm: the chat model on an OpenAI-compatible API, or null (a vendor key)."
   type = object({
     embedding_model     = string
     embedding_dimension = number
     api_keys_vault      = optional(string)
-    api_key_names       = map(string)
+    api_key_secrets     = map(object({ name = string, property = optional(string) }))
+    custom_llm = optional(object({
+      base_url   = string
+      model      = string
+      name       = string
+      max_tokens = number
+    }))
   })
 }
 

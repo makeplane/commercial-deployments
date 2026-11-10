@@ -141,8 +141,8 @@ locals {
     }
   }
 
-  # The customer's provider keys, each in the env var pi reads; the root module checks the IDs.
-  # pi puts the embedding key into the OpenSearch connector it creates.
+  # The customer's provider keys, each in the env var pi reads, from a plain-text secret or a JSON field; the root
+  # module checks the IDs. pi puts the embedding key into the OpenSearch connector it creates.
   ai_providers_secret = "plane-ai-providers"
   pi_api_keys_object = {
     apiVersion = "external-secrets.io/v1"
@@ -152,7 +152,10 @@ locals {
       refreshInterval = "1h"
       secretStoreRef  = { name = try(local.customer_stores[var.pi.api_keys_vault], ""), kind = "SecretStore" }
       target          = { name = local.ai_providers_secret, creationPolicy = "Orphan" }
-      data            = [for env, name in var.pi.api_key_names : { secretKey = env, remoteRef = { key = "secret/${name}" } }]
+      data = [for env, k in var.pi.api_key_secrets : {
+        secretKey = env
+        remoteRef = merge({ key = "secret/${k.name}" }, k.property == null ? {} : { property = k.property })
+      }]
     }
   }
 
@@ -279,9 +282,20 @@ locals {
     pi = merge(
       { enabled = var.enable_components.pi },
       var.enable_components.pi ? {
-        ai_providers = {
-          embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension }
-        }
+        ai_providers = merge(
+          { embedding_model = { enabled = true, name = var.pi.embedding_model, embedding_dimension = var.pi.embedding_dimension } },
+          # pi's custom LLM; its key comes from the synced Secret (CUSTOM_LLM_API_KEY).
+          var.pi.custom_llm == null ? {} : {
+            custom_llm = {
+              enabled    = true
+              provider   = "openai"
+              base_url   = var.pi.custom_llm.base_url
+              model_key  = var.pi.custom_llm.model
+              name       = var.pi.custom_llm.name
+              max_tokens = var.pi.custom_llm.max_tokens
+            }
+          },
+        )
       } : {},
     )
     drawio = { local_setup = var.enable_components.drawio }

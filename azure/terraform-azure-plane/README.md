@@ -192,16 +192,43 @@ environment, which the module sets; there is nothing to configure in the admin U
   a 1.5 GB heap in a 3 GiB memory limit.
 - **`plane_version`**: the first Plane release whose Plane AI supports Azure Blob storage (named in this module's
   release notes). The module refuses older versions.
-- **OpenAI and Cohere API keys.** Chat on OpenAI (`pi.api_keys.chat_provider`; or `anthropic`) and embeddings on
-  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or another model below). Both keys are required:
-  the module refuses Plane AI without them. Before the apply, store each as a plain-text secret in **one Key Vault of
-  yours** in this subscription (RBAC permission model; the module's own vault doesn't exist yet), and pass each
-  secret's versionless resource ID; for OpenAI chat and embeddings, one secret:
+- **A chat key and a Cohere key.** Both are required: the module refuses Plane AI without them. Embeddings run on
+  Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or another model below). Chat runs on the
+  provider in `pi.api_keys.chat_provider` (below).
 
-  ```bash
-  az keyvault secret set --vault-name my-vault --name plane-openai-key --value "$OPENAI_API_KEY"
-  az keyvault secret set --vault-name my-vault --name plane-cohere-key --value "$COHERE_API_KEY"
-  ```
+**Chat provider.** Any vendor key, or a custom model with its base URL, model and key, turns Plane AI's features on.
+
+| `pi.api_keys.chat_provider` | Chat key in | What Plane AI gets |
+|---|---|---|
+| `openai` (default) | `OPENAI_API_KEY` | OpenAI's models in the model picker; web search |
+| `anthropic` | `CLAUDE_API_KEY` | Anthropic's models; web search |
+| `xai` | `XAI_API_KEY` | xAI's models; web search |
+| `baseten` | `BASETEN_API_KEY` | The open models Plane AI offers on Baseten; no web search |
+| `meta` | `META_API_KEY` | Meta's models (Meta Model API); web search |
+| `custom` | `CUSTOM_LLM_API_KEY` | Your own model on any OpenAI-compatible API (pi's custom LLM): exactly that one model, no web search |
+
+With a vendor key, Plane AI calls the vendor's own API, shows its built-in models in the picker, picks the default,
+and uses cheaper models of the same vendor for background work. Don't set the `custom` inputs with a vendor: the module
+refuses them.
+
+`custom` takes `chat_base_url` and `chat_model` (both required: the API's base URL and the model ID it expects),
+`chat_model_name` (shown in Plane AI; default `chat_model`) and `chat_max_tokens` (the model's context window; default
+128000, at least 1000). **`custom` requires an OpenAI-compatible API**: the OpenAI Chat Completions API at
+`chat_base_url` (for example `https://host/v1`, serving `/chat/completions`), with a bearer key. Azure OpenAI works
+through its OpenAI-compatible `/openai/v1` endpoint (`chat_model` is the deployment name), as do vLLM, Ollama, LiteLLM
+and OpenRouter. Other APIs, such as Anthropic's native API, don't work with `custom`: use a vendor value, or a gateway
+such as LiteLLM in front. With one of OpenAI's newer model IDs (for example a `gpt-6.x` deployment on Azure OpenAI),
+Plane AI calls the Responses API instead, so the endpoint must also serve `/responses`; to use OpenAI itself, prefer
+`chat_provider = "openai"`.
+
+**Keys.** Before the apply, store the keys in **one Key Vault of yours** in this subscription (RBAC permission model;
+the module's own vault doesn't exist yet), and pass each secret's versionless resource ID. A plain-text secret holds
+just the key; a JSON secret can hold both, with `chat_key_json_field` and `embedding_key_json_field` naming each field:
+
+```bash
+az keyvault secret set --vault-name my-vault --name plane-openai-key --value "$OPENAI_API_KEY"
+az keyvault secret set --vault-name my-vault --name plane-cohere-key --value "$COHERE_API_KEY"
+```
 
 ```hcl
 enable_components = { pi = true }
@@ -213,22 +240,42 @@ pi = {
 }
 ```
 
-The module adds a SecretStore for that vault, grants External Secrets' identity *Key Vault Secrets User* on those two
-secrets only, and copies each into the env var Plane AI reads for its provider (`OPENAI_API_KEY` or `CLAUDE_API_KEY` for
-chat, `COHERE_API_KEY` or `OPENAI_API_KEY` for embeddings) in the `plane-ai-providers` Secret; the keys never pass
-through Terraform or Helm values. Both secrets must be in one vault, which can also hold your certificates. If that
-vault has a firewall, allow `nat_public_ip`. Terraform needs permission to create role assignments on the vault.
+Or a custom model on Azure OpenAI, with both keys in one JSON secret:
 
-**Embedding model:** one of Plane AI's Cohere or OpenAI models, and its vector dimension:
+```bash
+az keyvault secret set --vault-name my-vault --name plane-ai-keys \
+  --value '{"chat_key":"<Azure OpenAI key>","cohere_key":"<Cohere key>"}'
+```
+
+```hcl
+enable_components = { pi = true }
+pi = {
+  api_keys = {
+    chat_provider            = "custom"
+    chat_base_url            = "https://<resource>.openai.azure.com/openai/v1"
+    chat_model               = "<deployment name>"
+    chat_model_name          = "GPT (Azure OpenAI)"
+    chat_key_secret_id       = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/my-vault/secrets/plane-ai-keys"
+    chat_key_json_field      = "chat_key"
+    embedding_key_secret_id  = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/my-vault/secrets/plane-ai-keys"
+    embedding_key_json_field = "cohere_key"
+  }
+}
+```
+
+The module adds a SecretStore for that vault, grants External Secrets' identity *Key Vault Secrets User* on those
+secrets only, and copies each key into the env var Plane AI reads (the chat key's, in the table above, and
+`COHERE_API_KEY`) in the `plane-ai-providers` Secret, which the chart mounts on Plane AI; the keys never pass through
+Terraform or Helm values. Both keys must be in one vault, which can also hold your certificates. If that vault has a
+firewall, allow `nat_public_ip`. Terraform needs permission to create role assignments on the vault.
+
+**Embedding model:** one of Plane AI's Cohere models, and its vector dimension:
 
 | `pi.api_keys.embedding_model` | Dimension |
 |---|---|
 | `cohere/embed-v4.0` (default) | 1536 |
 | `cohere/embed-english-v3.0` | 1024 |
 | `cohere/embed-english-v2.0` | 4096 |
-| `openai/text-embedding-ada-002` | 1536 |
-| `openai/text-embedding-3-small` | 1536 |
-| `openai/text-embedding-3-large` | 3072 |
 
 **Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's own search
 indexes (work items, pages) are created at the first install with the model's dimension, whether Plane AI is on or not
@@ -243,7 +290,8 @@ send `/pi/` to Plane AI and allow request bodies as large as the upload limit.
 
 **Egress:** the pi pods call the chat provider's API, and the OpenSearch pod calls the embedding provider's API, over
 the internet through the module's NAT gateway. If you restrict egress, allow HTTPS to the providers you use
-(`api.openai.com`, `api.cohere.ai`, `api.anthropic.com`).
+(`api.cohere.ai`, and your chat provider's: for example `api.openai.com`, `api.anthropic.com`, `api.x.ai`,
+`inference.baseten.co`, `api.meta.ai`, or your custom endpoint).
 
 **Rotating keys:** add a new version of the secret. It's picked up within an hour, and Reloader restarts the pi
 workloads. Plane AI puts the embedding key into the OpenSearch connector it creates, so a rotated embedding key also
@@ -362,7 +410,7 @@ off. Outbound port 25 from Azure is often blocked; this is inbound only.
 | node\_pool | The AKS node pool (one pool, system mode, Azure Linux): starts at node\_count nodes and the AKS cluster autoscaler<br/>keeps it between min\_count and max\_count (2 to 4 by default). Terraform sets node\_count only at creation and<br/>leaves the autoscaler's changes alone. sku\_tier is the AKS control-plane tier (Standard: uptime SLA). | <pre>object({<br/>    vm_size         = optional(string, "Standard_D4ds_v5")<br/>    min_count       = optional(number, 2)<br/>    max_count       = optional(number, 4)<br/>    node_count      = optional(number, 2)<br/>    os_disk_size_gb = optional(number, 128)<br/>    sku_tier        = optional(string, "Standard")<br/>  })</pre> | `{}` | no |
 | opensearch | OpenSearch for Plane's search, on by default as on AWS. Azure has no managed OpenSearch, so it runs in the cluster<br/>from the chart (one node, a Premium ZRS disk of volume\_size\_gb), with its password from Key Vault. Set<br/>volume\_size\_gb before the first install: Kubernetes can't change it afterwards (to grow the disk, see the README).<br/>The chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    volume_size_gb = optional(number, 50)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
 | persistent\_volume\_sku | Azure disk SKU for the in-cluster RabbitMQ and OpenSearch volumes. Premium\_ZRS lets their pods move to another zone. Set at install: changing it later needs the StatefulSets recreated. | `string` | `"Premium_ZRS"` | no |
-| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model: chat on OpenAI (api\_keys.chat\_provider;<br/>or Anthropic) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0; or another Cohere or OpenAI<br/>model: cohere/embed-english-v3.0, cohere/embed-english-v2.0, openai/text-embedding-ada-002,<br/>openai/text-embedding-3-small, openai/text-embedding-3-large). Both API keys are required: each is a plain-text<br/>Key Vault secret you create before the apply, given by its versionless resource ID, both in one RBAC vault in this<br/>subscription (one secret for both when OpenAI does chat and embeddings). The search indexes take the embedding<br/>model's dimension even with pi off, so choose the model before the first install, even if pi is enabled later:<br/>changing it later needs the search indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider           = optional(string, "openai")<br/>      chat_key_secret_id      = optional(string)<br/>      embedding_model         = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_id = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model. Chat (api\_keys.chat\_provider): a vendor<br/>key, "openai" (default), "anthropic", "xai", "baseten" or "meta", which gives Plane AI that vendor's models (it picks<br/>the default); or "custom": your own model on any OpenAI-compatible API (pi's custom LLM), and only that model.<br/>"custom" requires the OpenAI Chat Completions API at api\_keys.chat\_base\_url (e.g. https://host/v1 serving<br/>/chat/completions, bearer key), such as Azure OpenAI's /openai/v1 endpoint, vLLM or LiteLLM; other APIs (such as<br/>Anthropic's native API) don't work. With "custom": chat\_base\_url and chat\_model (required), chat\_model\_name<br/>(default chat\_model) and chat\_max\_tokens (default 128000); set them only with "custom". Embeddings on Cohere<br/>(api\_keys.embedding\_model, cohere/embed-v4.0; or cohere/embed-english-v3.0, cohere/embed-english-v2.0). Both keys are required: each a Key Vault secret you create<br/>before the apply, given by its versionless resource ID, both in one RBAC vault in this subscription; plain text, or<br/>JSON with *\_key\_json\_field naming the field (one JSON secret can hold both). The search indexes take the embedding<br/>model's dimension even with pi off, so choose the model before the first install, even if pi is enabled later:<br/>changing it later needs the search indexes recreated. | <pre>object({<br/>    api_keys = optional(object({<br/>      chat_provider       = optional(string, "openai")<br/>      chat_key_secret_id  = optional(string)<br/>      chat_key_json_field = optional(string)<br/>      # chat_provider = "custom" only.<br/>      chat_base_url            = optional(string)<br/>      chat_model               = optional(string)<br/>      chat_model_name          = optional(string)<br/>      chat_max_tokens          = optional(number)<br/>      embedding_model          = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_id  = optional(string)<br/>      embedding_key_json_field = optional(string)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, "Requires"). Plane AI (enable\_components.pi) needs the first release whose pi supports Azure Blob; the module checks it. | `string` | `"v4.0.1"` | no |
 | postgres | Azure Database for PostgreSQL Flexible Server: VNet-integrated (no public access), TLS required, zone-redundant HA,<br/>databases plane and plane\_pi. deletion\_protection puts a CanNotDelete lock on the server: set it to false and apply<br/>before a destroy. | <pre>object({<br/>    engine_version               = optional(string, "15")<br/>    sku_name                     = optional(string, "GP_Standard_D2ds_v5")<br/>    storage_mb                   = optional(number, 131072)<br/>    high_availability_mode       = optional(string, "ZoneRedundant")<br/>    backup_retention_days        = optional(number, 14)<br/>    geo_redundant_backup_enabled = optional(bool, false)<br/>    deletion_protection          = optional(bool, true)<br/>  })</pre> | `{}` | no |

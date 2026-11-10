@@ -243,9 +243,18 @@ ends with the settings. Purge protection can't be turned off once a vault has it
 Plane AI runs on the same Blob container and in-cluster OpenSearch as Plane, with the `plane_pi` database. It needs Plane
 at the first release whose Plane AI supports Azure Blob (named in the module's release notes; the module refuses older
 ones), search on (`opensearch.enabled`, the default; OpenSearch then gets a 1.5 GB heap and a 3 GiB limit), and two API
-keys: OpenAI for chat and Cohere for embeddings. The module refuses Plane AI without both.
+keys: one for chat and a Cohere key for embeddings. The module refuses Plane AI without both.
 
-**1. Store the provider keys** as plain-text secrets, each holding only the key, in **one Key Vault of yours**: in this
+**Choose the chat provider** (`pi.api_keys.chat_provider`). A vendor key gives Plane AI that vendor's models, and it
+picks the default: `openai` (the default), `anthropic`, `xai`, `baseten` or `meta`. Or `custom`: your own model on any
+OpenAI-compatible API (Plane AI's custom LLM), and only that model, such as an Azure OpenAI deployment. `custom` requires
+an OpenAI-compatible API: the OpenAI Chat Completions API at `chat_base_url` (for example `https://host/v1`, serving
+`/chat/completions`) with a bearer key. Azure OpenAI works through its `/openai/v1` endpoint; other APIs, such as
+Anthropic's native API, don't: use a vendor value or a gateway such as LiteLLM. The module README's Plane AI section
+compares them.
+
+**1. Store the provider keys** in **one Key Vault of yours**, as plain-text secrets holding only the key, or as one JSON
+secret holding both (each field named in `chat_key_json_field` and `embedding_key_json_field`): in this
 subscription, using the RBAC permission model. The module's own vault doesn't exist yet. Writing them needs a data-plane
 role such as *Key Vault Secrets Officer*, and Terraform needs permission to create role assignments on that vault.
 
@@ -255,7 +264,7 @@ az keyvault secret set --vault-name <vault> --name plane-cohere-key --value "$CO
 ```
 
 The keys never appear in `terraform.tfvars`, the Terraform state or Helm values. External Secrets gets read access to
-those two secrets only, and copies them into the cluster.
+those secrets only, and copies them into the cluster.
 
 If the vault has a firewall, allow the cluster's egress IP. It doesn't exist before the first apply, so run
 `terraform init -backend-config=backend.hcl` and `terraform apply -target=module.plane.module.network`, get the IP with
@@ -275,9 +284,23 @@ pi = {
 # plane_version = "<a release with Plane AI on Azure Blob>" # if the module's default is older
 ```
 
-**Other providers.** For Anthropic chat, store the Anthropic key instead and set `chat_provider = "anthropic"`. For
-another embedding model, set `embedding_model` (the module README lists them); with OpenAI for both chat and embeddings,
-use the same secret for both keys.
+**Other providers.** For another vendor, store its key instead and set `chat_provider` (`"anthropic"`, `"xai"`,
+`"baseten"` or `"meta"`). For a custom model, for example on Azure OpenAI:
+
+```hcl
+pi = {
+  api_keys = {
+    chat_provider           = "custom"
+    chat_base_url           = "https://<resource>.openai.azure.com/openai/v1" # OpenAI-compatible API (Chat Completions)
+    chat_model              = "<deployment name>"
+    chat_key_secret_id      = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-azure-openai-key"
+    embedding_key_secret_id = "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault>/secrets/plane-cohere-key"
+  }
+}
+```
+
+`chat_model_name` (shown in Plane AI) and `chat_max_tokens` (the model's context window, default 128000) are optional,
+and only for `custom`. For another Cohere embedding model, set `embedding_model` (the module README lists them).
 
 **Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's search indexes
 take its vector dimension at the first install, whether Plane AI is on or not; without a `pi` setting that is Cohere
@@ -287,7 +310,7 @@ needs Plane's search indexes and Plane AI's indexes recreated.
 **Files and outbound access.** Clients reach Plane AI's files through its own signed routes under `/pi/` on your domain,
 so every Plane AI file passes through its pods. The Plane AI pods call the chat model, and the OpenSearch pod calls the
 embedding API, through the NAT gateway. If you restrict outbound traffic, allow HTTPS to the providers you use, for
-example `api.cohere.ai`, `api.openai.com` and `api.anthropic.com`.
+example `api.cohere.ai` and your chat provider's API (`api.openai.com`, `api.anthropic.com`, or your custom endpoint).
 
 ## 6. Deploy
 
@@ -423,7 +446,7 @@ someone else access, add their object ID to `cluster_admin_object_ids`.
 | Renew your certificate (A.2, email) | Import a new version under the same name: `az keyvault certificate import --vault-name <vault> --name plane-web --file fullchain-and-key.pem`. Plane picks it up within an hour. Path A.1 renews automatically. |
 | Secrets | The module's vault holds `plane-db`, `plane-redis`, `plane-rabbitmq`, `plane-opensearch` and `plane-app-keys` (`terraform output key_vault_uri`). |
 | Rotate the RabbitMQ or OpenSearch password | They're generated once and Terraform never changes them, because the servers read them only at first boot. To rotate one, follow the steps in the module README ("Things to know"). |
-| Rotate AI provider keys | Add a new version of the key's secret (`az keyvault secret set --vault-name <vault> --name plane-openai-key --value "<new-key>"`). Plane picks it up within an hour and restarts the Plane AI services. Plane AI keeps the embedding key in the OpenSearch connector it created, so a new embedding key also needs that connector updated. |
+| Rotate AI provider keys | Add a new version of the key's secret (`az keyvault secret set --vault-name <vault> --name plane-openai-key --value "<new-key>"`; for a JSON secret, set the whole JSON again). Plane picks it up within an hour and restarts the Plane AI services. Plane AI keeps the embedding key in the OpenSearch connector it created, so a new embedding key also needs that connector updated. |
 
 **Never change** `name` or `domain` after installation, and never delete or change the `plane-app-keys` secret: Plane
 uses those keys to encrypt data, and the licence is bound to the domain.
@@ -596,7 +619,7 @@ reinstall generates new app keys, so talk to Plane support before restoring old 
 | `ForbiddenByFirewall` from Key Vault during the apply | `key_vault.allowed_ips` is set without the address Terraform runs from | Add that address to `allowed_ips` |
 | `Invalid value for variable "ingress"` | Path A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret_id`; with Let's Encrypt keep the load balancer internet-facing and open |
 | `Invalid value for variable "redis"` | `persistence` is on with `high_availability_enabled = false`: Azure has no persistence without high availability | Keep high availability on, or also set `persistence = false` |
-| `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | Plane AI is on without search or without both API keys, with a Plane release older than the minimum, with secrets in two vaults or another subscription, or with an unsupported provider or embedding model | Keep `opensearch.enabled`, set both `pi.api_keys` secret IDs in one vault (one secret when OpenAI does both), raise `plane_version`, or pick a supported provider and model (section 5) |
+| `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | Plane AI is on without search or without both API keys, with a Plane release older than the minimum, with secrets in two vaults or another subscription, with an unsupported provider or embedding model, or with `custom` settings missing or set for a vendor | Keep `opensearch.enabled`, set both `pi.api_keys` secret IDs in one vault, raise `plane_version`, pick a supported provider and Cohere model, or set `chat_base_url` and `chat_model` only with `chat_provider = "custom"` (section 5) |
 | `Warning: Check block assertion failed` (email certificate) | No email certificate given | Informational: the email service uses a self-signed certificate. Set `email.certificate_secret_id` for a trusted one |
 | `MissingSubscriptionRegistration`, `QuotaExceeded` or `RequestDisallowedByPolicy` | A resource provider isn't registered, a quota is too low, or an Azure Policy assignment blocks a resource | Fix it as in section 2, then apply again |
 | The load balancer has no external IP (`kubectl -n traefik get svc traefik`, `EXTERNAL-IP` pending) | An Azure Policy assignment or quota, or the cluster's identity can't use the IP | `kubectl -n traefik describe svc traefik` shows the reason in its events |
