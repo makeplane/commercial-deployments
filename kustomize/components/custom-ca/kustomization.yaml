@@ -45,7 +45,7 @@ configMapGenerator:
 
 patches:
   # ── Add volume to pod specs WITHOUT existing volumes ─────────────────────────
-  # (all base deployments, pi-service, runner, jobs, monitor — but NOT
+  # (all base deployments, pi-service, runner, jobs — but NOT
   #  email-service or argus, which ship their own volumes; see the append
   #  targets below. add-ca-volume.json sets the whole array with `op: add`, so
   #  applying it to a pod spec that already has volumes REPLACES them.)
@@ -96,11 +96,6 @@ patches:
     target:
       kind: Deployment
       name: plane-argus-wl
-  # monitor already has monitor-data mount
-  - path: patches/append-ca-volumemount.json
-    target:
-      kind: StatefulSet
-      name: plane-monitor
 
   # ── Inject env vars into containers WITH existing envFrom ────────────────────
   # (all deployments/jobs/statefulsets EXCEPT iframely which has no envFrom)
@@ -213,13 +208,6 @@ patches:
     target:
       kind: Deployment
       labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=iframely"
-  - patch: |
-      - op: replace
-        path: /spec/template/spec/initContainers/0/image
-        value: makeplane/monitor-commercial
-    target:
-      kind: StatefulSet
-      labelSelector: "app.kubernetes.io/name=plane-enterprise,app.kubernetes.io/component=monitor"
   - patch: |
       - op: replace
         path: /spec/template/spec/initContainers/0/image

@@ -51,8 +51,6 @@ data:
   # Set to "1" for air-gapped deployments
   IS_AIRGAPPED: "0"
 
-  # Storage class for monitor StatefulSet PVC (e.g. gp2, gp3, standard)
-  MONITOR_STORAGE_CLASS: "gp2"
 
   # OpenSearch index prefix
   OPENSEARCH_INDEX_PREFIX: "plane"
