@@ -110,8 +110,6 @@ images:
     newTag: app-version-driven
   - name: makeplane/live-commercial
     newTag: app-version-driven
-  - name: makeplane/monitor-commercial
-    newTag: app-version-driven
   - name: makeplane/silo-commercial
     newTag: app-version-driven
   - name: makeplane/email-commercial
@@ -228,17 +226,12 @@ patches:
 # ============================================================
 replacements:
   # ====== FROM vars.yaml (ConfigMap) ======
-  # Replace APP_VERSION in plane-monitor-vars ConfigMap
+  # Replace APP_VERSION in plane-app-vars ConfigMap
   - source:
       kind: ConfigMap
       name: overlay-vars
       fieldPath: data.APP_VERSION
     targets:
-      - select:
-          kind: ConfigMap
-          name: plane-monitor-vars
-        fieldPaths:
-          - data.APP_VERSION
       - select:
           kind: ConfigMap
           name: plane-app-vars
@@ -283,15 +276,6 @@ replacements:
         options:
           delimiter: ":"
           index: 1
-      - select:
-          kind: StatefulSet
-          name: plane-monitor
-        fieldPaths:
-          - spec.template.spec.containers.*.image
-          - spec.template.spec.initContainers.*.image
-        options:
-          delimiter: ":"
-          index: 1
       # Jobs are split in two on purpose. plane-argus-migrator's MAIN container is
       # argus-commercial (own tag scheme, must not be retagged) while its INIT
       # container is custom-ca's combine-ca-certs on backend-commercial, which
@@ -322,11 +306,6 @@ replacements:
       - select:
           kind: ConfigMap
           name: plane-app-vars
-        fieldPaths:
-          - data.APP_DOMAIN
-      - select:
-          kind: ConfigMap
-          name: plane-monitor-vars
         fieldPaths:
           - data.APP_DOMAIN
 
@@ -418,17 +397,12 @@ replacements:
         fieldPaths:
           - data.ALLOW_ALL_ATTACHMENT_TYPES
 
-  # Replace IS_AIRGAPPED in plane-monitor-vars
+  # Replace IS_AIRGAPPED in plane-app-vars
   - source:
       kind: ConfigMap
       name: overlay-vars
       fieldPath: data.IS_AIRGAPPED
     targets:
-      - select:
-          kind: ConfigMap
-          name: plane-monitor-vars
-        fieldPaths:
-          - data.IS_AIRGAPPED
       - select:
           kind: ConfigMap
           name: plane-app-vars
@@ -466,34 +440,25 @@ replacements:
         fieldPaths:
           - data.AWS_SECRET_CACHE_TTL
 
-  # Monitor StatefulSet storage class (from vars.yaml)
-  - source:
-      kind: ConfigMap
-      name: overlay-vars
-      fieldPath: data.MONITOR_STORAGE_CLASS
-    targets:
-      - select:
-          kind: StatefulSet
-          name: plane-monitor
-        fieldPaths:
-          - spec.volumeClaimTemplates.0.spec.storageClassName
-
   # PRIME_HOST in plane-app-vars (from vars.yaml)
   - source:
       kind: ConfigMap
       name: overlay-vars
       fieldPath: data.PRIME_HOST
     targets:
+      # PRIME_HOST is also the payment server. Monitor used to proxy it at
+      # plane-monitor:8080; it is gone, so the api and silo call prime directly.
       - select:
           kind: ConfigMap
           name: plane-app-vars
         fieldPaths:
           - data.PRIME_HOST
+          - data.PAYMENT_SERVER_BASE_URL
       - select:
           kind: ConfigMap
-          name: plane-monitor-vars
+          name: plane-silo-vars
         fieldPaths:
-          - data.PRIME_HOST
+          - data.PAYMENT_SERVER_BASE_URL
 
   # PI_BASE_URL in plane-app-vars and plane-live-vars (from vars.yaml)
   - source:
@@ -1016,6 +981,27 @@ replacements:
           name: plane-pi-api-secrets
         fieldPaths:
           - stringData.LIVE_SERVER_SECRET_KEY
+
+  # RUNNER_HMAC_SECRET_KEY must match on both sides: the api family signs every call
+  # to node-runner with it and node-runner verifies. node-runner (plane-ee #10209 on)
+  # exits at startup when NODE_ENV=production and the key is empty. plane-app-secrets
+  # reaches every backend-commercial workload -- api, workers, automation-consumer,
+  # the migrator -- so no per-workload wiring is needed on the signing side.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.RUNNER_HMAC_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.RUNNER_HMAC_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-node-runner-secrets
+        fieldPaths:
+          - stringData.RUNNER_HMAC_SECRET_KEY
 
   # OpenSearch configuration in plane-opensearch-secrets
   - source:

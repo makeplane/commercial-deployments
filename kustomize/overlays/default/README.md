@@ -12,7 +12,8 @@ cp vars.yaml.example vars.yaml
 cp secrets-vars.yaml.example secrets-vars.yaml
 
 # 2. Edit vars.yaml — set APP_DOMAIN, WEB_URL, CORS_ALLOWED_ORIGINS
-# 3. Edit secrets-vars.yaml — set SECRET_KEY, AES_SECRET_KEY, LIVE_SERVER_SECRET_KEY
+# 3. Edit secrets-vars.yaml — set SECRET_KEY, AES_SECRET_KEY, LIVE_SERVER_SECRET_KEY,
+#    RUNNER_HMAC_SECRET_KEY
 #    (generate with: openssl rand -hex 32)
 
 # 4. Validate before applying
@@ -48,7 +49,7 @@ To toggle a component, comment or uncomment its line in `kustomization.yaml`.
 
 ## StorageClass
 
-All four local DB StatefulSets (`plane-postgres`, `plane-redis`, `plane-rabbitmq`, `plane-minio`) and the monitor StatefulSet have their PVCs pinned to `storageClassName: gp2` via inline strategic-merge patches in `kustomization.yaml`. To use a different storage class, edit `MONITOR_STORAGE_CLASS` in `vars.yaml` and update the four patches accordingly.
+All four local DB StatefulSets (`plane-postgres`, `plane-redis`, `plane-rabbitmq`, `plane-minio`) have their PVCs pinned to `storageClassName: gp2` via inline strategic-merge patches in `kustomization.yaml`. To use a different storage class, update the four patches.
 
 ---
 

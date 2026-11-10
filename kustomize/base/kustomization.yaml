@@ -17,14 +17,10 @@ resources:
   - configs/live-secret.yaml
   - configs/doc-store-secret.yaml
   - configs/opensearch-secret.yaml
-  - configs/monitor-configmap.yaml
   - configs/outbox-poller-configmap.yaml
   - configs/automation-consumer-configmap.yaml
   - configs/silo-configmap.yaml
   - configs/silo-secret.yaml
-
-  # StatefulSets (Required)
-  - statefulsets/monitor.yaml
 
   # Deployments (Core Apps + Required Services)
   - deployments/api.yaml
@@ -46,7 +42,6 @@ resources:
   - services/space.yaml
   - services/admin.yaml
   - services/live.yaml
-  - services/monitor.yaml
   - services/iframely.yaml
   - services/silo.yaml
 
@@ -74,8 +69,6 @@ images:
   - name: makeplane/admin-commercial
     newTag: v2.3.4
   - name: makeplane/live-commercial
-    newTag: v2.3.4
-  - name: makeplane/monitor-commercial
     newTag: v2.3.4
   - name: makeplane/iframely
     newTag: v2.5.4

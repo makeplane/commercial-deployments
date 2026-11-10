@@ -11,8 +11,12 @@ data:
   APP_VERSION: "v2.3.4"
   
   # Internal Service URLs
-  PAYMENT_SERVER_BASE_URL: "http://plane-monitor:8080/"
-  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-monitor:8080/"
+  # Monitor is gone: the api answers feature flags for the other services at an
+  # internal-only path, and the payment server is prime itself (the overlay
+  # fans PRIME_HOST into PAYMENT_SERVER_BASE_URL).
+  PAYMENT_SERVER_BASE_URL: "https://prime.plane.so"
+  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-api:8000"
+  FEATURE_FLAG_SERVER_PATH: "/services/feature-flags/"
   LIVE_BASE_URL: "http://plane-live:3000/"
   LIVE_BASE_PATH: "/live"
   

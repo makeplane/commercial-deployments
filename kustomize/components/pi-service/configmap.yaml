@@ -11,7 +11,9 @@ data:
   PLANE_FRONTEND_URL: "http://plane.example.com"
   PLANE_API_HOST: "http://plane.example.com"
 
-  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-monitor:8080"
+  # Answered by the in-cluster api at an internal-only path (monitor is gone).
+  FEATURE_FLAG_SERVER_BASE_URL: "http://plane-api:8000"
+  FEATURE_FLAG_SERVER_PATH: "/services/feature-flags/"
   PI_BASE_PATH: "/pi"
   LIVE_BASE_URI: ""
   CORS_ALLOWED_ORIGINS: "http://plane.example.com,https://plane.example.com"
