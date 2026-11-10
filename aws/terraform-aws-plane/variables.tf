@@ -100,11 +100,12 @@ variable "enable_components" {
 variable "pi" {
   description = <<-EOT
     Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
-    (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api_keys" (default): chat on
-    OpenAI (api_keys.chat_provider; or Anthropic) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0;
-    or an OpenAI model). Both API keys are required: each is a plain-text Secrets Manager secret in this account and
-    region (full ARN; encrypted with aws/secretsmanager or this module's KMS key; one secret for both when the provider
-    is the same). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the
+    (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api_keys" (default): one
+    chat model on any OpenAI-compatible API (api_keys.chat_base_url, default OpenAI, and api_keys.chat_model, the model
+    ID that API expects; Plane AI's custom LLM) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0).
+    Both keys are required, each a Secrets Manager secret in this account and region (full ARN; encrypted with
+    aws/secretsmanager or this module's KMS key): plain text, or JSON with *_key_json_field naming the field (one
+    JSON secret can hold both). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the
     module creates an application inference profile for each model from bedrock.embedding_model (one of Plane AI's
     Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude cross-Region inference profile ID, global.
     or a geography prefix such as us. or eu.; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
@@ -115,10 +116,15 @@ variable "pi" {
   type = object({
     provider = optional(string, "api_keys")
     api_keys = optional(object({
-      chat_provider            = optional(string, "openai")
+      chat_base_url            = optional(string, "https://api.openai.com/v1")
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number, 128000)
       chat_key_secret_arn      = optional(string)
+      chat_key_json_field      = optional(string)
       embedding_model          = optional(string, "cohere/embed-v4.0")
       embedding_key_secret_arn = optional(string)
+      embedding_key_json_field = optional(string)
     }), {})
     bedrock = optional(object({
       embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")
@@ -147,16 +153,30 @@ variable "pi" {
     error_message = "pi.api_keys secrets are only used with pi.provider = \"api_keys\"."
   }
   validation {
-    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
-    error_message = "Plane AI with provider API keys (the default) needs both pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
+    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_model != null && var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
+    error_message = "Plane AI with provider API keys (the default) needs pi.api_keys.chat_model, pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
   }
   validation {
-    condition     = contains(["openai", "anthropic"], var.pi.api_keys.chat_provider)
-    error_message = "pi.api_keys.chat_provider must be \"openai\" or \"anthropic\"."
+    condition     = can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
+    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API, e.g. \"https://api.openai.com/v1\"."
   }
   validation {
-    condition     = contains([for m in keys(local.pi_embedding_dimensions) : m if !startswith(m, "bedrock/")], var.pi.api_keys.embedding_model)
-    error_message = "pi.api_keys.embedding_model must be a Cohere or OpenAI model: ${join(", ", [for m in keys(local.pi_embedding_dimensions) : m if !startswith(m, "bedrock/")])}."
+    condition     = var.pi.api_keys.chat_model == null || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
+    error_message = "pi.api_keys.chat_model must be the model ID the chat API expects, e.g. \"gpt-5.1\"."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens
+    error_message = "pi.api_keys.chat_max_tokens must be a whole number of at least 1000: the chat model's context window."
+  }
+  validation {
+    condition = alltrue([
+      for f in [var.pi.api_keys.chat_key_json_field, var.pi.api_keys.embedding_key_json_field] : f == null || can(regex("^\\S+$", f))
+    ])
+    error_message = "pi.api_keys.*_key_json_field must be the name of a field in the JSON secret (no spaces), or unset for a plain-text secret."
+  }
+  validation {
+    condition     = contains([for m in keys(local.pi_embedding_dimensions) : m if startswith(m, "cohere/")], var.pi.api_keys.embedding_model)
+    error_message = "pi.api_keys.embedding_model must be a Cohere model: ${join(", ", [for m in keys(local.pi_embedding_dimensions) : m if startswith(m, "cohere/")])}."
   }
   validation {
     condition     = var.pi.api_keys.chat_key_secret_arn == null || can(regex(local.secret_arn_regex, var.pi.api_keys.chat_key_secret_arn))
@@ -165,10 +185,6 @@ variable "pi" {
   validation {
     condition     = var.pi.api_keys.embedding_key_secret_arn == null || can(regex(local.secret_arn_regex, var.pi.api_keys.embedding_key_secret_arn))
     error_message = "pi.api_keys.embedding_key_secret_arn must be ${local.secret_arn_format}."
-  }
-  validation {
-    condition     = !(var.pi.api_keys.chat_provider == "openai" && startswith(var.pi.api_keys.embedding_model, "openai/")) || var.pi.api_keys.chat_key_secret_arn == var.pi.api_keys.embedding_key_secret_arn
-    error_message = "OpenAI for both chat and embeddings uses one key (OPENAI_API_KEY): set the same secret ARN for both."
   }
 }
 

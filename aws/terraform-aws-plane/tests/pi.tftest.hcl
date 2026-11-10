@@ -200,7 +200,7 @@ run "pi_off_without_opensearch" {
 run "pi_default_api_keys" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
   }
 
   assert {
@@ -292,7 +292,10 @@ run "pi_bedrock_custom_models" {
 run "pi_api_keys" {
   variables {
     enable_components = { pi = true }
-    pi                = { provider = "api_keys", api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi = {
+      provider = "api_keys"
+      api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+    }
   }
 
   assert {
@@ -303,16 +306,20 @@ run "pi_api_keys" {
     condition = toset(one([
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
-      { secretKey = "OPENAI_API_KEY", remoteRef = { key = var.openai_key } },
+      { secretKey = "CUSTOM_LLM_API_KEY", remoteRef = { key = var.openai_key } },
       { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
     ])
-    error_message = "External Secrets must copy each key into the env var pi reads for its provider."
+    error_message = "Plain-text secrets: each key whole, into the env var pi reads, with no JSON property."
   }
   assert {
     condition = yamldecode(output.plane_helm_values).services.pi.ai_providers == {
       embedding_model = { enabled = true, name = "cohere/embed-v4.0", embedding_dimension = 1536, aws_region = "us-east-1" }
+      custom_llm = {
+        enabled    = true, provider = "openai", base_url = "https://api.openai.com/v1", model_key = "gpt-5.1", name = "gpt-5.1"
+        max_tokens = 128000
+      }
     }
-    error_message = "With keys: Cohere embed-v4.0 embeddings and no Bedrock chat."
+    error_message = "With keys: Cohere embed-v4.0 embeddings and the chat model as pi's OpenAI-compatible custom LLM."
   }
   assert {
     condition     = length(yamldecode(output.plane_helm_values).extraEnv) == 2
@@ -320,23 +327,37 @@ run "pi_api_keys" {
   }
 }
 
-run "pi_api_keys_openai_both" {
+run "pi_api_keys_json_fields_and_custom_endpoint" {
   variables {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "openai/text-embedding-3-large", embedding_key_secret_arn = var.openai_key }
+      api_keys = {
+        chat_base_url       = "https://llm.example.com/v1", chat_model = "my-model", chat_model_name = "My model", chat_max_tokens = 64000
+        chat_key_secret_arn = var.cohere_key, chat_key_json_field = "llm_key"
+        embedding_model     = "cohere/embed-english-v3.0", embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key"
+      }
     }
   }
 
   assert {
+    condition = toset(one([
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
+      ])) == toset([
+      { secretKey = "CUSTOM_LLM_API_KEY", remoteRef = { key = var.cohere_key, property = "llm_key" } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
+    ])
+    error_message = "One JSON secret for both keys: each read from its own field."
+  }
+  assert {
     condition = (
-      one([for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"]) == [
-        { secretKey = "OPENAI_API_KEY", remoteRef = { key = var.openai_key } },
-      ]
-      && yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension == "3072"
+      yamldecode(output.plane_helm_values).services.pi.ai_providers.custom_llm == {
+        enabled    = true, provider = "openai", base_url = "https://llm.example.com/v1", model_key = "my-model", name = "My model"
+        max_tokens = 64000
+      }
+      && yamldecode(output.plane_helm_values).env.opensearch_embedding_dimension == "1024"
     )
-    error_message = "OpenAI for both: one key, and the model's dimension."
+    error_message = "The chat endpoint, model, name and window reach pi; the embedding model sets the dimension."
   }
 }
 
@@ -419,19 +440,64 @@ run "reject_api_keys_bedrock_embeddings" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "bedrock/amazon.titan-embed-text-v2", embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_model = "bedrock/amazon.titan-embed-text-v2", embedding_key_secret_arn = var.cohere_key }
     }
   }
   expect_failures = [var.pi]
 }
 
-run "reject_openai_two_keys" {
+run "reject_api_keys_without_chat_model" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi                = { provider = "api_keys", api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_openai_embeddings" {
   command = plan
   variables {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret_arn = var.openai_key }
+    }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_bad_chat_base_url" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi = {
+      provider = "api_keys"
+      api_keys = { chat_base_url = "api.openai.com/v1", chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+    }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_bad_json_field" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi = {
+      provider = "api_keys"
+      api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, chat_key_json_field = "open ai", embedding_key_secret_arn = var.cohere_key }
+    }
+  }
+  expect_failures = [var.pi]
+}
+
+run "reject_small_chat_max_tokens" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi = {
+      provider = "api_keys"
+      api_keys = { chat_model = "gpt-5.1", chat_max_tokens = 10, chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
     }
   }
   expect_failures = [var.pi]
@@ -498,6 +564,7 @@ run "iam_bedrock" {
         chat_model_name    = "Claude (Amazon Bedrock)"
         chat_max_tokens    = 64000
       }
+      chat            = null
       api_key_secrets = {}
     }
   }
@@ -593,7 +660,11 @@ run "iam_api_keys" {
       embedding_model     = "cohere/embed-v4.0"
       embedding_dimension = 1536
       bedrock             = null
-      api_key_secrets     = { OPENAI_API_KEY = "arn:aws:secretsmanager:us-east-1:123456789012:secret:a", COHERE_API_KEY = "arn:aws:secretsmanager:us-east-1:123456789012:secret:b" }
+      chat                = { base_url = "https://api.openai.com/v1", model = "gpt-5.1", name = "gpt-5.1", max_tokens = 128000 }
+      api_key_secrets = {
+        CUSTOM_LLM_API_KEY = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:a", property = null }
+        COHERE_API_KEY     = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:b", property = null }
+      }
     }
   }
 

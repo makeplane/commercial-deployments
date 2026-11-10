@@ -124,10 +124,21 @@ locals {
         region                = var.region
       }
     } : k => v if local.pi_bedrock },
+    # pi's custom LLM on an OpenAI-compatible API; its key comes from the synced Secret (CUSTOM_LLM_API_KEY).
+    { for k, v in {
+      custom_llm = {
+        enabled    = true
+        provider   = "openai"
+        base_url   = try(var.pi.chat.base_url, null)
+        model_key  = try(var.pi.chat.model, null)
+        name       = try(var.pi.chat.name, null)
+        max_tokens = try(var.pi.chat.max_tokens, null)
+      }
+    } : k => v if local.pi_api_keys },
   )
 
-  # Each key in the env var pi reads for its provider. pi puts the embedding key into the
-  # OpenSearch connector it creates.
+  # Each key in the env var pi reads (CUSTOM_LLM_API_KEY, COHERE_API_KEY), from a plain-text secret or a JSON field.
+  # pi puts the embedding key into the OpenSearch connector it creates.
   pi_api_keys_object = {
     apiVersion = "external-secrets.io/v1"
     kind       = "ExternalSecret"
@@ -136,7 +147,10 @@ locals {
       refreshInterval = "1h"
       secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
       target          = { name = local.pi_ai_secret, creationPolicy = "Orphan" }
-      data            = [for env, arn in var.pi.api_key_secrets : { secretKey = env, remoteRef = { key = arn } }]
+      data = [for env, s in var.pi.api_key_secrets : {
+        secretKey = env
+        remoteRef = merge({ key = s.arn }, s.property == null ? {} : { property = s.property })
+      }]
     }
   }
 

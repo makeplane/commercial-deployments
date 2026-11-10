@@ -109,15 +109,20 @@ domain = "plane.example.com" # never change after install
 #   pi     = false
 # }
 
-# Plane AI (enable_components.pi = true): semantic search and chat. Default: OpenAI chat and Cohere embeddings, each key
-# a plain-text Secrets Manager secret (same account and region); both are required. Choose the provider and embedding
-# model before the first install, even with Plane AI off: Plane's search indexes are created with its dimension.
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat model on any OpenAI-compatible API
+# and Cohere embeddings, both keys required, in Secrets Manager (same account and region): plain text, or JSON with
+# *_key_json_field naming the field. Choose the embedding model before the first install, even with Plane AI off.
 # pi = {
 #   api_keys = {
-#     chat_provider            = "openai" # or "anthropic"
-#     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/openai-key-..."
+#     chat_base_url            = "https://api.openai.com/v1" # any OpenAI-compatible API
+#     chat_model               = "gpt-5.1"                    # the model ID that API expects (required)
+#     chat_model_name          = "GPT-5.1"                    # shown in Plane AI; default chat_model
+#     chat_max_tokens          = 128000                       # the model's context window
+#     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
+#     chat_key_json_field      = "chat_key"                   # omit for a plain-text secret
 #     embedding_model          = "cohere/embed-v4.0"
-#     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/cohere-key-..."
+#     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
+#     embedding_key_json_field = "cohere_key"
 #   }
 # }
 # Or Amazon Bedrock, keyless (the module creates an inference profile per model; the models must be available in this

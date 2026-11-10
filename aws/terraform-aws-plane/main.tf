@@ -44,9 +44,6 @@ locals {
     "cohere/embed-v4.0"                    = 1536
     "cohere/embed-english-v3.0"            = 1024
     "cohere/embed-english-v2.0"            = 4096
-    "openai/text-embedding-ada-002"        = 1536
-    "openai/text-embedding-3-small"        = 1536
-    "openai/text-embedding-3-large"        = 3072
   }
   pi_bedrock_embedding_models = {
     "bedrock/amazon.titan-embed-text-v1"   = "amazon.titan-embed-text-v1"
@@ -61,11 +58,11 @@ locals {
   }
   # The api sizes its search indexes with this too, so it follows pi.provider whether pi is on or off.
   pi_embedding_dimension = local.pi_embedding_dimensions[local.pi_embedding_model[var.pi.provider]]
-  # The env var pi reads each key from => the secret holding it.
-  pi_api_key_secrets = local.pi_mode == "api_keys" ? merge(
-    { "${var.pi.api_keys.chat_provider == "anthropic" ? "CLAUDE" : "OPENAI"}_API_KEY" = var.pi.api_keys.chat_key_secret_arn },
-    { "${upper(split("/", var.pi.api_keys.embedding_model)[0])}_API_KEY" = var.pi.api_keys.embedding_key_secret_arn },
-  ) : {}
+  # The env var pi reads each key from => the secret holding it, and the JSON field (null: plain text).
+  pi_api_key_secrets = local.pi_mode == "api_keys" ? {
+    CUSTOM_LLM_API_KEY = { arn = var.pi.api_keys.chat_key_secret_arn, property = var.pi.api_keys.chat_key_json_field }
+    COHERE_API_KEY     = { arn = var.pi.api_keys.embedding_key_secret_arn, property = var.pi.api_keys.embedding_key_json_field }
+  } : {}
 
   tags = merge(var.tags, {
     "plane.so/deployment" = var.name
@@ -131,7 +128,7 @@ module "addons" {
   certificate_secret_arns = concat(compact([
     local.automated ? var.ingress.tls_certificate_secret_arn : null,
     local.email.enabled ? local.email.certificate_secret_arn : null,
-  ]), distinct(values(local.pi_api_key_secrets)))
+  ]), distinct([for s in values(local.pi_api_key_secrets) : s.arn]))
   secret_arns = module.data.secret_arns
   kms_key_arn = module.data.kms_key_arn
   tags        = local.tags
@@ -181,6 +178,13 @@ module "plane" {
     bedrock = local.pi_mode != "bedrock" ? null : merge(var.pi.bedrock, {
       embedding_model_id = local.pi_bedrock_embedding_models[var.pi.bedrock.embedding_model]
     })
+    # The chat model on an OpenAI-compatible API (pi's custom LLM), with keys.
+    chat = local.pi_mode != "api_keys" ? null : {
+      base_url   = var.pi.api_keys.chat_base_url
+      model      = var.pi.api_keys.chat_model
+      name       = var.pi.api_keys.chat_model_name != null ? var.pi.api_keys.chat_model_name : var.pi.api_keys.chat_model
+      max_tokens = var.pi.api_keys.chat_max_tokens
+    }
     api_key_secrets = local.pi_api_key_secrets
   }
   helm_timeout = var.helm_timeout
