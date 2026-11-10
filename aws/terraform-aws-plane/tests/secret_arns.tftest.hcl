@@ -110,7 +110,7 @@ run "accept_full_arns" {
     ingress           = { mode = "automated", tls_certificate_secret_arn = var.web_tls }
     email             = { certificate_secret_arn = var.mail_tls }
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
   }
 
   assert {
@@ -189,7 +189,7 @@ run "reject_email_certificate_secret_name" {
 run "reject_chat_key_partial_arn" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/key", embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/key", embedding_key_secret_arn = var.cohere_key } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -198,7 +198,7 @@ run "reject_chat_key_partial_arn" {
 run "reject_chat_key_other_account" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/key-AbCdEf", embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/key-AbCdEf", embedding_key_secret_arn = var.cohere_key } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -207,7 +207,7 @@ run "reject_chat_key_other_account" {
 run "reject_chat_key_other_region" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/key-AbCdEf", embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/key-AbCdEf", embedding_key_secret_arn = var.cohere_key } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -216,7 +216,7 @@ run "reject_chat_key_other_region" {
 run "reject_chat_key_secret_name" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = "plane/key", embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = "plane/key", embedding_key_secret_arn = var.cohere_key } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -225,7 +225,7 @@ run "reject_chat_key_secret_name" {
 run "reject_embedding_key_partial_arn" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/key" } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/key" } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -234,7 +234,7 @@ run "reject_embedding_key_partial_arn" {
 run "reject_embedding_key_other_account" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/key-AbCdEf" } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/key-AbCdEf" } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -243,7 +243,7 @@ run "reject_embedding_key_other_account" {
 run "reject_embedding_key_other_region" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/key-AbCdEf" } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/key-AbCdEf" } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]
@@ -252,7 +252,7 @@ run "reject_embedding_key_other_region" {
 run "reject_embedding_key_secret_name" {
   command = plan
   variables {
-    pi                = { api_keys = { chat_model = "gpt-5.1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "plane/key" } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = "plane/key" } }
     enable_components = { pi = true }
   }
   expect_failures = [var.pi]

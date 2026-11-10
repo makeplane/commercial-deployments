@@ -70,9 +70,11 @@
 - Every Secrets Manager ARN you pass (certificates, Plane AI keys, `app_keys_secret_arn`) is checked at plan: a full
   ARN with its 6-character suffix, in this account and region (External Secrets is granted each exact ARN).
 - Plane AI set up end to end when `enable_components.pi = true` (`pi` input): chat and semantic search. Default
-  `pi.provider = "api_keys"`: one chat model on any OpenAI-compatible API (Plane AI's custom LLM: `chat_base_url`,
-  default OpenAI, and `chat_model`) and Cohere embeddings, both keys required, from Secrets Manager through External
-  Secrets, as plain-text secrets or JSON fields (`chat_key_json_field`, `embedding_key_json_field`). Alternative `pi.provider = "bedrock"`, keyless: application
+  `pi.provider = "api_keys"`: one chat key and Cohere embeddings. `pi.api_keys.chat_provider` picks the chat key: a
+  vendor (`openai`, default; `anthropic`, `xai`, `baseten`, `meta`), whose built-in models Plane AI offers, or `custom`:
+  your own model on any OpenAI-compatible API (pi's custom LLM; it requires the OpenAI Chat Completions API at
+  `chat_base_url`, plus `chat_model`, optional `chat_model_name` and `chat_max_tokens`, default 128000; refused with a
+  vendor). Both keys required, from Secrets Manager through External Secrets, as plain-text secrets or JSON fields (`chat_key_json_field`, `embedding_key_json_field`). Alternative `pi.provider = "bedrock"`, keyless: application
   inference profiles for Titan Text Embeddings V2 and Claude Sonnet 4.6 (global cross-Region inference), Plane's Pod
   Identity role allowed to invoke the chat profile, and a role OpenSearch assumes to call the embeddings profile (pi
   creates the ML connector at startup). Plane AI needs OpenSearch. Plane AI's models are no longer described as configured in the admin UI: pi reads them only from its

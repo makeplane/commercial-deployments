@@ -43,7 +43,7 @@ variable "enable_components" {
 }
 
 variable "pi" {
-  description = "Plane AI's models. mode: null (pi off), \"bedrock\" or \"api_keys\". embedding_dimension: the selected embedding model's, also with pi off (the api sizes its indexes with it). chat: the OpenAI-compatible chat model (api_keys mode). api_key_secrets: env var pi reads => Secrets Manager ARN and JSON field (null: plain text)."
+  description = "Plane AI's models. mode: null (pi off), \"bedrock\" or \"api_keys\". embedding_dimension: the selected embedding model's, also with pi off (the api sizes its indexes with it). chat: the custom chat model on an OpenAI-compatible API (api_keys mode, chat_provider = \"custom\"; null with a vendor key). api_key_secrets: env var pi reads => Secrets Manager ARN and JSON field (null: plain text)."
   type = object({
     mode                = string
     embedding_model     = string

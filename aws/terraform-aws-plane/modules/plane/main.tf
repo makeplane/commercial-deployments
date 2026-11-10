@@ -124,7 +124,8 @@ locals {
         region                = var.region
       }
     } : k => v if local.pi_bedrock },
-    # pi's custom LLM on an OpenAI-compatible API; its key comes from the synced Secret (CUSTOM_LLM_API_KEY).
+    # pi's custom LLM on an OpenAI-compatible API (key: CUSTOM_LLM_API_KEY). A vendor key needs no
+    # values: the synced Secret reaches pi through envFrom and pi offers that vendor's models.
     { for k, v in {
       custom_llm = {
         enabled    = true
@@ -134,10 +135,10 @@ locals {
         name       = try(var.pi.chat.name, null)
         max_tokens = try(var.pi.chat.max_tokens, null)
       }
-    } : k => v if local.pi_api_keys },
+    } : k => v if local.pi_api_keys && var.pi.chat != null },
   )
 
-  # Each key in the env var pi reads (CUSTOM_LLM_API_KEY, COHERE_API_KEY), from a plain-text secret or a JSON field.
+  # Each key in the env var pi reads (the chat key's, COHERE_API_KEY), from a plain-text secret or a JSON field.
   # pi puts the embedding key into the OpenSearch connector it creates.
   pi_api_keys_object = {
     apiVersion = "external-secrets.io/v1"

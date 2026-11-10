@@ -101,27 +101,32 @@ variable "pi" {
   description = <<-EOT
     Plane AI's models, used when enable_components.pi = true (needs OpenSearch). The module sets up semantic search
     (pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api_keys" (default): one
-    chat model on any OpenAI-compatible API (api_keys.chat_base_url, default OpenAI, and api_keys.chat_model, the model
-    ID that API expects; Plane AI's custom LLM) and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0).
-    Both keys are required, each a Secrets Manager secret in this account and region (full ARN; encrypted with
-    aws/secretsmanager or this module's KMS key): plain text, or JSON with *_key_json_field naming the field (one
-    JSON secret can hold both). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the
-    module creates an application inference profile for each model from bedrock.embedding_model (one of Plane AI's
-    Bedrock embedding models) and bedrock.chat_model_id (an Anthropic Claude cross-Region inference profile ID, global.
-    or a geography prefix such as us. or eu.; Plane AI calls it with the Anthropic API). The models must be available to the account in this region
-    (Anthropic: submit the use case form once). Choose the provider and embedding model before the first install, even
-    if Plane AI is turned on later: Plane's search indexes are created with its dimension, so changing it afterwards
-    needs Plane's search indexes and Plane AI's indexes recreated.
+    chat key and embeddings on Cohere (api_keys.embedding_model, cohere/embed-v4.0). api_keys.chat_provider picks the
+    chat key: a vendor ("openai", default; "anthropic", "xai", "baseten" or "meta"; Plane AI offers that vendor's
+    built-in models) or "custom": your own model on any OpenAI-compatible API (pi's custom LLM). custom requires the
+    OpenAI Chat Completions API at api_keys.chat_base_url (e.g. https://host/v1 serving /chat/completions, bearer
+    key) and api_keys.chat_model (the model ID it expects); optional chat_model_name and chat_max_tokens (default
+    128000). These four are only for custom. Both keys are required, each a Secrets Manager secret in this account
+    and region (full ARN; encrypted with aws/secretsmanager or this module's KMS key): plain text, or JSON with
+    *_key_json_field naming the field (one JSON secret can hold both). provider = "bedrock" (alternative): keyless
+    Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each
+    model from bedrock.embedding_model (one of Plane AI's Bedrock embedding models) and bedrock.chat_model_id (an
+    Anthropic Claude cross-Region inference profile ID, global. or a geography prefix such as us. or eu.; Plane AI
+    calls it with the Anthropic API). The models must be available to the account in this region (Anthropic: submit
+    the use case form once). Choose the provider and embedding model before the first install, even if Plane AI is
+    turned on later: Plane's search indexes are created with its dimension, so changing it afterwards needs Plane's
+    search indexes and Plane AI's indexes recreated.
   EOT
   type = object({
     provider = optional(string, "api_keys")
     api_keys = optional(object({
-      chat_base_url            = optional(string, "https://api.openai.com/v1")
-      chat_model               = optional(string)
-      chat_model_name          = optional(string)
-      chat_max_tokens          = optional(number, 128000)
+      chat_provider            = optional(string, "openai")
       chat_key_secret_arn      = optional(string)
       chat_key_json_field      = optional(string)
+      chat_base_url            = optional(string)
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number)
       embedding_model          = optional(string, "cohere/embed-v4.0")
       embedding_key_secret_arn = optional(string)
       embedding_key_json_field = optional(string)
@@ -153,19 +158,33 @@ variable "pi" {
     error_message = "pi.api_keys secrets are only used with pi.provider = \"api_keys\"."
   }
   validation {
-    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_model != null && var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
-    error_message = "Plane AI with provider API keys (the default) needs pi.api_keys.chat_model, pi.api_keys.chat_key_secret_arn and pi.api_keys.embedding_key_secret_arn."
+    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
+    error_message = "Plane AI with provider API keys (the default) needs pi.api_keys.chat_key_secret_arn (the chat key) and pi.api_keys.embedding_key_secret_arn (the Cohere key)."
   }
   validation {
-    condition     = can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
-    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API, e.g. \"https://api.openai.com/v1\"."
+    condition     = contains(keys(local.pi_chat_key_envs), var.pi.api_keys.chat_provider)
+    error_message = "pi.api_keys.chat_provider must be one of: ${join(", ", keys(local.pi_chat_key_envs))}."
+  }
+  validation {
+    condition = var.pi.api_keys.chat_provider == "custom" || alltrue([
+      for v in [var.pi.api_keys.chat_base_url, var.pi.api_keys.chat_model, var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_max_tokens] : v == null
+    ])
+    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API). With a vendor key, Plane AI offers that vendor's built-in models: leave them unset."
+  }
+  validation {
+    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || var.pi.api_keys.chat_provider != "custom" || (var.pi.api_keys.chat_base_url != null && var.pi.api_keys.chat_model != null)
+    error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_base_url (the base URL of an OpenAI-compatible API) and pi.api_keys.chat_model (the model ID it expects)."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_base_url == null || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
+    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\"."
   }
   validation {
     condition     = var.pi.api_keys.chat_model == null || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
-    error_message = "pi.api_keys.chat_model must be the model ID the chat API expects, e.g. \"gpt-5.1\"."
+    error_message = "pi.api_keys.chat_model must be the model ID the OpenAI-compatible API expects, e.g. \"gpt-oss-120b\"."
   }
   validation {
-    condition     = var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens
+    condition     = var.pi.api_keys.chat_max_tokens == null || try(var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens, false)
     error_message = "pi.api_keys.chat_max_tokens must be a whole number of at least 1000: the chat model's context window."
   }
   validation {

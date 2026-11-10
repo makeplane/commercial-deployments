@@ -109,15 +109,12 @@ domain = "plane.example.com" # never change after install
 #   pi     = false
 # }
 
-# Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat model on any OpenAI-compatible API
-# and Cohere embeddings, both keys required, in Secrets Manager (same account and region): plain text, or JSON with
-# *_key_json_field naming the field. Choose the embedding model before the first install, even with Plane AI off.
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat key (a vendor's, OpenAI by
+# default) and Cohere embeddings, both keys required, in Secrets Manager (same account and region): plain text, or JSON
+# with *_key_json_field naming the field. Choose the embedding model before the first install, even with Plane AI off.
 # pi = {
 #   api_keys = {
-#     chat_base_url            = "https://api.openai.com/v1" # any OpenAI-compatible API
-#     chat_model               = "gpt-5.1"                    # the model ID that API expects (required)
-#     chat_model_name          = "GPT-5.1"                    # shown in Plane AI; default chat_model
-#     chat_max_tokens          = 128000                       # the model's context window
+#     chat_provider            = "openai"                     # or "anthropic", "xai", "baseten", "meta", "custom"
 #     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
 #     chat_key_json_field      = "chat_key"                   # omit for a plain-text secret
 #     embedding_model          = "cohere/embed-v4.0"
@@ -125,6 +122,13 @@ domain = "plane.example.com" # never change after install
 #     embedding_key_json_field = "cohere_key"
 #   }
 # }
+# chat_provider = "custom": your own model on any OpenAI-compatible API (pi's custom LLM). It requires the OpenAI Chat
+# Completions API at chat_base_url (/chat/completions, bearer key); Anthropic's or Bedrock's native APIs don't work.
+#     chat_provider   = "custom"
+#     chat_base_url   = "https://my-llm.example.com/v1" # OpenAI-compatible API (required)
+#     chat_model      = "gpt-oss-120b"                  # the model ID that API expects (required)
+#     chat_model_name = "GPT-OSS-120B"                  # shown in Plane AI; default chat_model
+#     chat_max_tokens = 128000                          # the model's context window; default 128000
 # Or Amazon Bedrock, keyless (the module creates an inference profile per model; the models must be available in this
 # region, Anthropic needs its use case form once):
 # pi = {

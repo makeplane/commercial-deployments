@@ -231,7 +231,7 @@ email = { smtp_domain = "intake.plane.example.com" }
 # enable_components = { pi = true }
 # pi = {
 #   api_keys = {
-#     chat_model               = "<model ID, e.g. gpt-5.1>"
+#     chat_provider            = "openai" # default; or anthropic, xai, baseten, meta, or custom (see README)
 #     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/openai-key-..."
 #     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/cohere-key-..."
 #   }

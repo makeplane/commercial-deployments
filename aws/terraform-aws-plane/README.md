@@ -188,24 +188,39 @@ database, a chat model and semantic search. Plane AI reads its models from its e
 there is nothing to configure in the admin UI. It needs OpenSearch (on by default): at its first start, Plane AI
 creates the embedding model in OpenSearch (an ML connector to the provider), its pipelines and its indexes.
 
-**API keys (default, `pi.provider = "api_keys"`).** One chat model on any OpenAI-compatible API, and embeddings on
-Cohere (`api_keys.embedding_model`, default `cohere/embed-v4.0`). The chat model is Plane AI's custom LLM:
-`api_keys.chat_base_url` (default `https://api.openai.com/v1`), `api_keys.chat_model` (the model ID that API expects,
-required), and optionally `chat_model_name` (shown in Plane AI) and `chat_max_tokens` (its context window, default
-128000). Plane AI uses it for every chat and background call. Both keys are required: the module refuses Plane AI
-without them. Store them in Secrets Manager, in the same account and region (encrypted with `aws/secretsmanager` or
-this module's KMS key), and pass the full ARNs. A plain-text secret holds just the key; a JSON secret can hold both,
-with `chat_key_json_field` and `embedding_key_json_field` naming each field:
+**API keys (default, `pi.provider = "api_keys"`).** One chat key and embeddings on Cohere
+(`api_keys.embedding_model`, default `cohere/embed-v4.0`). `api_keys.chat_provider` says what the chat key is for:
+
+| `chat_provider` | Chat key | What Plane AI offers |
+|---|---|---|
+| `openai` (default), `anthropic`, `xai`, `baseten`, `meta` | That vendor's API key | The vendor's built-in models in the model picker; Plane AI picks the default and runs its background calls on cheaper models of the same vendor. Web search works with `openai`, `anthropic`, `xai` and `meta`, not `baseten`. Nothing else to set |
+| `custom` | The key of your own endpoint | Your own model on any OpenAI-compatible API (pi's custom LLM): exactly one model, for every chat and background call, no web search. Set `api_keys.chat_base_url` and `api_keys.chat_model` (the model ID that API expects), optionally `chat_model_name` (shown in Plane AI) and `chat_max_tokens` (its context window, default 128000) |
+
+A vendor key is simpler and gives more models and features; `custom` is for a model the vendors don't cover, such as
+Azure OpenAI, vLLM, Ollama, LiteLLM or OpenRouter. `chat_base_url`, `chat_model`, `chat_model_name` and
+`chat_max_tokens` are only for `custom`: the module refuses them with a vendor.
+
+`custom` requires an OpenAI-compatible API: Plane AI calls the OpenAI Chat Completions API at `chat_base_url` (for
+example `https://my-llm.example.com/v1`, serving `/chat/completions`) with the key as a bearer token. Other APIs, such
+as Anthropic's native API or Bedrock's runtime API, don't work with `custom`: use the vendor value, or a gateway such
+as LiteLLM that exposes an OpenAI-compatible endpoint. With OpenAI's newer model IDs (GPT-5.6 and later) Plane AI
+calls the Responses API, so the endpoint must also serve `/responses`; for OpenAI itself, prefer
+`chat_provider = "openai"`.
+
+Both keys are required: the module refuses Plane AI without them. Store them in Secrets Manager, in the same account
+and region (encrypted with `aws/secretsmanager` or this module's KMS key), and pass the full ARNs. A plain-text secret
+holds just the key; a JSON secret can hold both, with `chat_key_json_field` and `embedding_key_json_field` naming each
+field:
 
 ```bash
 aws secretsmanager create-secret --name plane/ai-keys \
-  --secret-string '{"chat_key":"<OpenAI-compatible API key>","cohere_key":"<Cohere key>"}'
+  --secret-string '{"chat_key":"<OpenAI API key>","cohere_key":"<Cohere key>"}'
 ```
 
 ```hcl
 pi = {
   api_keys = {
-    chat_model               = "gpt-5.1"
+    # chat_provider defaults to "openai"
     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
     chat_key_json_field      = "chat_key"
     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
@@ -214,9 +229,27 @@ pi = {
 }
 ```
 
-External Secrets copies them into the `plane-ai-providers` Secret, which the chart mounts on Plane AI; the keys never
-pass through Terraform or Helm values. Plane AI puts the embedding key into the OpenSearch connector it creates, so a
-rotated embedding key also needs the connector updated. Plane AI's own `MODEL_SECRET_ARN` lookup isn't used: it
+Your own model instead (`custom`):
+
+```hcl
+pi = {
+  api_keys = {
+    chat_provider            = "custom"
+    chat_base_url            = "https://my-llm.example.com/v1" # OpenAI Chat Completions API
+    chat_model               = "gpt-oss-120b"
+    chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    chat_key_json_field      = "chat_key"
+    embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    embedding_key_json_field = "cohere_key"
+  }
+}
+```
+
+External Secrets copies them into the `plane-ai-providers` Secret, which the chart mounts on every Plane AI pod; the
+chat key lands in the variable Plane AI reads for that provider (`OPENAI_API_KEY`, `CLAUDE_API_KEY`, `XAI_API_KEY`,
+`BASETEN_API_KEY`, `META_API_KEY`, or `CUSTOM_LLM_API_KEY` for `custom`), the embedding key in `COHERE_API_KEY`. The
+keys never pass through Terraform or Helm values. Plane AI puts the embedding key into the OpenSearch connector it
+creates, so a rotated embedding key also needs the connector updated. Plane AI's own `MODEL_SECRET_ARN` lookup isn't used: it
 covers chat keys but not the embedding key, which Plane AI reads only from its environment. The OpenSearch Service
 Secrets Manager connector mode isn't used: Plane AI sends the key in an `api-key` header there, which Cohere and
 OpenAI don't accept.
@@ -364,7 +397,7 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 | machine\_signature | Only when moving a Plane 3.x installation: its MACHINE\_SIGNATURE. On its first start, Plane 4 moves the licences<br/>to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave<br/>null otherwise: the chart derives one from the licence server, domain, namespace and release. | `string` | `null` | no |
 | node\_group | The managed node group: starts at desired\_size nodes and can range from min\_size to max\_size (2 to 4 by default, as<br/>today). No node autoscaler in this release, so it stays at desired\_size until scaled by hand (aws eks<br/>update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired\_size<br/>only at creation and leaves later changes alone. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    min_size       = optional(number, 2)<br/>    max_size       = optional(number, 4)<br/>    desired_size   = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
 | opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). The<br/>chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
-| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api\_keys" (default): one<br/>chat model on any OpenAI-compatible API (api\_keys.chat\_base\_url, default OpenAI, and api\_keys.chat\_model, the model<br/>ID that API expects; Plane AI's custom LLM) and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0).<br/>Both keys are required, each a Secrets Manager secret in this account and region (full ARN; encrypted with<br/>aws/secretsmanager or this module's KMS key): plain text, or JSON with *\_key\_json\_field naming the field (one<br/>JSON secret can hold both). provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the<br/>module creates an application inference profile for each model from bedrock.embedding\_model (one of Plane AI's<br/>Bedrock embedding models) and bedrock.chat\_model\_id (an Anthropic Claude cross-Region inference profile ID, global.<br/>or a geography prefix such as us. or eu.; Plane AI calls it with the Anthropic API). The models must be available to the account in this region<br/>(Anthropic: submit the use case form once). Choose the provider and embedding model before the first install, even<br/>if Plane AI is turned on later: Plane's search indexes are created with its dimension, so changing it afterwards<br/>needs Plane's search indexes and Plane AI's indexes recreated. | <pre>object({<br/>    provider = optional(string, "api_keys")<br/>    api_keys = optional(object({<br/>      chat_base_url            = optional(string, "https://api.openai.com/v1")<br/>      chat_model               = optional(string)<br/>      chat_model_name          = optional(string)<br/>      chat_max_tokens          = optional(number, 128000)<br/>      chat_key_secret_arn      = optional(string)<br/>      chat_key_json_field      = optional(string)<br/>      embedding_model          = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_arn = optional(string)<br/>      embedding_key_json_field = optional(string)<br/>    }), {})<br/>    bedrock = optional(object({<br/>      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")<br/>      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")<br/>      chat_model_name = optional(string, "Claude (Amazon Bedrock)")<br/>      chat_max_tokens = optional(number, 64000)<br/>    }), {})<br/>  })</pre> | `{}` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api\_keys" (default): one<br/>chat key and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0). api\_keys.chat\_provider picks the<br/>chat key: a vendor ("openai", default; "anthropic", "xai", "baseten" or "meta"; Plane AI offers that vendor's<br/>built-in models) or "custom": your own model on any OpenAI-compatible API (pi's custom LLM). custom requires the<br/>OpenAI Chat Completions API at api\_keys.chat\_base\_url (e.g. https://host/v1 serving /chat/completions, bearer<br/>key) and api\_keys.chat\_model (the model ID it expects); optional chat\_model\_name and chat\_max\_tokens (default<br/>128000). These four are only for custom. Both keys are required, each a Secrets Manager secret in this account<br/>and region (full ARN; encrypted with aws/secretsmanager or this module's KMS key): plain text, or JSON with<br/>*\_key\_json\_field naming the field (one JSON secret can hold both). provider = "bedrock" (alternative): keyless<br/>Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each<br/>model from bedrock.embedding\_model (one of Plane AI's Bedrock embedding models) and bedrock.chat\_model\_id (an<br/>Anthropic Claude cross-Region inference profile ID, global. or a geography prefix such as us. or eu.; Plane AI<br/>calls it with the Anthropic API). The models must be available to the account in this region (Anthropic: submit<br/>the use case form once). Choose the provider and embedding model before the first install, even if Plane AI is<br/>turned on later: Plane's search indexes are created with its dimension, so changing it afterwards needs Plane's<br/>search indexes and Plane AI's indexes recreated. | <pre>object({<br/>    provider = optional(string, "api_keys")<br/>    api_keys = optional(object({<br/>      chat_provider            = optional(string, "openai")<br/>      chat_key_secret_arn      = optional(string)<br/>      chat_key_json_field      = optional(string)<br/>      chat_base_url            = optional(string)<br/>      chat_model               = optional(string)<br/>      chat_model_name          = optional(string)<br/>      chat_max_tokens          = optional(number)<br/>      embedding_model          = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_arn = optional(string)<br/>      embedding_key_json_field = optional(string)<br/>    }), {})<br/>    bedrock = optional(object({<br/>      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")<br/>      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")<br/>      chat_model_name = optional(string, "Claude (Amazon Bedrock)")<br/>      chat_max_tokens = optional(number, 64000)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
 | postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. storage\_type: io1<br/>(default), io2 or gp3. iops: io1/io2 default 1000 (1000-256000); gp3 leaves it unset below 400 GiB (a fixed 3000),<br/>12000-64000 from 400 GiB. apply\_immediately: false (default) leaves database changes to the maintenance window;<br/>set it true for a major version upgrade (engine\_version 15.x to 16.x, see the README) and any change you want now. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>    apply_immediately     = optional(bool, false)<br/>  })</pre> | `{}` | no |

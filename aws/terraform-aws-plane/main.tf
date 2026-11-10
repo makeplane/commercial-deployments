@@ -58,10 +58,20 @@ locals {
   }
   # The api sizes its search indexes with this too, so it follows pi.provider whether pi is on or off.
   pi_embedding_dimension = local.pi_embedding_dimensions[local.pi_embedding_model[var.pi.provider]]
+  # pi.api_keys.chat_provider => the env var pi reads the chat key from.
+  pi_chat_key_envs = {
+    openai    = "OPENAI_API_KEY"
+    anthropic = "CLAUDE_API_KEY"
+    xai       = "XAI_API_KEY"
+    baseten   = "BASETEN_API_KEY"
+    meta      = "META_API_KEY"
+    custom    = "CUSTOM_LLM_API_KEY"
+  }
+  pi_chat_custom = local.pi_mode == "api_keys" && var.pi.api_keys.chat_provider == "custom"
   # The env var pi reads each key from => the secret holding it, and the JSON field (null: plain text).
   pi_api_key_secrets = local.pi_mode == "api_keys" ? {
-    CUSTOM_LLM_API_KEY = { arn = var.pi.api_keys.chat_key_secret_arn, property = var.pi.api_keys.chat_key_json_field }
-    COHERE_API_KEY     = { arn = var.pi.api_keys.embedding_key_secret_arn, property = var.pi.api_keys.embedding_key_json_field }
+    (local.pi_chat_key_envs[var.pi.api_keys.chat_provider]) = { arn = var.pi.api_keys.chat_key_secret_arn, property = var.pi.api_keys.chat_key_json_field }
+    COHERE_API_KEY                                          = { arn = var.pi.api_keys.embedding_key_secret_arn, property = var.pi.api_keys.embedding_key_json_field }
   } : {}
 
   tags = merge(var.tags, {
@@ -178,12 +188,12 @@ module "plane" {
     bedrock = local.pi_mode != "bedrock" ? null : merge(var.pi.bedrock, {
       embedding_model_id = local.pi_bedrock_embedding_models[var.pi.bedrock.embedding_model]
     })
-    # The chat model on an OpenAI-compatible API (pi's custom LLM), with keys.
-    chat = local.pi_mode != "api_keys" ? null : {
+    # custom: your own model on an OpenAI-compatible API (pi's custom LLM); null with a vendor key.
+    chat = !local.pi_chat_custom ? null : {
       base_url   = var.pi.api_keys.chat_base_url
       model      = var.pi.api_keys.chat_model
-      name       = var.pi.api_keys.chat_model_name != null ? var.pi.api_keys.chat_model_name : var.pi.api_keys.chat_model
-      max_tokens = var.pi.api_keys.chat_max_tokens
+      name       = coalesce(var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_model)
+      max_tokens = coalesce(var.pi.api_keys.chat_max_tokens, 128000)
     }
     api_key_secrets = local.pi_api_key_secrets
   }
