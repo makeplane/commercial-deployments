@@ -14,11 +14,11 @@ domain = "plane.example.com" # never change after install
 # A.1  Let's Encrypt (Plane must be public on port 80; the certificate is issued once your DNS record exists)
 # ingress    = { mode = "automated" }
 # acme_email = "ops@example.com"
-# email      = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; else self-signed
+# email      = { certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/mail-tls-..." } # optional; else self-signed
 
 # A.2  Your own certificates, stored in Secrets Manager before the apply (JSON keys "tls.crt" and "tls.key")
-# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/web-tls" }
-# email   = { certificate_secret_arn = "arn:aws:secretsmanager:...:secret:plane/mail-tls" } # optional; same ARN if it covers both names
+# ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/web-tls-..." }
+# email   = { certificate_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/mail-tls-..." } # optional; same ARN if it covers both names
 
 # Path B: bring your own (default). Nothing to set here. After the apply: install your ingress controller,
 # apply Plane's routes, add your certificate and DNS records.
@@ -69,15 +69,16 @@ domain = "plane.example.com" # never change after install
 #   instance_class        = "db.m6gd.large"
 #   allocated_storage_gb  = 100
 #   storage_type          = "io1"
-#   iops                  = 1000
+#   iops                  = 1000   # io1/io2; for gp3 leave unset below 400 GiB
 #   backup_retention_days = 14
 #   deletion_protection   = true
+#   apply_immediately     = false  # true for a major version upgrade (README)
 # }
 
 # redis = {
 #   engine_version = "8.2"
 #   node_type      = "cache.t3.medium"
-#   replicas       = 0
+#   replicas       = 1
 # }
 
 # rabbitmq = {
@@ -108,10 +109,43 @@ domain = "plane.example.com" # never change after install
 #   pi     = false
 # }
 
+# Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat key (a vendor's, OpenAI by
+# default) and Cohere embeddings, both keys required, in Secrets Manager (same account and region): plain text, or JSON
+# with *_key_json_field naming the field. Choose the embedding model before the first install, even with Plane AI off.
+# pi = {
+#   api_keys = {
+#     chat_provider            = "openai"                     # or "anthropic", "xai", "baseten", "meta", "custom"
+#     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
+#     chat_key_json_field      = "chat_key"                   # omit for a plain-text secret
+#     embedding_model          = "cohere/embed-v4.0"
+#     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
+#     embedding_key_json_field = "cohere_key"
+#   }
+# }
+# chat_provider = "custom": your own model on any OpenAI-compatible API (pi's custom LLM). It requires the OpenAI Chat
+# Completions API at chat_base_url (/chat/completions, bearer key); Anthropic's or Bedrock's native APIs don't work.
+#     chat_provider   = "custom"
+#     chat_base_url   = "https://my-llm.example.com/v1" # OpenAI-compatible API (required)
+#     chat_model      = "gpt-oss-120b"                  # the model ID that API expects (required)
+#     chat_model_name = "GPT-OSS-120B"                  # shown in Plane AI; default chat_model
+#     chat_max_tokens = 128000                          # the model's context window; default 128000
+# Or Amazon Bedrock, keyless (the module creates an inference profile per model; the models must be available in this
+# region, Anthropic needs its use case form once):
+# pi = {
+#   provider = "bedrock"
+#   bedrock = {
+#     embedding_model = "bedrock/amazon.titan-embed-text-v2"
+#     chat_model_id   = "global.anthropic.claude-sonnet-4-6" # cross-Region inference profile ID (global. or us./eu./...)
+#     chat_model_name = "Claude (Amazon Bedrock)"
+#     chat_max_tokens = 64000
+#   }
+# }
+
+# use_storage_proxy    = false # true: attachments and images go through Plane's api instead of signed URLs
 # bucket_force_destroy = false
 
-# plane_version    = "v4.0.1"
-# chart_version    = "3.11.3"
+# plane_version   = "v4.0.1"
+# chart_version    = "3.14.0"
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"
 # helm_timeout     = 3600
@@ -120,7 +154,12 @@ domain = "plane.example.com" # never change after install
 
 # acme_email = null # Let's Encrypt account email (path A, A.1)
 
+# Moving an existing installation (docs/migration-guide.md); set on the first apply only:
+# app_keys_secret_arn = null # your existing app keys in Secrets Manager; null = generate new ones
+# machine_signature   = null # a Plane 3.x installation's MACHINE_SIGNATURE
+
 # Test install you will destroy:
 #   acme_server          = "https://acme-staging-v02.api.letsencrypt.org/directory"
 #   postgres             = { deletion_protection = false }
 #   bucket_force_destroy = true
+#   redis                = { replicas = 0 } # one cache node, no failover

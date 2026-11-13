@@ -67,11 +67,37 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release."
+  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: an OpenAI-compatible chat model and Cohere, with keys from Secrets Manager, by default, or Amazon Bedrock (keyless)."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
     pi     = optional(bool)
+  })
+  default = null
+}
+
+variable "pi" {
+  description = "Plane AI's models (with enable_components.pi = true): provider \"api_keys\" (default: one chat key, a vendor's or a custom model's on an OpenAI-compatible API, and Cohere embeddings, both keys required, in Secrets Manager as plain text or JSON fields) or \"bedrock\" (keyless; the module creates inference profiles)."
+  type = object({
+    provider = optional(string)
+    bedrock = optional(object({
+      embedding_model = optional(string)
+      chat_model_id   = optional(string)
+      chat_model_name = optional(string)
+      chat_max_tokens = optional(number)
+    }))
+    api_keys = optional(object({
+      chat_provider            = optional(string)
+      chat_key_secret_arn      = optional(string)
+      chat_key_json_field      = optional(string)
+      chat_base_url            = optional(string)
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number)
+      embedding_model          = optional(string)
+      embedding_key_secret_arn = optional(string)
+      embedding_key_json_field = optional(string)
+    }))
   })
   default = null
 }
@@ -89,8 +115,8 @@ variable "ingress" {
     default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and
     DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns_records output).
     Path A only: allowed_cidrs (who can reach Plane), scheme (internet-facing or internal) and
-    tls_certificate_secret_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted
-    with the default aws/secretsmanager key or this module's KMS key).
+    tls_certificate_secret_arn (the full ARN of a Secrets Manager secret in this account and region, with JSON keys
+    "tls.crt" and "tls.key", full chain, encrypted with the default aws/secretsmanager key or this module's KMS key).
   EOT
   type = object({
     mode                       = optional(string)
@@ -194,6 +220,7 @@ variable "postgres" {
     iops                  = optional(number)
     backup_retention_days = optional(number)
     deletion_protection   = optional(bool)
+    apply_immediately     = optional(bool)
   })
   default = null
 }
@@ -255,8 +282,43 @@ variable "email" {
   default = null
 }
 
+variable "use_storage_proxy" {
+  description = <<-EOT
+    How browsers reach files in the uploads bucket. false (default): they upload and download directly from the bucket
+    with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and similar go
+    through Plane's api (Plane v4.0.1 or later), which reaches the bucket with its own IAM role. This adds load on the
+    api and is subject to the ingress body limit, so size both for large files. silo, live and pi don't read this
+    setting, and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way.
+  EOT
+  type        = bool
+  default     = null
+}
+
 variable "bucket_force_destroy" {
   description = "Allow terraform destroy to delete the uploads bucket even when it holds objects."
   type        = bool
+  default     = null
+}
+
+variable "app_keys_secret_arn" {
+  description = <<-EOT
+    Use existing app keys instead of generating them: for moving an existing Plane installation, whose stored data
+    and settings are encrypted with its keys. The full ARN of a Secrets Manager secret in the same account and region,
+    encrypted with the default aws/secretsmanager key, holding a JSON object with all eight keys: SECRET_KEY,
+    AES_SECRET_KEY, AES_SALT, LIVE_SERVER_SECRET_KEY, PI_INTERNAL_SECRET, SILO_HMAC_SECRET_KEY, CURSOR_WEBHOOK_SECRET
+    and RUNNER_HMAC_SECRET_KEY. Plane doesn't start until the secret holds every key. The keys never pass through
+    Terraform. Set it on the first apply only: adding or removing it later deletes or replaces the keys in use.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "machine_signature" {
+  description = <<-EOT
+    Only when moving a Plane 3.x installation: its MACHINE_SIGNATURE. On its first start, Plane 4 moves the licences
+    to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave
+    null otherwise: the chart derives one from the licence server, domain, namespace and release.
+  EOT
+  type        = string
   default     = null
 }

@@ -1,4 +1,5 @@
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "available" {
   # checkov:skip=CKV_AWS_394:The module takes the first az_count zones by name; zones AWS adds later sort after them, so the set doesn't shift.
@@ -23,7 +24,55 @@ locals {
     smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")
     load_balancer = var.email.enabled && var.email.load_balancer
   })
-  region = data.aws_region.current.region
+  region     = data.aws_region.current.region
+  account_id = data.aws_caller_identity.current.account_id
+  # Customer secrets: External Secrets reads this region's Secrets Manager and is granted each exact ARN, so
+  # only a full ARN (with its 6-character suffix) in this account and region works.
+  secret_arn_regex  = "^arn:aws[a-z-]*:secretsmanager:${local.region}:${local.account_id}:secret:[A-Za-z0-9/_+=.@-]+-[A-Za-z0-9]{6}$"
+  secret_arn_format = "a full Secrets Manager secret ARN in this account and region, as aws secretsmanager create-secret prints it (arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:<name>-<6 characters>)"
+
+  # Dotted-quad IPv4 with a prefix; cidrhost() checks the ranges (it also accepts IPv6).
+  ipv4_cidr_regex = "^[0-9]{1,3}(\\.[0-9]{1,3}){3}/[0-9]{1,2}$"
+
+  # Plane AI's embedding models (pi/core/embedding_config.py) and their vector dimensions; Bedrock
+  # ones with the Bedrock model ID behind pi's key.
+  pi_embedding_dimensions = {
+    "bedrock/amazon.titan-embed-text-v1"   = 1536
+    "bedrock/amazon.titan-embed-text-v2"   = 1024
+    "bedrock/cohere.embed-english-v3"      = 1024
+    "bedrock/cohere.embed-multilingual-v3" = 1024
+    "cohere/embed-v4.0"                    = 1536
+    "cohere/embed-english-v3.0"            = 1024
+    "cohere/embed-english-v2.0"            = 4096
+  }
+  pi_bedrock_embedding_models = {
+    "bedrock/amazon.titan-embed-text-v1"   = "amazon.titan-embed-text-v1"
+    "bedrock/amazon.titan-embed-text-v2"   = "amazon.titan-embed-text-v2:0"
+    "bedrock/cohere.embed-english-v3"      = "cohere.embed-english-v3"
+    "bedrock/cohere.embed-multilingual-v3" = "cohere.embed-multilingual-v3"
+  }
+  pi_mode = var.enable_components.pi ? var.pi.provider : null
+  pi_embedding_model = {
+    bedrock  = var.pi.bedrock.embedding_model
+    api_keys = var.pi.api_keys.embedding_model
+  }
+  # The api sizes its search indexes with this too, so it follows pi.provider whether pi is on or off.
+  pi_embedding_dimension = local.pi_embedding_dimensions[local.pi_embedding_model[var.pi.provider]]
+  # pi.api_keys.chat_provider => the env var pi reads the chat key from.
+  pi_chat_key_envs = {
+    openai    = "OPENAI_API_KEY"
+    anthropic = "CLAUDE_API_KEY"
+    xai       = "XAI_API_KEY"
+    baseten   = "BASETEN_API_KEY"
+    meta      = "META_API_KEY"
+    custom    = "CUSTOM_LLM_API_KEY"
+  }
+  pi_chat_custom = local.pi_mode == "api_keys" && var.pi.api_keys.chat_provider == "custom"
+  # The env var pi reads each key from => the secret holding it, and the JSON field (null: plain text).
+  pi_api_key_secrets = local.pi_mode == "api_keys" ? {
+    (local.pi_chat_key_envs[var.pi.api_keys.chat_provider]) = { arn = var.pi.api_keys.chat_key_secret_arn, property = var.pi.api_keys.chat_key_json_field }
+    COHERE_API_KEY                                          = { arn = var.pi.api_keys.embedding_key_secret_arn, property = var.pi.api_keys.embedding_key_json_field }
+  } : {}
 
   tags = merge(var.tags, {
     "plane.so/deployment" = var.name
@@ -68,6 +117,7 @@ module "data" {
   rabbitmq                  = var.rabbitmq
   opensearch                = var.opensearch
   bucket_force_destroy      = var.bucket_force_destroy
+  app_keys_secret_arn       = var.app_keys_secret_arn
   tags                      = local.tags
 }
 
@@ -85,10 +135,10 @@ module "addons" {
   allowed_cidrs        = var.ingress.allowed_cidrs
   load_balancer_scheme = var.ingress.scheme
   issue_certificate    = local.lets_encrypt
-  certificate_secret_arns = compact([
+  certificate_secret_arns = concat(compact([
     local.automated ? var.ingress.tls_certificate_secret_arn : null,
     local.email.enabled ? local.email.certificate_secret_arn : null,
-  ])
+  ]), distinct([for s in values(local.pi_api_key_secrets) : s.arn]))
   secret_arns = module.data.secret_arns
   kms_key_arn = module.data.kms_key_arn
   tags        = local.tags
@@ -127,12 +177,30 @@ module "plane" {
   ingress_enabled   = local.automated
   acme_email        = local.lets_encrypt ? var.acme_email : null
   acme_server       = var.acme_server
+  use_storage_proxy = var.use_storage_proxy
 
   tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
-  helm_timeout               = var.helm_timeout
-  plane_values               = var.plane_values
-  data                       = module.data.plane_inputs
-  tags                       = local.tags
+  machine_signature          = var.machine_signature
+  pi = {
+    mode                = local.pi_mode
+    embedding_model     = local.pi_mode == null ? null : local.pi_embedding_model[local.pi_mode]
+    embedding_dimension = local.pi_embedding_dimension
+    bedrock = local.pi_mode != "bedrock" ? null : merge(var.pi.bedrock, {
+      embedding_model_id = local.pi_bedrock_embedding_models[var.pi.bedrock.embedding_model]
+    })
+    # custom: your own model on an OpenAI-compatible API (pi's custom LLM); null with a vendor key.
+    chat = !local.pi_chat_custom ? null : {
+      base_url   = var.pi.api_keys.chat_base_url
+      model      = var.pi.api_keys.chat_model
+      name       = coalesce(var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_model)
+      max_tokens = coalesce(var.pi.api_keys.chat_max_tokens, 128000)
+    }
+    api_key_secrets = local.pi_api_key_secrets
+  }
+  helm_timeout = var.helm_timeout
+  plane_values = var.plane_values
+  data         = module.data.plane_inputs
+  tags         = local.tags
 
   # The chart's extraObjects need the External Secrets, cert-manager and Traefik CRDs and
   # webhooks; on destroy, Plane must go before Traefik and the LB controller.

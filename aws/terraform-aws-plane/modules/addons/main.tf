@@ -18,7 +18,7 @@ locals {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs
     # installed with kubectl, which breaks the Helm-only rule.
     aws_load_balancer_controller = "1.17.1"
-    traefik                      = "42.1.3"
+    traefik                      = "42.4.0"
     cert_manager                 = "v1.21.3"
     external_secrets             = "2.14.0"
     reloader                     = "2.2.19"
@@ -55,8 +55,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   depends_on = [terraform_data.cluster_ready, module.lb_controller_pod_identity]
 }
 
-# On destroy, Traefik's Service is deleted first and the LB controller removes the NLB
-# asynchronously. Keep the controller around long enough for that.
+# On destroy, Traefik's and the email Service are deleted first (both depend on this) and the LB
+# controller removes their NLBs asynchronously. Keep the controller around long enough for that.
 resource "time_sleep" "nlb_cleanup" {
   destroy_duration = "120s"
 

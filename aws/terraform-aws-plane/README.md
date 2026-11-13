@@ -18,11 +18,11 @@ an EKS cluster, managed data services and Plane itself (the `plane-enterprise` H
 | Queue | Amazon MQ for RabbitMQ | 3.13, `mq.m7g.medium`, multi-AZ cluster, AMQPS only, private |
 | Search | Amazon OpenSearch Service, `opensearch.enabled` | On, as today: 2.19, 2 × `r7g.large.search` across 2 zones, 10 GB gp3, in the VPC, HTTPS only, KMS; Plane signs with its Pod Identity role (no passwords) |
 | Email | Plane's email service (inbound email to work items) on its own internet-facing NLB | On by default: ports 25/465/587, sender IP preserved, receiving mail for `intake.<domain>`; you create the MX record |
-| Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain |
+| Storage | S3 uploads bucket | SSE-KMS, no public access, TLS-only policy, versioning, CORS for your domain. Browsers use signed URLs, or Plane's api with `use_storage_proxy` |
 | Secrets | Secrets Manager (Valkey token, MQ user, app keys) + the RDS-managed master secret | KMS-encrypted; values never pass through Terraform variables |
 | Edge | **Path A** (`ingress.mode = "automated"`): Traefik behind an NLB (AWS-assigned IPs), Plane's routes, certificates (Let's Encrypt HTTP-01 or yours from Secrets Manager). **Path B** (default): none; you bring your ingress | The module configures no DNS: you create the records (`dns_records` output) |
 | In cluster (Helm) | AWS Load Balancer Controller 2.x, External Secrets, Reloader, metrics-server, **plane-enterprise**; path A also Traefik and (with Let's Encrypt) cert-manager | Pods reach S3 and Secrets Manager through **EKS Pod Identity**: no IAM users, no access keys |
-| Plane workloads | web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus the services paid features need: outbox-poller, automation-consumer, runner (Automations), agent-consumer, webhook-consumer, iframely (link previews), worker-importers (imports, on their own queue), email | api, worker, web and live run 2 replicas spread across nodes, with PodDisruptionBudgets; the rest 1. Plane AI (pi) off. Any attachment type can be uploaded, as today |
+| Plane workloads | web, space, admin, api, worker, beat-worker, live, live-exporter, silo, drawio, plus the services paid features need: outbox-poller, automation-consumer, runner (Automations), agent-consumer, webhook-consumer, iframely (link previews), worker-importers (imports, on their own queue), email | api, worker, web and live run 2 replicas spread across nodes, with PodDisruptionBudgets; the rest 1. Plane AI (pi) off by default; on, with its models on Amazon Bedrock (keyless) or provider API keys (see [Plane AI](#plane-ai)). Any attachment type can be uploaded, as today |
 
 ## Usage
 
@@ -54,13 +54,15 @@ module "plane" {
 ```
 
 A full example is in [`examples/complete`](examples/complete). For a step-by-step installation, see the
-[deployment guide](docs/deployment-guide.md).
+[deployment guide](docs/deployment-guide.md). To move an installation made with the older `aws/terraform` module and
+`kustomize/` onto this module, see the [migration guide](docs/migration-guide.md).
 
 ## Prerequisites
 
 - Terraform ≥ 1.10 (S3 state locking with `use_lockfile`) and the **AWS CLI v2** (Helm authenticates to EKS with `aws eks get-token`).
 - Credentials allowed to create VPC and EC2 networking (security groups, launch templates, an Elastic IP), EKS, IAM
   roles and policies, RDS, ElastiCache, Amazon MQ, OpenSearch Service, S3, KMS, Secrets Manager, CloudWatch Logs,
+  Amazon Bedrock inference profiles (Plane AI),
   service-linked roles, and to read Elastic Load Balancing. In practice, an administrator role.
 - A region with at least 3 Availability Zones (the RDS Multi-AZ DB cluster needs them).
 - The OpenSearch service-linked role, if OpenSearch has never been used in the account (AWS creates it automatically
@@ -106,7 +108,7 @@ AWS assigns and can change. For a zone apex, use your provider's alias/flattenin
 DNS-only (no proxy): Traefik terminates TLS.
 
 **Path B routes:** generate Plane's routes for your controller from the chart and the values the module generated
-(`chart_version`, default 3.11.3; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the Secret named by `tls_secret_name` (`plane-tls`) in
+(`chart_version`, default 3.14.0; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the Secret named by `tls_secret_name` (`plane-tls`) in
 namespace `plane`, except on OpenShift, where the router terminates TLS (edge).
 
 ```bash
@@ -133,7 +135,8 @@ kubectl -n plane apply -f plane-routes.yaml   # regenerate and re-apply after ev
 ```
 
 Other controllers: use the generated NGINX Ingress as the route table (paths → services and ports). Plane needs
-WebSockets on `/live/` and an upload limit of at least 20 MB.
+WebSockets on `/live/` and an upload limit of at least 20 MB. With `use_storage_proxy = true`, set the limit to at least
+your largest file.
 
 Destroy in path B in reverse: remove your routes, then your ingress controller and its load balancer, then
 `terraform destroy` (a leftover load balancer blocks deleting the VPC).
@@ -165,8 +168,9 @@ receiving mail for **`intake.<domain>`** (set `email.smtp_domain` for another do
 - **Load balancer:** ports 25 SMTP, 465 SMTPS, 587 submission, named `<name>-email`, with instance targets and
   `externalTrafficPolicy: Local`, so the email service sees the sender's real IP (SPF). The hostname is the
   `email_load_balancer_dns_name` output.
-- **MX record:** yours: `<smtp_domain> MX 10 <email NLB>` (see `dns_records`). The default is a subdomain so it never
-  collides with a CNAME on `domain` (an MX record can't share a name with a CNAME).
+- **MX record:** yours: `<smtp_domain> MX 10 <email NLB>` (`email_mx` in `dns_records`). It names the NLB's hostname
+  directly, so `email_host` (the A record other clouds need) is always null on AWS. The default is a subdomain so it
+  never collides with a CNAME on `domain` (an MX record can't share a name with a CNAME).
 - **Certificate** (STARTTLS/SMTPS): yours from Secrets Manager (`email.certificate_secret_arn`, see above); otherwise the
   email service generates a self-signed one at startup. Mail servers delivering on port 25 use opportunistic TLS and
   accept it; mail clients on 465/587 will warn. In path A with the email load balancer on, the module shows a warning
@@ -177,21 +181,132 @@ it). `email = { load_balancer = false }` keeps the service running with no load 
 internet, like today's managed deployment); `email = { enabled = false }` turns the service and its load balancer off. The NLB costs about $27/month.
 Needs plane-enterprise chart 3.11.3 or later.
 
+## Plane AI
+
+Off by default. `enable_components = { pi = true }` turns it on, and the module then sets up everything it needs: its
+database, a chat model and semantic search. Plane AI reads its models from its environment, which the module sets;
+there is nothing to configure in the admin UI. It needs OpenSearch (on by default): at its first start, Plane AI
+creates the embedding model in OpenSearch (an ML connector to the provider), its pipelines and its indexes.
+
+**API keys (default, `pi.provider = "api_keys"`).** One chat key and embeddings on Cohere
+(`api_keys.embedding_model`, default `cohere/embed-v4.0`). `api_keys.chat_provider` says what the chat key is for:
+
+| `chat_provider` | Chat key | What Plane AI offers |
+|---|---|---|
+| `openai` (default), `anthropic`, `xai`, `baseten`, `meta` | That vendor's API key | The vendor's built-in models in the model picker; Plane AI picks the default and runs its background calls on cheaper models of the same vendor. Web search works with `openai`, `anthropic`, `xai` and `meta`, not `baseten`. Nothing else to set |
+| `custom` | The key of your own endpoint | Your own model on any OpenAI-compatible API (pi's custom LLM): exactly one model, for every chat and background call, no web search. Set `api_keys.chat_base_url` and `api_keys.chat_model` (the model ID that API expects), optionally `chat_model_name` (shown in Plane AI) and `chat_max_tokens` (its context window, default 128000) |
+
+A vendor key is simpler and gives more models and features; `custom` is for a model the vendors don't cover, such as
+Azure OpenAI, vLLM, Ollama, LiteLLM or OpenRouter. `chat_base_url`, `chat_model`, `chat_model_name` and
+`chat_max_tokens` are only for `custom`: the module refuses them with a vendor.
+
+`custom` requires an OpenAI-compatible API: Plane AI calls the OpenAI Chat Completions API at `chat_base_url` (for
+example `https://my-llm.example.com/v1`, serving `/chat/completions`) with the key as a bearer token. Other APIs, such
+as Anthropic's native API or Bedrock's runtime API, don't work with `custom`: use the vendor value, or a gateway such
+as LiteLLM that exposes an OpenAI-compatible endpoint. With OpenAI's newer model IDs (GPT-5.6 and later) Plane AI
+calls the Responses API, so the endpoint must also serve `/responses`; for OpenAI itself, prefer
+`chat_provider = "openai"`.
+
+Both keys are required: the module refuses Plane AI without them. Store them in Secrets Manager, in the same account
+and region (encrypted with `aws/secretsmanager` or this module's KMS key), and pass the full ARNs. A plain-text secret
+holds just the key; a JSON secret can hold both, with `chat_key_json_field` and `embedding_key_json_field` naming each
+field:
+
+```bash
+aws secretsmanager create-secret --name plane/ai-keys \
+  --secret-string '{"chat_key":"<OpenAI API key>","cohere_key":"<Cohere key>"}'
+```
+
+```hcl
+pi = {
+  api_keys = {
+    # chat_provider defaults to "openai"
+    chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    chat_key_json_field      = "chat_key"
+    embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    embedding_key_json_field = "cohere_key"
+  }
+}
+```
+
+Your own model instead (`custom`):
+
+```hcl
+pi = {
+  api_keys = {
+    chat_provider            = "custom"
+    chat_base_url            = "https://my-llm.example.com/v1" # OpenAI Chat Completions API
+    chat_model               = "gpt-oss-120b"
+    chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    chat_key_json_field      = "chat_key"
+    embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-AbCdEf"
+    embedding_key_json_field = "cohere_key"
+  }
+}
+```
+
+External Secrets copies them into the `plane-ai-providers` Secret, which the chart mounts on every Plane AI pod; the
+chat key lands in the variable Plane AI reads for that provider (`OPENAI_API_KEY`, `CLAUDE_API_KEY`, `XAI_API_KEY`,
+`BASETEN_API_KEY`, `META_API_KEY`, or `CUSTOM_LLM_API_KEY` for `custom`), the embedding key in `COHERE_API_KEY`. The
+keys never pass through Terraform or Helm values. Plane AI puts the embedding key into the OpenSearch connector it
+creates, so a rotated embedding key also needs the connector updated. Plane AI's own `MODEL_SECRET_ARN` lookup isn't used: it
+covers chat keys but not the embedding key, which Plane AI reads only from its environment. The OpenSearch Service
+Secrets Manager connector mode isn't used: Plane AI sends the key in an `api-key` header there, which Cohere and
+OpenAI don't accept.
+
+**Amazon Bedrock (alternative, `pi.provider = "bedrock"`): no keys.**
+
+| What | Default | Set with |
+|---|---|---|
+| Embeddings | Amazon Titan Text Embeddings V2, in this region | `pi.bedrock.embedding_model`: `bedrock/amazon.titan-embed-text-v2`, `bedrock/amazon.titan-embed-text-v1`, `bedrock/cohere.embed-english-v3` or `bedrock/cohere.embed-multilingual-v3` |
+| Chat | Claude Sonnet 4.6 through global cross-Region inference (`global.anthropic.claude-sonnet-4-6`) | `pi.bedrock.chat_model_id`: an Anthropic Claude cross-Region inference profile ID, `global.` or a geography prefix (`us.`, `us-gov.`, `eu.`, `apac.`, `jp.`, `au.`, `ca.`, `in.`) to keep requests in that geography; a bare `anthropic.claude-*` ID is rejected (current Claude models aren't served on demand in one region), plus `chat_model_name` and `chat_max_tokens` (the model's output limit) |
+
+The module creates an application inference profile for each model (`<name>-pi-embeddings`, `<name>-pi-chat`, with
+your tags, for cost allocation). Plane's Pod Identity role may invoke the chat profile, and only through it its
+model. OpenSearch calls the embeddings profile with a role the module creates for it (`<name>-pi-embeddings`): only the
+module's domain can assume it, and it may invoke only that profile. Plane AI's migrator assumes the same role once to
+create the connector. The domain has no fine-grained access control, so IAM alone authorizes this.
+
+Before you turn it on:
+
+- **The models must be available in your region.** Titan Text Embeddings V2 runs in the region; the default chat model
+  uses global cross-Region inference from the region. Check
+  [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html).
+  Global inference processes requests in any supported commercial region; use a geographic profile ID if that doesn't
+  fit your data residency rules. An SCP that blocks regions must allow `aws:RequestedRegion = "unspecified"` for it.
+- **Model access, once per account.** Bedrock enables serverless models by default, but Anthropic models need the
+  first-time use case form (Bedrock console, any Anthropic model) and are sold through AWS Marketplace: the first call
+  in the account must come from someone allowed `aws-marketplace:Subscribe` (Plane's role isn't). Open the chat model
+  once in the Bedrock playground as an administrator before installing. Amazon Titan needs neither. See
+  [model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html).
+- **Costs:** Bedrock bills per token: embeddings for every work item, page and search Plane AI indexes or runs, chat for
+  every message (global cross-Region inference costs about 10% less than geographic). The OpenSearch domain doesn't
+  change: the models are remote, so no ML nodes.
+
+**Choose the embedding model before the first install**, even if you turn Plane AI on later. Plane's own search
+indexes (work items, pages) are created at the first install with the vector dimension of the embedding model `pi`
+selects (`pi.provider`, then `api_keys.embedding_model` or `bedrock.embedding_model`; the default, Cohere embed-v4.0,
+is 1536), whether Plane AI is on or not. The model is registered in OpenSearch at Plane AI's first start, and its
+dimension fixes Plane AI's indexes too. Changing the provider or embedding model afterwards needs Plane's search
+indexes and Plane AI's indexes recreated. The chat model changes with an apply.
+
 ## After install
 
-Open `https://<domain>`, finish the setup wizard, then activate your Plane licence key. SMTP, SSO and AI provider
-keys are configured in the admin UI (`/god-mode`) in this release.
+Open `https://<domain>`, finish the setup wizard, then activate your Plane licence key. SMTP and SSO are configured in
+the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane AI](#plane-ai)).
 
 ## Things to know
 
-- **New installs only in this release.** The module generates new app keys (`SECRET_KEY`, `AES_SECRET_KEY`, `AES_SALT`)
-  and a new licence identity, and has no inputs for an existing database snapshot, bucket or keys. Moving an existing
-  installation's data onto it would leave encrypted fields unreadable and need the licence re-activated.
+- **Moving an existing installation** (older `aws/terraform` + `kustomize/`): follow the
+  [migration guide](docs/migration-guide.md). The module creates a new database and bucket, which you fill with a
+  database dump and a file copy; `app_keys_secret_arn` brings the existing app keys (by reference: they never pass
+  through Terraform) and, for Plane 3.x, `machine_signature` lets Plane move the licences to its new instance key.
+  There are no inputs to adopt the old database, bucket or other services in place.
 - **Never change `domain`.** Plane's licence is bound to it. The release and namespace are fixed to `plane`; the chart
   also derives `MACHINE_SIGNATURE` from the licence server, domain, namespace and release, which Plane v4 only uses to
   carry over an older install's licence identity (new installs get a key pair stored in the database).
-- **App keys are generated once and never rotated** (`plane/<name>/app-keys`). Changing them makes stored encrypted
-  data unreadable.
+- **App keys are generated once and never rotated** (`plane/<name>/app-keys`), unless you bring your own
+  (`app_keys_secret_arn`, set on the first apply only). Changing them makes stored encrypted data unreadable.
 - **Nodes:** 2 by default, range 2–4 (`node_group.min_size` / `max_size` / `desired_size`). There's no node autoscaler
   yet, and Terraform sets the node count only when it creates the group. Scale by hand with
   `aws eks update-nodegroup-config --cluster-name <name> --nodegroup-name <group> --scaling-config desiredSize=3`
@@ -199,8 +314,19 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 - **Scaling Plane:** api, worker, web and live run 2 replicas (today's kustomize default was 5 api / 5 worker). For more
   capacity, raise replicas through `plane_values`, e.g. `services: { api: { replicas: 4 }, worker: { replicas: 4 } }`,
   and add nodes to match. There are no autoscalers in this release.
-- **Cache:** Valkey is a single node by default (`redis.replicas = 0`), unlike the Multi-AZ database and queue. Set
-  `redis = { replicas = 1 }` for automatic failover.
+- **File traffic:** by default browsers upload to and download from the bucket directly with signed URLs, and the bucket
+  allows CORS from `domain`. `use_storage_proxy = true` sends work item attachments, editor images and similar through
+  Plane's api (Plane v4.0.1 or later), which reaches the bucket with its Pod Identity role. Proxied files add load on the
+  api and are subject to the ingress body limit, so size both for large files. silo, live and pi don't read this setting,
+  and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way.
+- **Cache:** Valkey runs a primary and a replica in another AZ with automatic failover (`redis.replicas = 1`), like the
+  Multi-AZ database and queue. `redis = { replicas = 0 }` gives a single node for test installs.
+- **PostgreSQL major upgrade** (e.g. 15 to 16): check that Plane supports the new version and that RDS offers the
+  upgrade (`aws rds describe-db-engine-versions --engine postgres --engine-version <current>`), take a manual snapshot,
+  then set `postgres = { engine_version = "<new major.minor>", apply_immediately = true }` and apply. The plan adds a
+  cluster parameter group for the new family (`<name>-pg<major>`), upgrades the cluster in place (minutes of downtime)
+  and then deletes the old group. Without `apply_immediately`, RDS waits for the maintenance window and the old
+  group's deletion fails because the cluster still uses it. Minor versions need no flag.
 - **Destroying:** RDS deletion protection is on. Set `postgres = { deletion_protection = false }` (and
   `bucket_force_destroy = true` unless the bucket is empty, old object versions included), apply, then destroy.
   Otherwise `terraform destroy` stops with an error.
@@ -242,6 +368,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | Name | Type |
 | ---- | ---- |
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/availability_zones) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
@@ -253,29 +380,33 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | acme\_email | Path A (ingress.mode = "automated"), variant A.1: the Let's Encrypt account email. cert-manager issues the web<br/>certificate with HTTP-01 through Traefik: Plane must be public on port 80, and the certificate is issued once your<br/>DNS record for domain points at load\_balancer\_dns\_name. Leave null for your own certificates<br/>(ingress.tls\_certificate\_secret\_arn, variant A.2) or for path B. | `string` | `null` | no |
 | acme\_server | ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits. | `string` | `"https://acme-v02.api.letsencrypt.org/directory"` | no |
 | addon\_versions | EKS managed add-on versions. null for an add-on means the most recent version for kubernetes\_version. | <pre>object({<br/>    vpc_cni                = optional(string, "v1.23.2-eksbuild.8")<br/>    coredns                = optional(string, "v1.14.7-eksbuild.22")<br/>    kube_proxy             = optional(string, "v1.36.0-eksbuild.58")<br/>    eks_pod_identity_agent = optional(string, "v1.4.1-eksbuild.3")<br/>    aws_ebs_csi_driver     = optional(string, "v1.67.2-eksbuild.1")<br/>  })</pre> | `{}` | no |
+| app\_keys\_secret\_arn | Use existing app keys instead of generating them: for moving an existing Plane installation, whose stored data<br/>and settings are encrypted with its keys. The full ARN of a Secrets Manager secret in the same account and region,<br/>encrypted with the default aws/secretsmanager key, holding a JSON object with all eight keys: SECRET\_KEY,<br/>AES\_SECRET\_KEY, AES\_SALT, LIVE\_SERVER\_SECRET\_KEY, PI\_INTERNAL\_SECRET, SILO\_HMAC\_SECRET\_KEY, CURSOR\_WEBHOOK\_SECRET<br/>and RUNNER\_HMAC\_SECRET\_KEY. Plane doesn't start until the secret holds every key. The keys never pass through<br/>Terraform. Set it on the first apply only: adding or removing it later deletes or replaces the keys in use. | `string` | `null` | no |
 | az\_count | Availability zones to use. The RDS Multi-AZ DB cluster needs at least 3. | `number` | `3` | no |
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
-| chart\_version | plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service). | `string` | `"3.11.3"` | no |
-| cluster\_admin\_principal\_arns | IAM principal ARNs granted cluster-admin through EKS access entries. The identity running Terraform is added automatically. | `list(string)` | `[]` | no |
+| chart\_version | plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service). | `string` | `"3.14.0"` | no |
+| cluster\_admin\_principal\_arns | IAM role or user ARNs granted cluster-admin through EKS access entries (not STS assumed-role session ARNs). The identity running Terraform is added automatically: don't list it again. | `list(string)` | `[]` | no |
 | cluster\_endpoint\_public\_access\_cidrs | CIDRs allowed to reach the public EKS API endpoint. The private endpoint is always on. Restrict this to your office, VPN or CI ranges. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | deployment\_mode | How Plane runs. Only "eks" is available in this release; "docker" (one EC2 instance with prime-cli) comes in v0.2. | `string` | `"eks"` | no |
 | email | Plane's email service (inbound email to work items). On by default with its own internet-facing NLB (ports 25 SMTP,<br/>465 SMTPS, 587 submission), the sender's IP preserved. smtp\_domain is the domain that receives mail (default<br/>"intake.<domain>"): create its MX record pointing at the email\_load\_balancer\_dns\_name output (see dns\_records).<br/>Certificate: your own via certificate\_secret\_arn (a Secrets Manager secret like ingress.tls\_certificate\_secret\_arn),<br/>else the email app's own self-signed certificate (fine for receiving mail). load\_balancer = false keeps the<br/>service running with no load balancer (not reachable from the internet); enabled = false turns the service and<br/>its load balancer off. Needs plane-enterprise chart 3.11.3+. | <pre>object({<br/>    enabled                = optional(bool, true)<br/>    smtp_domain            = optional(string)<br/>    load_balancer          = optional(bool, true)<br/>    certificate_secret_arn = optional(string)<br/>  })</pre> | `{}` | no |
-| enable\_components | Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release. | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
+| enable\_components | Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: OpenAI and Cohere API keys from Secrets Manager by default, or Amazon Bedrock (keyless). | <pre>object({<br/>    silo   = optional(bool, true)<br/>    drawio = optional(bool, true)<br/>    pi     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | helm\_timeout | Seconds to wait for the Plane Helm release. A fresh install's migrations take about 20 minutes. | `number` | `3600` | no |
-| ingress | How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind an NLB, Plane's routes and<br/>the certificates (Let's Encrypt via acme\_email, or your own via tls\_certificate\_secret\_arn). mode = "none" (path B,<br/>default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and<br/>DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns\_records output).<br/>Path A only: allowed\_cidrs (who can reach Plane), scheme (internet-facing or internal) and<br/>tls\_certificate\_secret\_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted<br/>with the default aws/secretsmanager key or this module's KMS key). | <pre>object({<br/>    mode                       = optional(string, "none")<br/>    allowed_cidrs              = optional(list(string), ["0.0.0.0/0"])<br/>    scheme                     = optional(string, "internet-facing")<br/>    tls_certificate_secret_arn = optional(string)<br/>  })</pre> | `{}` | no |
+| ingress | How traffic reaches Plane. mode = "automated" (path A): the module installs Traefik behind an NLB, Plane's routes and<br/>the certificates (Let's Encrypt via acme\_email, or your own via tls\_certificate\_secret\_arn). mode = "none" (path B,<br/>default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and<br/>DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns\_records output).<br/>Path A only: allowed\_cidrs (who can reach Plane), scheme (internet-facing or internal) and<br/>tls\_certificate\_secret\_arn (the full ARN of a Secrets Manager secret in this account and region, with JSON keys<br/>"tls.crt" and "tls.key", full chain, encrypted with the default aws/secretsmanager key or this module's KMS key). | <pre>object({<br/>    mode                       = optional(string, "none")<br/>    allowed_cidrs              = optional(list(string), ["0.0.0.0/0"])<br/>    scheme                     = optional(string, "internet-facing")<br/>    tls_certificate_secret_arn = optional(string)<br/>  })</pre> | `{}` | no |
 | kubernetes\_version | EKS Kubernetes version. | `string` | `"1.36"` | no |
+| machine\_signature | Only when moving a Plane 3.x installation: its MACHINE\_SIGNATURE. On its first start, Plane 4 moves the licences<br/>to a new instance key, and the licence server recognises the installation by its instance ID and this value. Leave<br/>null otherwise: the chart derives one from the licence server, domain, namespace and release. | `string` | `null` | no |
 | node\_group | The managed node group: starts at desired\_size nodes and can range from min\_size to max\_size (2 to 4 by default, as<br/>today). No node autoscaler in this release, so it stays at desired\_size until scaled by hand (aws eks<br/>update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired\_size<br/>only at creation and leaves later changes alone. | <pre>object({<br/>    instance_types = optional(list(string), ["m7a.xlarge"])<br/>    min_size       = optional(number, 2)<br/>    max_size       = optional(number, 4)<br/>    desired_size   = optional(number, 2)<br/>    disk_size_gb   = optional(number, 50)<br/>  })</pre> | `{}` | no |
 | opensearch | Amazon OpenSearch Service for Plane's search, on by default as in today's deployments: a private domain in the VPC<br/>(HTTPS only, KMS, node-to-node encryption), reached by Plane with its Pod Identity role (SigV4, no passwords). The<br/>chart's Job creates the search indexes after every install and upgrade. enabled = false: Plane runs with search<br/>indexing off. | <pre>object({<br/>    enabled        = optional(bool, true)<br/>    engine_version = optional(string, "OpenSearch_2.19")<br/>    instance_type  = optional(string, "r7g.large.search")<br/>    instance_count = optional(number, 2)<br/>    volume_size_gb = optional(number, 10)<br/>    # Index names are "<index_prefix>_<name>", as today's deployments ("plane"). Changing it on a running install<br/>    # needs the indexes created again and re-filled (manage_search_index index create + document index).<br/>    index_prefix = optional(string, "plane")<br/>  })</pre> | `{}` | no |
+| pi | Plane AI's models, used when enable\_components.pi = true (needs OpenSearch). The module sets up semantic search<br/>(pi creates the embedding model in OpenSearch at startup) and a chat model. provider = "api\_keys" (default): one<br/>chat key and embeddings on Cohere (api\_keys.embedding\_model, cohere/embed-v4.0). api\_keys.chat\_provider picks the<br/>chat key: a vendor ("openai", default; "anthropic", "xai", "baseten" or "meta"; Plane AI offers that vendor's<br/>built-in models) or "custom": your own model on any OpenAI-compatible API (pi's custom LLM). custom requires the<br/>OpenAI Chat Completions API at api\_keys.chat\_base\_url (e.g. https://host/v1 serving /chat/completions, bearer<br/>key) and api\_keys.chat\_model (the model ID it expects); optional chat\_model\_name and chat\_max\_tokens (default<br/>128000). These four are only for custom. Both keys are required, each a Secrets Manager secret in this account<br/>and region (full ARN; encrypted with aws/secretsmanager or this module's KMS key): plain text, or JSON with<br/>*\_key\_json\_field naming the field (one JSON secret can hold both). provider = "bedrock" (alternative): keyless<br/>Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each<br/>model from bedrock.embedding\_model (one of Plane AI's Bedrock embedding models) and bedrock.chat\_model\_id (an<br/>Anthropic Claude cross-Region inference profile ID, global. or a geography prefix such as us. or eu.; Plane AI<br/>calls it with the Anthropic API). The models must be available to the account in this region (Anthropic: submit<br/>the use case form once). Choose the provider and embedding model before the first install, even if Plane AI is<br/>turned on later: Plane's search indexes are created with its dimension, so changing it afterwards needs Plane's<br/>search indexes and Plane AI's indexes recreated. | <pre>object({<br/>    provider = optional(string, "api_keys")<br/>    api_keys = optional(object({<br/>      chat_provider            = optional(string, "openai")<br/>      chat_key_secret_arn      = optional(string)<br/>      chat_key_json_field      = optional(string)<br/>      chat_base_url            = optional(string)<br/>      chat_model               = optional(string)<br/>      chat_model_name          = optional(string)<br/>      chat_max_tokens          = optional(number)<br/>      embedding_model          = optional(string, "cohere/embed-v4.0")<br/>      embedding_key_secret_arn = optional(string)<br/>      embedding_key_json_field = optional(string)<br/>    }), {})<br/>    bedrock = optional(object({<br/>      embedding_model = optional(string, "bedrock/amazon.titan-embed-text-v2")<br/>      chat_model_id   = optional(string, "global.anthropic.claude-sonnet-4-6")<br/>      chat_model_name = optional(string, "Claude (Amazon Bedrock)")<br/>      chat_max_tokens = optional(number, 64000)<br/>    }), {})<br/>  })</pre> | `{}` | no |
 | plane\_values | Extra plane-enterprise chart values (YAML string), merged last. Never put secrets here: they end up in Terraform state and the Helm release. | `string` | `""` | no |
 | plane\_version | Plane release to install (chart planeVersion). | `string` | `"v4.0.1"` | no |
-| postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number, 1000)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>  })</pre> | `{}` | no |
+| postgres | RDS PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), sized as today's module. storage\_type: io1<br/>(default), io2 or gp3. iops: io1/io2 default 1000 (1000-256000); gp3 leaves it unset below 400 GiB (a fixed 3000),<br/>12000-64000 from 400 GiB. apply\_immediately: false (default) leaves database changes to the maintenance window;<br/>set it true for a major version upgrade (engine\_version 15.x to 16.x, see the README) and any change you want now. | <pre>object({<br/>    engine_version        = optional(string, "15.19")<br/>    instance_class        = optional(string, "db.m6gd.large")<br/>    allocated_storage_gb  = optional(number, 100)<br/>    storage_type          = optional(string, "io1")<br/>    iops                  = optional(number)<br/>    backup_retention_days = optional(number, 14)<br/>    deletion_protection   = optional(bool, true)<br/>    apply_immediately     = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | rabbitmq | Amazon MQ for RabbitMQ. | <pre>object({<br/>    engine_version  = optional(string, "3.13")<br/>    instance_type   = optional(string, "mq.m7g.medium")<br/>    deployment_mode = optional(string, "CLUSTER_MULTI_AZ")<br/>  })</pre> | `{}` | no |
-| redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 0)<br/>  })</pre> | `{}` | no |
+| redis | ElastiCache Valkey with TLS, an AUTH token and at-rest encryption, as Plane's own production cache. replicas = 1 (default) adds a replica in another AZ with automatic failover; 0 is a single node. | <pre>object({<br/>    engine_version = optional(string, "8.2")<br/>    node_type      = optional(string, "cache.t3.medium")<br/>    replicas       = optional(number, 1)<br/>  })</pre> | `{}` | no |
 | single\_nat\_gateway | One shared NAT gateway (cheaper, as today's module) instead of one per AZ. | `bool` | `true` | no |
 | tags | Tags applied to every AWS resource. | `map(string)` | `{}` | no |
 | tls\_secret\_name | Path A: name of the Kubernetes TLS Secret in the plane namespace that Traefik serves. Written by cert-manager (acme\_email) or by External Secrets from ingress.tls\_certificate\_secret\_arn. | `string` | `"plane-tls"` | no |
+| use\_storage\_proxy | How browsers reach files in the uploads bucket. false (default): they upload and download directly from the bucket<br/>with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and similar go<br/>through Plane's api (Plane v4.0.1 or later), which reaches the bucket with its own IAM role. This adds load on the<br/>api and is subject to the ingress body limit, so size both for large files. silo, live and pi don't read this<br/>setting, and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way. | `bool` | `false` | no |
 | vpc\_cidr | CIDR of the VPC the module creates. Must not overlap networks you will peer or VPN with. The default avoids 10.0.0.0/16, the default of most VPC tooling and of the older aws/terraform module. | `string` | `"10.60.0.0/16"` | no |
 
 ## Outputs
@@ -287,7 +418,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | cluster\_name | EKS cluster name. |
 | configure\_kubectl | Command to point kubectl at the cluster. |
 | deployment\_mode | Deployment mode in use. |
-| dns\_records | The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer. |
+| dns\_records | The DNS records to create (the module creates none), with the same keys on every cloud. web: path A only; in path B, point domain at your own ingress load balancer. email\_host is always null on AWS: the MX record (email\_mx) names the email NLB's hostname directly, so no A record is needed. |
 | email\_load\_balancer\_dns\_name | Hostname of the email NLB (null without email.load\_balancer). email.smtp\_domain's MX record points here. |
 | kms\_key\_arn | KMS key encrypting RDS, ElastiCache, S3 and the secrets. |
 | load\_balancer\_dns\_name | Path A: hostname of the Traefik NLB (null in path B). Point domain here with a CNAME (or an alias record in Route 53), never A records to its current IPs: AWS assigns them and they can change. |
@@ -297,7 +428,7 @@ keys are configured in the admin UI (`/god-mode`) in this release.
 | private\_subnet\_ids | Private subnet IDs. |
 | rabbitmq\_endpoint | Amazon MQ AMQPS host. |
 | rds\_endpoint | RDS cluster writer endpoint. |
-| redis\_endpoint | ElastiCache primary endpoint (TLS). |
+| redis\_endpoint | ElastiCache primary endpoint (host:port, TLS). |
 | s3\_bucket\_name | Uploads bucket. |
 | secret\_arns | Secrets Manager ARNs the deployment uses (ARNs only, never values). |
 | vpc\_id | VPC ID. |

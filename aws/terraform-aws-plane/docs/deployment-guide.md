@@ -6,6 +6,9 @@ a few DNS records and, depending on the option you choose, finish the ingress se
 
 Plan for about two hours. Most of that is waiting for AWS to create resources.
 
+Moving an existing installation (made with the older `aws/terraform` module and the `kustomize/` manifests)? Follow
+the [migration guide](migration-guide.md) instead: it uses this guide's steps, in a different order.
+
 ## Contents
 
 1. [What gets deployed](#1-what-gets-deployed)
@@ -39,7 +42,10 @@ Plan for about two hours. Most of that is waiting for AWS to create resources.
 - Everything runs in private subnets. Only the load balancers and the Kubernetes API endpoint are public; limit the
   endpoint to your networks with `cluster_endpoint_public_access_cidrs`.
 - Data is encrypted with a KMS key created for this installation.
-- Plane reaches S3, Secrets Manager and OpenSearch through IAM roles (EKS Pod Identity). There are no access keys anywhere.
+- Plane reaches S3 and OpenSearch, and External Secrets reaches Secrets Manager, through IAM roles (EKS Pod Identity).
+  There are no AWS access keys anywhere.
+- The uploads bucket blocks public access. By default, browsers upload and download files with short-lived signed URLs
+  ([section 5](#5-configure) explains the alternative).
 - Passwords and keys are generated for you and stored in AWS Secrets Manager.
 
 Every size above can be changed in `terraform.tfvars`.
@@ -59,7 +65,8 @@ Every size above can be changed in `terraform.tfvars`.
 ### AWS account
 
 - **Credentials** for the target account that can create: VPC and EC2 networking, EKS, IAM roles and policies, RDS,
-  ElastiCache, Amazon MQ, OpenSearch Service, S3, KMS, Secrets Manager, CloudWatch Logs, and service-linked roles. In
+  ElastiCache, Amazon MQ, OpenSearch Service, S3, KMS, Secrets Manager, CloudWatch Logs, Amazon Bedrock inference
+  profiles (only for Plane AI on Bedrock), and service-linked roles, and that can read Elastic Load Balancing. In
   practice, an administrator role.
 - **A region with at least three Availability Zones.** The database needs three.
 - **The OpenSearch service-linked role.** If OpenSearch has never been used in this account, create it once:
@@ -199,17 +206,39 @@ acme_email = "ops@example.com" # Let's Encrypt account email, for expiry notices
 | Restrict who reaches Plane (A.2) | `ingress = { mode = "automated", tls_certificate_secret_arn = "…", allowed_cidrs = ["10.0.0.0/8"] }` | Load balancer accepts only these ranges |
 | Internal load balancer (A.2) | `ingress = { …, scheme = "internal" }` | Plane reachable only from inside the VPC or connected networks |
 | More nodes | `node_group = { desired_size = 3 }` | 3 nodes instead of 2 (range 2–4) |
-| Cache failover | `redis = { replicas = 1 }` | A second cache node with automatic failover (the default is one node) |
 | Different email domain | `email = { smtp_domain = "mail.example.com" }` | Intake addresses use this domain |
 | Email without a public endpoint | `email = { load_balancer = false }` | The email service runs, but can't receive mail from the internet |
 | No email | `email = { enabled = false }` | No email service and no email load balancer |
-| No search | `opensearch = { enabled = false }` | No OpenSearch; Plane runs with search indexing off, so search is more limited |
+| No search | `opensearch = { enabled = false }` | No OpenSearch; Plane runs with search indexing off, so search is more limited. Plane AI needs OpenSearch, so it can't be on |
+| Plane AI (a vendor chat key or a custom model, and Cohere) | `enable_components = { pi = true }` and `pi = { api_keys = { chat_key_secret_arn = "…", embedding_key_secret_arn = "…" } }` | Chat on one key: `chat_provider` `openai` (default), `anthropic`, `xai`, `baseten` or `meta` (that vendor's built-in models), or `custom`: your own model on any OpenAI-compatible API (it requires the OpenAI Chat Completions API at `chat_base_url`, plus `chat_model`). Cohere embeddings. Keys in Secrets Manager, plain text or JSON fields. Both keys are required; the README's Plane AI section has the commands |
+| Plane AI on Amazon Bedrock (alternative) | `enable_components = { pi = true }` and `pi = { provider = "bedrock" }` | Plane AI with Bedrock models, no keys: Titan Text Embeddings V2 and Claude Sonnet 4.6 (`pi.bedrock` to change them). Before the apply, make sure the models are available in your region and, for Claude, submit Anthropic's use case form and open the model once in the Bedrock playground as an administrator. See the README's Plane AI section |
+| Files through Plane's api | `use_storage_proxy = true` | Attachments and images go through Plane's api instead of direct signed URLs. See below |
 | Different VPC range | `vpc_cidr = "10.80.0.0/16"` | Avoids overlap with networks you peer with |
 | Extra admins | `cluster_admin_principal_arns = ["arn:aws:iam::<account>:role/<role>"]` | Cluster admin access for these IAM roles or users |
 | Tags | `tags = { CostCenter = "1234" }` | Added to every resource |
 
 When an object setting appears twice (for example two `email = { … }` lines), Terraform fails: combine the fields
 into one line.
+
+**Choose Plane AI's embedding model now**, even if you turn Plane AI on later. Plane's search indexes are created at
+the first install with the vector dimension of the embedding model `pi` selects, whether Plane AI is on or not.
+Without a `pi` setting that is Cohere embed-v4.0 (1536). If you will use Bedrock, set `pi = { provider = "bedrock" }`
+(and any `pi.bedrock.embedding_model`) now and add `enable_components = { pi = true }` when you turn it on. Changing
+the provider or embedding model afterwards needs Plane's search indexes and Plane AI's indexes recreated.
+
+**How browsers reach your files.** By default (`use_storage_proxy = false`), browsers upload to and download from the
+S3 bucket directly with signed URLs, and the bucket allows CORS from your domain. Use `use_storage_proxy = true` when
+that doesn't suit you, for example when your users' networks block S3. Work item attachments, editor images and similar
+then go through Plane's api, which reaches the bucket with its own IAM role. It needs Plane v4.0.1 or later, the
+default `plane_version`.
+
+- **Size for it.** Proxied files add load on the api and are subject to your ingress's request size limit. For large
+  files, raise that limit to your largest file and add api replicas through `plane_values`. In option A the limit is
+  20 MiB by default: set `ingress.traefik.maxRequestBodyBytes` there too. In option B, it's the limit in
+  [section 8](#option-b).
+- **Plane AI doesn't change.** silo, live and pi don't read this setting, and Plane AI keeps using direct signed URLs in
+  both modes. The bucket keeps its CORS configuration either way, and browsers still need to reach S3 for Plane AI's
+  files.
 
 ## 6. Deploy
 
@@ -244,7 +273,11 @@ terraform output dns_records
 |---|---|---|---|
 | Web (options A.1 and A.2) | your `domain` | CNAME | the `web` value: the load balancer's hostname |
 | Web (option B) | your `domain` | CNAME | your own ingress controller's load balancer |
-| Email | your email domain (`intake.<domain>`) | MX | `10 <email load balancer hostname>` |
+| Email | your email domain (`intake.<domain>`) | MX | the `email_mx` value: `10 <email load balancer hostname>` |
+
+The output has the same keys on every cloud (`web`, `email_host`, `email_mx`). On AWS `email_host` is always null: the MX
+record names the email load balancer's hostname, so no A record is needed. `web` is null in option B, and `email_mx` is
+null when the email service has no load balancer: there's no record to create from them.
 
 - Always point at the load balancer's **hostname** with a CNAME (or an alias record in Route 53). Never create A records
   with its IP addresses: AWS assigns them and can change them.
@@ -315,6 +348,8 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
 
    **Other controllers:** use the generated NGINX Ingress as the route table: each path, the service and port it goes
    to. Plane needs WebSocket support on `/live/` and an upload size limit of at least 20 MB.
+
+   With `use_storage_proxy = true`, set the limit to at least your largest file (on NGINX, `proxy-body-size` above).
 4. **Apply the routes:**
    ```bash
    kubectl -n plane apply -f plane-routes.yaml
@@ -325,8 +360,8 @@ kubectl -n plane get externalsecret plane-web-tls   # STATUS SecretSynced
 
 1. Open `https://<your domain>` and complete the setup: create the first admin account and your workspace.
 2. Activate your Plane licence key, following the activation steps in Plane's documentation.
-3. Configure outgoing email (SMTP), single sign-on and AI providers in the instance admin panel at
-   `https://<your domain>/god-mode/`.
+3. Configure outgoing email (SMTP) and single sign-on in the instance admin panel at
+   `https://<your domain>/god-mode/`. Plane AI's models come from `terraform.tfvars` (`pi`), not the admin panel.
 
 **Inbound email:** once the MX record resolves, mail sent to your intake addresses becomes work items. The email load
 balancer accepts mail from any sender on ports 25, 465 and 587, as a mail server must.
@@ -339,13 +374,16 @@ before applying.
 | Task | How |
 |---|---|
 | Upgrade Plane | Use the new module release: `git fetch && git checkout <new-release-tag>`, then plan and apply. Read the release notes first. Migrations and search indexes run automatically. Option B: regenerate and re-apply your routes. |
-| More capacity | Add nodes (`node_group = { desired_size = 3 }`, up to `max_size`) and Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
+| Upgrade PostgreSQL (major) | Take a snapshot, then set `postgres = { engine_version = "<new version>", apply_immediately = true }`, plan and apply: the module creates the new parameter group first, upgrades the database in place (minutes of downtime) and removes the old group. See the README. |
+| More capacity | Add nodes in AWS, up to `max_size` (see the node count note below), and Plane replicas through `plane_values`, for example `plane_values = "services: { api: { replicas: 4 }, worker: { replicas: 4 } }"`. |
+| Send files through Plane's api, or stop | Set `use_storage_proxy`, then plan and apply. The bucket and its files don't change. Size the api and your ingress's limit first (section 5). |
 | Renew your certificate (A.2, email) | Update the secret's value in Secrets Manager. Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | RDS keeps automated backups for 14 days, and takes a final snapshot if the database is deleted. S3 keeps old versions of files for 30 days. |
 | Secrets | Cache and queue credentials and Plane's app keys are in Secrets Manager under `plane/<name>/`. The database password is a secret managed and rotated by RDS. |
 
-**Never change** `name` or `domain` after installation, and never delete or change the `plane/<name>/app-keys` secret:
-Plane uses those keys to encrypt data, and the licence is bound to the domain.
+**Never change** `name` or `domain` after installation, and never delete or change the `plane/<name>/app-keys` secret
+(or the secret you gave in `app_keys_secret_arn`): Plane uses those keys to encrypt data, and the licence is bound to
+the domain.
 
 **Node count note:** Terraform sets the node count only when it creates the node group. To scale an existing
 installation, change it in AWS:
@@ -390,12 +428,18 @@ because those names are still taken.
 | `Invalid value for variable "ingress"` | Option A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret_arn`; with Let's Encrypt keep the load balancer public and open |
 | `Warning: Check block assertion failed` (email certificate) | No email certificate given | Informational: the email service uses a self-signed certificate. Set `email.certificate_secret_arn` for a trusted one |
 | Apply fails creating the OpenSearch domain with a service-linked role error | The role doesn't exist in the account | Create it (section 2) and apply again |
-| Apply fails with `InsufficientInstanceCapacity` or a quota error | Service quota too low | Raise the quota (section 2) and apply again |
+| Apply fails with a quota error | Service quota too low | Raise the quota (section 2) and apply again |
+| Apply fails with `InsufficientInstanceCapacity` | AWS is short of that instance type in a zone; this isn't a quota | Apply again later, or choose another type with `node_group.instance_types` |
 | `terraform plan` can't reach the cluster | Your IP isn't in `cluster_endpoint_public_access_cidrs` | Add your network's range and apply |
 | `helm_release.plane` runs for a long time | Database migrations on a new installation (about 15 minutes) | Wait; check with `kubectl -n plane get pods` |
+| Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |
 | Uploads fail (option B) | Your controller's request size limit is too low | Allow at least 20 MB |
+| Large files fail with `use_storage_proxy = true` | Files go through your ingress and its request size limit | Raise the limit to your largest file (option A: `ingress.traefik.maxRequestBodyBytes` in `plane_values`, 20 MiB by default), and check the api has capacity (section 5) |
+| `terraform destroy` fails deleting the VPC or subnets | Your own load balancer (option B) is still there | Remove your controller (section 11) and run `terraform destroy` again |
 | Live collaboration doesn't connect (option B) | WebSockets not enabled on `/live/` | Enable WebSocket support for that path |
 | No inbound email | The MX record is missing or wrong | `dig MX <email domain>` must return the email load balancer's hostname |
+| Plane AI chat fails with `AccessDeniedException` mentioning `aws-marketplace` | The Claude model was never enabled in the account | Submit Anthropic's use case form and open the model once in the Bedrock playground as an administrator |
+| Plane AI's migrator fails creating the connector | The embedding model isn't available in the region, or (keys) the key is wrong | `kubectl -n plane logs job/<plane-pi-api-migrate-…>`; check the model in the Bedrock console, or the secret's value |
 
 For help, contact Plane support with the output of `terraform version`, the failing command's error, and
 `kubectl -n plane get pods`.

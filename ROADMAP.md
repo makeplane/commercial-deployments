@@ -37,7 +37,7 @@ The next targeted items. Not in priority order; the order and release grouping a
     ALB + ACM (keeps the instance private).
   - Managed data services (RDS, S3) in Docker mode come later: `prime-cli setup` requires S3 access keys, and the
     Compose file falls back to placeholder keys, so keyless S3 from the instance role needs both fixed in prime-cli.
-- **GCP module** (`terraform-google-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
+- **GCP module** (`terraform-gcp-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
   GKE with Workload Identity, Cloud SQL (private IP), Memorystore, GCS (Plane supports GCS natively, keyless), Secret
   Manager. RabbitMQ in-cluster (no managed option on GCP). No DNS records, as on AWS.
 - **Release CI with e2e.** On every `v*` tag: assume a role in a sandbox account through GitHub OIDC, apply
@@ -52,7 +52,8 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **Bring your own VPC first, then your own cluster.** Inputs to skip creating the network (`vpc_id`, subnet IDs)
   and later the EKS cluster (`cluster_name`). Needed by customers with an existing landing zone.
 - **Node autoscaling.** Cluster Autoscaler on the managed node group's 2–4 range first (the group already has the
-  range; nothing scales it); Karpenter or EKS Auto Mode later.
+  range; nothing scales it); Karpenter or EKS Auto Mode later, with an optional Spot node group (GCP already offers
+  spot nodes).
 - **Pod autoscaling.** Revive the chart HPA PR helm-charts#133 for api, worker, agent-consumer and webhook-consumer
   (CPU, 2–5 replicas). metrics-server is already installed. Ship it with node autoscaling, or the extra pods only use
   spare capacity.
@@ -74,6 +75,17 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **Version and upgrade policy.** Pin and upgrade EKS, add-ons, the chart and Plane through module releases;
   Renovate on customer templates. Add a pre-upgrade RDS snapshot keyed on the Plane version and a rollback runbook
   (Helm rollback doesn't undo database migrations).
+- **Maintenance windows and reinstalls.** Set RDS and ElastiCache maintenance windows (today AWS picks them; GCP
+  sets weekend windows). Add a random suffix to the RDS final snapshot so a destroyed install can be reinstalled
+  under the same name without deleting the snapshot first.
+- **Engine upgrades.** The ElastiCache parameter group embeds the Valkey major version without
+  `create_before_destroy` (the RDS one was fixed), so a Valkey major upgrade needs the same treatment. RDS minor
+  auto-upgrades also leave `postgres.engine_version` behind, so the next plan tries a downgrade: pin only the major
+  version, or ignore minor drift.
+- **WAF.** An NLB can't take AWS WAF. Document CloudFront + WAF in front of the web load balancer, or add an ALB
+  option for customers who need WAF rules.
+- **Chart render check in CI and generated-values tests.** Run `helm template` on the `plane_helm_values` output
+  for every example in CI (all modules), and add tests on the generated chart values for AWS as GCP has.
 - **AWS Backup plan** as an option, beyond RDS automated backups and the final snapshot.
 - **KMS options.** A `kms_key_arn` input (bring your own key) and optional per-service keys. Today one
   module-managed key encrypts RDS, Valkey, S3, Secrets Manager, OpenSearch and EKS secrets.
@@ -86,7 +98,7 @@ The next targeted items. Not in priority order; the order and release grouping a
   on dev or on Plane's own installation before setting larger defaults. Then presets, e.g. `evaluation` and
   `production` (today's sizes); a small preset needs module changes (single-instance RDS on gp3, single-instance
   RabbitMQ, 1-node OpenSearch), since Multi-AZ DB clusters have no small instance classes.
-- **Azure module** (`terraform-azurerm-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
+- **Azure module** (`terraform-azure-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
   chart), so files would need MinIO today. Native Blob support is preferred over an S3-compatible gateway, which
   would need static keys.
 - **DNS automation for Route 53 and Cloudflare** (optional, off by default). v0.1.0 writes no DNS: the customer

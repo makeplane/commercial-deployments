@@ -1,5 +1,5 @@
-# Uploads bucket. Browsers upload and download directly with presigned URLs (as today), so the
-# bucket allows CORS from Plane's domain but stays private: no ACLs, no public access.
+# Uploads bucket. Browsers use presigned URLs by default, and Plane AI does even with use_storage_proxy,
+# so the bucket always allows CORS from Plane's domain but stays private: no ACLs, no public access.
 
 resource "random_id" "bucket_suffix" {
   byte_length = 4
