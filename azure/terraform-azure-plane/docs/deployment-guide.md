@@ -6,7 +6,7 @@
 > being built; until they ship it can't install a working Plane (see "Requires" in the [README](../README.md)).
 
 This guide takes you from an Azure subscription to a running Plane Commercial installation, using the
-`terraform-azurerm-plane` module. One `terraform apply` creates the network, an AKS cluster, managed data services, Blob
+`terraform-azure-plane` module. One `terraform apply` creates the network, an AKS cluster, managed data services, Blob
 Storage and Plane itself. You then create a few DNS records and, depending on the path you choose, finish the ingress
 setup.
 

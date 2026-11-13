@@ -30,7 +30,7 @@ provider "helm" {
 }
 
 module "plane" {
-  # Registry source once published: source = "makeplane/plane/azurerm", version = "~> 0.1"
+  # Registry source once published: source = "makeplane/plane/azure", version = "~> 0.1"
   source = "../../"
 
   name                            = var.name

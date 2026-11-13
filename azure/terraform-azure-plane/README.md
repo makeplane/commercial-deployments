@@ -1,10 +1,10 @@
-# terraform-azurerm-plane
+# terraform-azure-plane
 
 Terraform module that deploys [Plane](https://plane.so) Commercial on Azure with one `terraform apply`: the network,
 an AKS cluster, managed data services, Blob Storage and Plane itself (the `plane-enterprise` Helm chart).
 
 > **Status:** under development, not released. It will be published to the Terraform Registry as
-> `makeplane/plane/azurerm` from `v0.1.0`; until then, reference it from this repository. It doesn't change or replace
+> `makeplane/plane/azure` from `v0.1.0`; until then, reference it from this repository. It doesn't change or replace
 > the older `azure/terraform` module or the Helm-based guide in `azure/README.md`.
 
 ## Requires (not yet released)

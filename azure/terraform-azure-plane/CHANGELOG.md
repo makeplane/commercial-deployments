@@ -64,8 +64,8 @@
   `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).
 
 ### Changed
-- Docs name the module `terraform-azurerm-plane`, its Terraform Registry name (`makeplane/plane/azurerm`); the folder
-  and the `git::` source path stay `azure/terraform-azure-plane`.
+- Terraform Registry name `terraform-azure-plane` (`makeplane/plane/azure`), the same as its folder and its
+  `managed-by` tag.
 - `kubernetes_version` defaults to AKS 1.36 (was 1.35), GA and the AKS default for new clusters.
 - `chart_version` defaults to plane-enterprise 3.14.0
   ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which ships the Azure Blob
