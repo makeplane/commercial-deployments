@@ -1,0 +1,9 @@
+framework:
+  - terraform
+# As on AWS: check our module calls, not upstream module internals.
+download-external-modules: false
+compact: true
+quiet: true
+skip-check:
+  # Registry sources would be pinned to exact versions, not commit hashes.
+  - CKV_TF_1

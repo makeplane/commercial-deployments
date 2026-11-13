@@ -37,7 +37,7 @@ The next targeted items. Not in priority order; the order and release grouping a
     ALB + ACM (keeps the instance private).
   - Managed data services (RDS, S3) in Docker mode come later: `prime-cli setup` requires S3 access keys, and the
     Compose file falls back to placeholder keys, so keyless S3 from the instance role needs both fixed in prime-cli.
-- **GCP module** (`terraform-google-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
+- **GCP module** (`terraform-gcp-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
   GKE with Workload Identity, Cloud SQL (private IP), Memorystore, GCS (Plane supports GCS natively, keyless), Secret
   Manager. RabbitMQ in-cluster (no managed option on GCP). No DNS records, as on AWS.
 - **Release CI with e2e.** On every `v*` tag: assume a role in a sandbox account through GitHub OIDC, apply
@@ -80,13 +80,16 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **RabbitMQ 4.x.** Amazon MQ runs 3.13; move once Plane is confirmed to work on Amazon MQ RabbitMQ 4.x.
 - **Observability option.** The `amazon-cloudwatch-observability` EKS add-on, opt-in. Meanwhile OpenTelemetry can
   be set through `plane_values`.
+- **Azure diagnostic logs.** Optional Log Analytics workspace with diagnostic settings for AKS (control-plane logs),
+  PostgreSQL, Key Vault and the storage account; off by default because of cost. EKS already sends control-plane logs
+  and GKE logs by default.
 - **Pinned Elastic IPs** for the web load balancer, as an option (off by default). Makes IPs known at plan time for
   A records and customer allow-lists. Costs 3 Elastic IPs per install (default quota is 5 per region).
 - **Sizing data, then size presets.** There's no measured sizing (today's replica counts are defaults). Measure load
   on dev or on Plane's own installation before setting larger defaults. Then presets, e.g. `evaluation` and
   `production` (today's sizes); a small preset needs module changes (single-instance RDS on gp3, single-instance
   RabbitMQ, 1-node OpenSearch), since Multi-AZ DB clusters have no small instance classes.
-- **Azure module** (`terraform-azurerm-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
+- **Azure module** (`terraform-azure-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
   chart), so files would need MinIO today. Native Blob support is preferred over an S3-compatible gateway, which
   would need static keys.
 - **DNS automation for Route 53 and Cloudflare** (optional, off by default). v0.1.0 writes no DNS: the customer
