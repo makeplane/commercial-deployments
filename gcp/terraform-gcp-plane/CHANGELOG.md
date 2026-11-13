@@ -7,6 +7,17 @@
   entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
 
 ### Changed
+- `chart_version` defaults to plane-enterprise 3.14.0 (pending release in
+  [helm-charts#377](https://github.com/makeplane/helm-charts/pull/377)), which carries the chart changes this module
+  needs; 3.12.2 was never released.
+- `ingress.allowed_cidrs` is checked at plan, as on AWS: at least one IPv4 CIDR whose address is the start of the range
+  (`203.0.113.10/32` for one address).
+- The checks on `pi.api_keys` for `chat_provider = "custom"` match AWS and Azure: `chat_base_url`, `chat_model`,
+  `chat_model_name` and `chat_max_tokens` are refused with a vendor key; `custom` needs `chat_base_url` and a non-blank
+  `chat_model`.
+- On the RAPID and REGULAR release channels the GKE cluster is created without a default node pool, so the plan no
+  longer shows the google provider's `remove_default_node_pool` deprecation warning. STABLE is unchanged (its GKE
+  versions still need the old way), and changing channel later doesn't recreate the cluster.
 - TLS to Memorystore is always on, as on AWS and Azure: `redis.transit_encryption` is removed, and a value left in
   `terraform.tfvars` is ignored. An instance created with it off is replaced on the next apply.
 - `opensearch.volume_size_gb` defaults to 50 (was 20), as on Azure. The size can't change on an existing install: to
@@ -29,7 +40,8 @@
   a GCS uploads bucket and Secret Manager secrets (regional replication).
 - RabbitMQ and OpenSearch run in the cluster from the chart (GCP has neither as a managed service), on
   `standard-rwo` persistent disks, with generated credentials in Secret Manager synced by External Secrets. Needs
-  plane-enterprise chart 3.12.2 (pending release) for the bundled RabbitMQ to read its credentials from that Secret.
+  plane-enterprise chart 3.14.0 (pending release, helm-charts#377) for the bundled RabbitMQ to read its credentials
+  from that Secret.
 - In-cluster add-ons as Helm releases: External Secrets (GCP Secret Manager through Workload Identity, CRDs kept on
   uninstall), Reloader; in path A also Traefik, and cert-manager when `acme_email` is set.
 - Plane (plane-enterprise chart) with keyless GCS through GKE Workload Identity (bucket-scoped roles, signed URLs
@@ -56,7 +68,7 @@
   Terraform). pi needs
   `opensearch.enabled` and a `plane_version` whose Plane AI supports GCS (the floor is set once that release is known;
   until then pi is refused). With pi on, OpenSearch gets a 1.5 GB heap in a 3 GiB limit, which needs plane-enterprise
-  chart 3.12.2.
+  chart 3.14.0.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything; the example declares every module
   input under the same name (`nullable = false` on every defaulted input). CI checks that it declares exactly the

@@ -240,6 +240,43 @@ run "reject_lets_encrypt_internal" {
   expect_failures = [var.ingress]
 }
 
+run "reject_malformed_allowed_cidr" {
+  command = plan
+  variables {
+    ingress = { mode = "automated", tls_certificate_secret = "projects/plane-test-project/secrets/plane-web-tls", allowed_cidrs = ["10.0.0.1"] }
+  }
+  expect_failures = [var.ingress]
+}
+
+run "reject_allowed_cidr_not_range_start" {
+  command = plan
+  variables {
+    ingress = { mode = "automated", tls_certificate_secret = "projects/plane-test-project/secrets/plane-web-tls", allowed_cidrs = ["10.0.0.1/24"] }
+  }
+  expect_failures = [var.ingress]
+}
+
+run "reject_empty_allowed_cidrs" {
+  command = plan
+  variables {
+    ingress = { mode = "automated", tls_certificate_secret = "projects/plane-test-project/secrets/plane-web-tls", allowed_cidrs = [] }
+  }
+  expect_failures = [var.ingress]
+}
+
+run "allowed_cidr_single_address" {
+  command = plan
+  variables {
+    ingress = { mode = "automated", tls_certificate_secret = "projects/plane-test-project/secrets/plane-web-tls", allowed_cidrs = ["203.0.113.10/32"] }
+    email   = { certificate_secret = "projects/plane-test-project/secrets/plane-mail-tls" }
+  }
+
+  assert {
+    condition     = length(var.ingress.allowed_cidrs) == 1 && var.ingress.allowed_cidrs[0] == "203.0.113.10/32"
+    error_message = "A /32 for one address must be accepted."
+  }
+}
+
 run "reject_certificate_in_other_project" {
   command = plan
   variables {

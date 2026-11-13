@@ -11,6 +11,11 @@ resource "google_project_iam_member" "nodes" {
   member  = google_service_account.nodes.member
 }
 
+locals {
+  # GKE's STABLE channel is still older than 1.36.4-gke.1469000, the first version that creates no default pool.
+  legacy_default_pool = var.release_channel == "STABLE"
+}
+
 resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_24:PodSecurityPolicy was removed from Kubernetes; not applicable.
   # checkov:skip=CKV_GCP_66:Binary Authorization needs an attestation policy per organisation; customer choice.
@@ -24,10 +29,10 @@ resource "google_container_cluster" "this" {
   location       = var.region
   node_locations = length(var.zones) > 0 ? var.zones : null
 
-  # Deprecated by provider 8.9 but still works. Its replacement needs that provider and GKE 1.36.4-gke.1469000+,
-  # newer than the STABLE channel's default (1.35), and changing it on a live cluster may force a rebuild.
-  remove_default_node_pool = true
-  initial_node_count       = 1
+  # No default node pool: RAPID and REGULAR create none (GKE 1.36.4-gke.1469000+); STABLE still needs the deprecated
+  # remove_default_node_pool. Changing channel later keeps what the cluster was created with (ignore_changes below).
+  remove_default_node_pool = local.legacy_default_pool ? true : null
+  initial_node_count       = local.legacy_default_pool ? 1 : 0
 
   network         = var.network_id
   subnetwork      = var.subnet_id
@@ -87,18 +92,21 @@ resource "google_container_cluster" "this" {
     }
   }
 
-  # The temporary default pool must not run as the Compute Engine default service account.
-  node_config {
-    service_account = google_service_account.nodes.email
-    oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+  # STABLE only: the temporary default pool must not run as the Compute Engine default service account.
+  dynamic "node_config" {
+    for_each = local.legacy_default_pool ? [1] : []
+    content {
+      service_account = google_service_account.nodes.email
+      oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
+      workload_metadata_config {
+        mode = "GKE_METADATA"
+      }
 
-    shielded_instance_config {
-      enable_secure_boot          = true
-      enable_integrity_monitoring = true
+      shielded_instance_config {
+        enable_secure_boot          = true
+        enable_integrity_monitoring = true
+      }
     }
   }
 
@@ -114,8 +122,8 @@ resource "google_container_cluster" "this" {
   }
 
   lifecycle {
-    # node_config only describes the removed default pool; a change would recreate the cluster.
-    ignore_changes = [node_config]
+    # These only describe the default pool at create; a change (e.g. of release channel) would recreate the cluster.
+    ignore_changes = [node_config, initial_node_count]
   }
 
   depends_on = [google_project_iam_member.nodes]

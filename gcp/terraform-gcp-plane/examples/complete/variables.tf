@@ -23,7 +23,7 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.12.2 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
+  description = "plane-enterprise Helm chart version. 3.14.0 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
   type        = string
   default     = null
 }
@@ -232,7 +232,7 @@ variable "redis" {
   description = <<-EOT
     Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager) and always over
     TLS (port 6378), with Memorystore's server CA trusted through the chart's customCA (every Plane service,
-    plane-enterprise 3.12.2+). STANDARD_HA keeps a replica in another zone with automatic failover. persistence (default
+    plane-enterprise 3.14.0+). STANDARD_HA keeps a replica in another zone with automatic failover. persistence (default
     true) takes an RDB snapshot every rdb_snapshot_period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS or TWENTY_FOUR_HOURS), on every tier: STANDARD_HA restores from
     the replica first and the snapshot only if that fails; BASIC restores from the snapshot after a restart.
   EOT

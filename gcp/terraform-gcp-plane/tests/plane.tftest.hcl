@@ -136,7 +136,7 @@ run "in_cluster_rabbitmq_and_opensearch" {
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).external_secrets.rabbitmq.secretName == "plane-rabbitmq"
-    error_message = "The bundled RabbitMQ and the apps must read the External Secrets Secret (chart 3.12.2 contract)."
+    error_message = "The bundled RabbitMQ and the apps must read the External Secrets Secret (chart 3.14.0 contract)."
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.local_setup && yamldecode(output.plane_helm_values).external_secrets.opensearch_existingSecret == "plane-opensearch"
@@ -661,6 +661,14 @@ run "reject_custom_without_model" {
   expect_failures = [var.pi]
 }
 
+run "reject_custom_with_no_model" {
+  command = plan
+  variables {
+    pi = { api_keys = { chat_provider = "custom", chat_base_url = "https://llm.example.com/v1" } }
+  }
+  expect_failures = [var.pi]
+}
+
 run "reject_bad_chat_base_url" {
   command = plan
   variables {
@@ -758,7 +766,7 @@ run "plane_identity" {
   variables {
     pods_cidr          = "10.61.0.0/16"
     plane_version      = "v4.0.1"
-    chart_version      = "3.12.2"
+    chart_version      = "3.14.0"
     chart_repository   = "https://helm.plane.so/"
     chart_name         = "plane-enterprise"
     enable_components  = { silo = true, drawio = true, pi = false }

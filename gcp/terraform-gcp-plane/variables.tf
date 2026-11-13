@@ -52,10 +52,10 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. 3.12.2 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
+  description = "plane-enterprise Helm chart version. 3.14.0 or later (the bundled RabbitMQ reads its credentials from an External Secrets Secret, and the OpenSearch heap Plane AI needs can be set)."
   type        = string
-  # 3.12.2 is pending release (helm-charts#370); earlier charts refuse to render this module's values.
-  default  = "3.12.2"
+  # 3.14.0 is pending release (helm-charts#377); earlier charts refuse to render this module's values.
+  default  = "3.14.0"
   nullable = false
 }
 
@@ -148,19 +148,22 @@ variable "pi" {
     error_message = "pi.api_keys.chat_provider must be one of: ${join(", ", keys(local.pi_chat_key_envs))}."
   }
   validation {
-    condition     = var.pi.api_keys.chat_provider != "custom" || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
-    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\": chat_provider = \"custom\" requires it."
+    condition = var.pi.api_keys.chat_provider == "custom" || alltrue([
+      for v in [var.pi.api_keys.chat_base_url, var.pi.api_keys.chat_model, var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_max_tokens] : v == null
+    ])
+    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API). With a vendor key, Plane AI offers that vendor's built-in models: leave them unset."
   }
   validation {
-    condition     = var.pi.api_keys.chat_provider != "custom" || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
-    error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_model, the model ID that API expects."
+    condition     = var.pi.api_keys.chat_provider != "custom" || (var.pi.api_keys.chat_base_url != null && var.pi.api_keys.chat_model != null)
+    error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_base_url (the base URL of an OpenAI-compatible API) and pi.api_keys.chat_model (the model ID it expects)."
   }
   validation {
-    condition = var.pi.api_keys.chat_provider == "custom" || (
-      var.pi.api_keys.chat_base_url == null && var.pi.api_keys.chat_model == null &&
-      var.pi.api_keys.chat_model_name == null && var.pi.api_keys.chat_max_tokens == null
-    )
-    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API): a vendor key gives that vendor's own models."
+    condition     = var.pi.api_keys.chat_base_url == null || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
+    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\"."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_model == null || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
+    error_message = "pi.api_keys.chat_model must be the model ID the OpenAI-compatible API expects, e.g. \"gpt-oss-120b\"."
   }
   validation {
     condition     = var.pi.api_keys.chat_max_tokens == null || try(var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens, false)
@@ -231,6 +234,10 @@ variable "ingress" {
   validation {
     condition     = contains(["internet-facing", "internal"], var.ingress.scheme)
     error_message = "ingress.scheme must be \"internet-facing\" or \"internal\"."
+  }
+  validation {
+    condition     = length(var.ingress.allowed_cidrs) > 0 && alltrue([for c in var.ingress.allowed_cidrs : can(regex(local.ipv4_cidr_regex, c)) && can(cidrhost(c, 0)) && try(cidrhost(c, 0) == split("/", c)[0], false)])
+    error_message = "ingress.allowed_cidrs must list at least one IPv4 CIDR whose address is the start of the range (e.g. 203.0.113.0/24, or 203.0.113.10/32 for one address)."
   }
   validation {
     condition     = var.ingress.mode != "automated" || ((var.acme_email != null) != (var.ingress.tls_certificate_secret != null))
@@ -452,7 +459,7 @@ variable "redis" {
   description = <<-EOT
     Memorystore for Redis, reached over private services access with an AUTH string (in Secret Manager) and always over
     TLS (port 6378), with Memorystore's server CA trusted through the chart's customCA (every Plane service,
-    plane-enterprise 3.12.2+). STANDARD_HA keeps a replica in another zone with automatic failover. persistence (default
+    plane-enterprise 3.14.0+). STANDARD_HA keeps a replica in another zone with automatic failover. persistence (default
     true) takes an RDB snapshot every rdb_snapshot_period (ONE_HOUR, SIX_HOURS, TWELVE_HOURS or TWENTY_FOUR_HOURS), on every tier: STANDARD_HA restores from
     the replica first and the snapshot only if that fails; BASIC restores from the snapshot after a restart.
   EOT

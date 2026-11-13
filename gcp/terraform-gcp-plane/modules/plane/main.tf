@@ -188,7 +188,7 @@ locals {
     opensearch = merge(
       { local_setup = var.data.opensearch_enabled },
       var.data.opensearch_enabled ? { volumeSize = "${var.opensearch.volume_size_gb}Gi" } : {},
-      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.12.2+).
+      # Plane AI's k-NN and ML Commons need a bigger heap than the chart's 768 MB (javaOpts: chart 3.14.0+).
       var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
     )
   }
@@ -329,7 +329,7 @@ locals {
       {
         database = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
         redis    = { secretName = "plane-redis", passwordKey = "password" }
-        # With services.rabbitmq.local_setup, the bundled broker and the apps both read this Secret (chart 3.12.2+).
+        # With services.rabbitmq.local_setup, the bundled broker and the apps both read this Secret (chart 3.14.0+).
         rabbitmq                = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
         app_keys_existingSecret = "plane-app-keys"
       },
