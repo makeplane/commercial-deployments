@@ -378,10 +378,10 @@ locals {
       ai_providers_existingSecret = var.enable_components.pi ? local.ai_providers_secret : ""
     }
 
-    # No chart value for TRUSTED_PROXIES yet (C-8). With CNI Overlay, requests reach the api from
-    # Traefik's pod IP, so the pod CIDR is the trusted proxy range.
+    # The api reads TRUSTED_PROXY_IPS; no chart value for it yet (C-8). With CNI Overlay, requests reach
+    # the api from Traefik's pod IP, so the pod CIDR is the only range whose forwarded client IP is trusted.
     extraEnv = [
-      { name = "TRUSTED_PROXIES", value = var.pod_cidr },
+      { name = "TRUSTED_PROXY_IPS", value = var.pod_cidr },
       # The chart doesn't set this for the api.
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
     ]

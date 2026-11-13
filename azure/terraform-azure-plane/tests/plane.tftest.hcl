@@ -171,7 +171,7 @@ run "in_cluster_services" {
     error_message = "The app keys must be synced key by key (no dataFrom), so a missing key fails the sync."
   }
   assert {
-    condition     = yamldecode(output.helm_values).extraEnv[0] == { name = "TRUSTED_PROXIES", value = "192.168.0.0/16" }
+    condition     = yamldecode(output.helm_values).extraEnv[0] == { name = "TRUSTED_PROXY_IPS", value = "192.168.0.0/16" }
     error_message = "The api must trust Traefik's pods (the pod CIDR) for the client IP."
   }
   assert {

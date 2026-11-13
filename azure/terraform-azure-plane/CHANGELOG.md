@@ -3,8 +3,17 @@
 ## Unreleased
 
 ### Security
-- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
-  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+- Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the advisories published 2026-11-12, including a path-rule
+  bypass ([GHSA-x5pf-cqh3-2gv8](https://github.com/traefik/traefik/security/advisories/GHSA-x5pf-cqh3-2gv8),
+  [GHSA-cp28-5662-543f](https://github.com/traefik/traefik/security/advisories/GHSA-cp28-5662-543f),
+  [GHSA-p956-6gvv-mxqp](https://github.com/traefik/traefik/security/advisories/GHSA-p956-6gvv-mxqp),
+  [GHSA-ccgh-9g52-6vwg](https://github.com/traefik/traefik/security/advisories/GHSA-ccgh-9g52-6vwg),
+  [GHSA-rr42-h8r2-f28g](https://github.com/traefik/traefik/security/advisories/GHSA-rr42-h8r2-f28g)), and the denial
+  of service any client could trigger on the public entry point fixed in v3.7.17
+  ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)). The chart now
+  keeps accepting requests for 5 seconds after a Traefik pod is told to stop, so rollouts drop fewer connections.
+- The api's client-IP setting now uses the variable the api reads (`TRUSTED_PROXY_IPS`, was `TRUSTED_PROXIES`), so
+  forwarded client IPs are trusted only from the pod range (Traefik's pods), not from any client.
 
 > **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and plane-enterprise chart
 > 3.14.0 ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which renders it
