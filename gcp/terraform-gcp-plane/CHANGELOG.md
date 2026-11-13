@@ -7,8 +7,8 @@
   entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
 
 ### Changed
-- The module is named `terraform-google-plane`, published to the Terraform Registry as `makeplane/plane/google`; its
-  folder in this repository stays `gcp/terraform-gcp-plane`.
+- Terraform Registry name `terraform-gcp-plane` (`makeplane/plane/gcp`), the same as its folder and its
+  `managed-by` label.
 - `chart_version` defaults to plane-enterprise 3.14.0 (pending release in
   [helm-charts#377](https://github.com/makeplane/helm-charts/pull/377)), which carries the chart changes this module
   needs; 3.12.2 was never released.

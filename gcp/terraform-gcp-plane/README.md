@@ -1,4 +1,4 @@
-# terraform-google-plane
+# terraform-gcp-plane
 
 Terraform module that deploys [Plane](https://plane.so) Commercial on Google Cloud with one `terraform apply`: the
 project APIs, the network, a GKE cluster, managed data services and Plane itself (the `plane-enterprise` Helm chart).
@@ -6,7 +6,7 @@ project APIs, the network, a GKE cluster, managed data services and Plane itself
 > **Status:** tested end to end on GKE (apply, app checks, destroy) with a preview build of the chart. It needs
 > plane-enterprise chart **3.14.0**, pending release in
 > [helm-charts#377](https://github.com/makeplane/helm-charts/pull/377) (the bundled RabbitMQ reading its credentials
-> from External Secrets). The module will be published to the Terraform Registry as `makeplane/plane/google`; until
+> from External Secrets). The module will be published to the Terraform Registry as `makeplane/plane/gcp`; until
 > then, reference it from this repository.
 
 ## What it creates
