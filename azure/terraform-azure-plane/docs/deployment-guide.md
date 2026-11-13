@@ -6,7 +6,7 @@
 > being built; until they ship it can't install a working Plane (see "Requires" in the [README](../README.md)).
 
 This guide takes you from an Azure subscription to a running Plane Commercial installation, using the
-`terraform-azure-plane` module. One `terraform apply` creates the network, an AKS cluster, managed data services, Blob
+`terraform-azurerm-plane` module. One `terraform apply` creates the network, an AKS cluster, managed data services, Blob
 Storage and Plane itself. You then create a few DNS records and, depending on the path you choose, finish the ingress
 setup.
 
@@ -39,7 +39,7 @@ setup.
 |---|---|---|
 | Resource group | `<name>-rg`, or an existing empty one. AKS adds its own node resource group, `<resource group>-<name>-nodes` | |
 | Network | A new VNet with a subnet each for AKS nodes, PostgreSQL and private endpoints, and a NAT gateway on a static IP. Nodes reach the internet only through the NAT gateway | `10.60.0.0/16` |
-| Kubernetes | AKS with Entra ID and Azure RBAC (local accounts off), Workload Identity, Azure CNI Overlay with Cilium, one node pool scaled by the cluster autoscaler, Azure Linux | Kubernetes 1.35, Standard tier, 2 × `Standard_D4ds_v5` over zones 1–3 (range 2–4) |
+| Kubernetes | AKS with Entra ID and Azure RBAC (local accounts off), Workload Identity, Azure CNI Overlay with Cilium, one node pool scaled by the cluster autoscaler, Azure Linux | Kubernetes 1.36, Standard tier, 2 × `Standard_D4ds_v5` over zones 1–3 (range 2–4) |
 | Database | Azure Database for PostgreSQL Flexible Server 15, zone-redundant high availability, VNet-integrated, encrypted connections only. Databases `plane` and `plane_pi` | `GP_Standard_D2ds_v5`, 128 GB, grows automatically, 14 days of backups, delete lock |
 | Cache | Azure Managed Redis behind a private endpoint, high availability, TLS on port 10000, an RDB snapshot every 12 hours | `Balanced_B3` (3 GB) |
 | Message queue | RabbitMQ, **run in the cluster** | One node, 10 GiB Premium ZRS disk |

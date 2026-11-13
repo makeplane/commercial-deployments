@@ -6,6 +6,9 @@ locals {
   lets_encrypt = local.automated && var.acme_email != null
   internal     = var.ingress.scheme == "internal"
 
+  # An IPv4 CIDR in a.b.c.d/n form (cidrhost alone also accepts IPv6).
+  ipv4_cidr_regex = "^[0-9]{1,3}(\\.[0-9]{1,3}){3}/[0-9]{1,2}$"
+
   # A subdomain, so its MX and A records never collide with domain's.
   email = merge(var.email, {
     smtp_domain   = coalesce(var.email.smtp_domain, "intake.${var.domain}")

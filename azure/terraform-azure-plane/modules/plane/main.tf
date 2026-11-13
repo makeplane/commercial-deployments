@@ -160,7 +160,7 @@ locals {
   }
 
   # Keys mirror the chart-internal <release>-opensearch-secrets: re-check them on every chart bump.
-  opensearch_secret = "${local.release}-opensearch-creds"
+  opensearch_secret = "${local.release}-opensearch"
   opensearch_external_secret = {
     apiVersion = "external-secrets.io/v1"
     kind       = "ExternalSecret"
@@ -234,11 +234,11 @@ locals {
     postgres = { local_setup = false }
     redis    = { local_setup = false }
     minio    = local.blob_minio
-    # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.12.2+).
+    # The broker and the apps share one Secret (external_secrets.rabbitmq, chart 3.14.0+).
     rabbitmq = { local_setup = true, volumeSize = "${var.rabbitmq.volume_size_gb}Gi" }
     opensearch = merge(
       { local_setup = var.opensearch.enabled, volumeSize = "${var.opensearch.volume_size_gb}Gi" },
-      # A chart default (a 768 MB heap) can't hold pi's vectors. Chart 3.12.2+.
+      # A chart default (a 768 MB heap) can't hold pi's vectors. Chart 3.14.0+.
       var.enable_components.pi ? { javaOpts = "-Xms1536m -Xmx1536m", memoryLimit = "3Gi" } : {},
     )
   }
@@ -362,7 +362,6 @@ locals {
       redis_port = tostring(var.data.redis_port)
       redis_ssl  = true
 
-      rabbitmq_port  = "5672"
       rabbitmq_ssl   = false
       rabbitmq_vhost = "/"
 

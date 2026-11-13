@@ -29,7 +29,7 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. Needs the bundled-RabbitMQ external secret (3.12.2) and the Azure Blob storage values (see README, \"Requires\")."
+  description = "plane-enterprise Helm chart version. Needs 3.14.0+: the bundled-RabbitMQ external secret and the Azure Blob storage values (see README, \"Requires\")."
   type        = string
   default     = null
 }
@@ -171,7 +171,7 @@ variable "zones" {
 }
 
 variable "kubernetes_version" {
-  description = "AKS Kubernetes version (minor, e.g. \"1.35\"). AKS applies patch upgrades automatically."
+  description = "AKS Kubernetes version (minor, e.g. \"1.36\"). AKS applies patch upgrades automatically."
   type        = string
   default     = null
 }

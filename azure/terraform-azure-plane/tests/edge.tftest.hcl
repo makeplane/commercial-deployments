@@ -285,6 +285,40 @@ run "reject_certificate_uri" {
   expect_failures = [var.ingress]
 }
 
+run "reject_allowed_cidrs_bare_address" {
+  command = plan
+  variables {
+    ingress = { allowed_cidrs = ["10.0.0.1"] }
+  }
+  expect_failures = [var.ingress]
+}
+
+run "reject_allowed_cidrs_not_range_start" {
+  command = plan
+  variables {
+    ingress = { allowed_cidrs = ["10.0.0.1/24"] }
+  }
+  expect_failures = [var.ingress]
+}
+
+run "accept_allowed_cidrs_single_address" {
+  command = plan
+  variables {
+    ingress = {
+      mode                      = "automated"
+      allowed_cidrs             = ["203.0.113.10/32"]
+      tls_certificate_secret_id = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv/certificates/plane-web"
+    }
+  }
+
+  expect_failures = [check.email_certificate]
+
+  assert {
+    condition     = var.ingress.allowed_cidrs == tolist(["203.0.113.10/32"])
+    error_message = "A /32 (one address) must be accepted in ingress.allowed_cidrs."
+  }
+}
+
 run "email_off" {
   variables {
     email = { enabled = false }

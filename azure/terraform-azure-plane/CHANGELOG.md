@@ -6,10 +6,11 @@
 - Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
   entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
 
-> **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and the plane-enterprise
-> chart release that renders it, plus chart 3.12.2 (bundled RabbitMQ reading `external_secrets.rabbitmq`). The Blob
-> chart values follow the **agreed contract** (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version`
-> (`v4.0.1`) and `chart_version` (`3.12.2`) defaults are placeholders until those releases exist. See README, "Requires".
+> **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and plane-enterprise chart
+> 3.14.0 ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which renders it
+> and lets the bundled RabbitMQ read `external_secrets.rabbitmq`. The Blob chart values follow the **agreed contract**
+> (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version` (`v4.0.1`) and `chart_version` (`3.14.0`)
+> defaults are placeholders until those releases exist. See README, "Requires".
 
 ### Added
 - `deployment_mode = "aks"`: resource group (or an existing empty one), VNet with NAT gateway egress, AKS (Entra ID +
@@ -61,3 +62,17 @@
 - `examples/complete` declares every module input 1:1 (`terraform.tfvars.example` shows every default); mock-provider
   tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values and the data layer; CI workflow
   `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).
+
+### Changed
+- Docs name the module `terraform-azurerm-plane`, its Terraform Registry name (`makeplane/plane/azurerm`); the folder
+  and the `git::` source path stay `azure/terraform-azure-plane`.
+- `kubernetes_version` defaults to AKS 1.36 (was 1.35), GA and the AKS default for new clusters.
+- `chart_version` defaults to plane-enterprise 3.14.0
+  ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which ships the Azure Blob
+  values and the bundled RabbitMQ external secret (was 3.12.2, never released).
+- `ingress.allowed_cidrs` is checked at plan, as on AWS: at least one IPv4 CIDR whose address is the start of its range
+  (`203.0.113.10/32` for one address).
+- `pi.api_keys` custom-chat checks aligned with the AWS module: `chat_provider = "custom"` needs `chat_base_url` and
+  `chat_model`, and the custom-only inputs are refused with a vendor key.
+- The in-cluster OpenSearch credentials Secret is named `plane-opensearch` (was `plane-opensearch-creds`), as on GCP.
+- `rabbitmq_port` is left to the chart's default (5672) instead of being set in the values.

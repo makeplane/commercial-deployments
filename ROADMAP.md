@@ -80,6 +80,9 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **RabbitMQ 4.x.** Amazon MQ runs 3.13; move once Plane is confirmed to work on Amazon MQ RabbitMQ 4.x.
 - **Observability option.** The `amazon-cloudwatch-observability` EKS add-on, opt-in. Meanwhile OpenTelemetry can
   be set through `plane_values`.
+- **Azure diagnostic logs.** Optional Log Analytics workspace with diagnostic settings for AKS (control-plane logs),
+  PostgreSQL, Key Vault and the storage account; off by default because of cost. EKS already sends control-plane logs
+  and GKE logs by default.
 - **Pinned Elastic IPs** for the web load balancer, as an option (off by default). Makes IPs known at plan time for
   A records and customer allow-lists. Costs 3 Elastic IPs per install (default quota is 5 per region).
 - **Sizing data, then size presets.** There's no measured sizing (today's replica counts are defaults). Measure load

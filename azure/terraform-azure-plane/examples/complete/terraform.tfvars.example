@@ -51,7 +51,7 @@ location = "eastus2"
 # vnet_cidr = "10.60.0.0/16"
 # zones     = ["1", "2", "3"] # set at install
 
-# kubernetes_version = "1.35"
+# kubernetes_version = "1.36"
 
 # node_pool = {
 #   vm_size         = "Standard_D4ds_v5"
@@ -152,7 +152,7 @@ location = "eastus2"
 # }
 
 # plane_version    = "v4.0.1" # placeholder: the first Plane release with Azure Blob support
-# chart_version    = "3.12.2" # placeholder: the first chart release with the Azure Blob values
+# chart_version    = "3.14.0" # pending release (helm-charts#377): the first chart with the Azure Blob values
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"
 # helm_timeout     = 3600

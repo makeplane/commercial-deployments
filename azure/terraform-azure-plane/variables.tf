@@ -52,9 +52,9 @@ variable "plane_version" {
 }
 
 variable "chart_version" {
-  description = "plane-enterprise Helm chart version. Needs the bundled-RabbitMQ external secret (3.12.2) and the Azure Blob storage values (see README, \"Requires\")."
+  description = "plane-enterprise Helm chart version. Needs 3.14.0+: the bundled-RabbitMQ external secret and the Azure Blob storage values (see README, \"Requires\")."
   type        = string
-  default     = "3.12.2"
+  default     = "3.14.0"
   nullable    = false
 }
 
@@ -149,22 +149,26 @@ variable "pi" {
     error_message = "pi.api_keys.chat_provider must be one of: ${join(", ", keys(local.pi_chat_key_envs))}."
   }
   validation {
-    condition     = var.pi.api_keys.chat_provider != "custom" || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
-    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\"; chat_provider = \"custom\" requires it."
+    condition = var.pi.api_keys.chat_provider == "custom" || alltrue([
+      for v in [var.pi.api_keys.chat_base_url, var.pi.api_keys.chat_model, var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_max_tokens] : v == null
+    ])
+    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API). With a vendor key, Plane AI offers that vendor's built-in models: leave them unset."
   }
   validation {
-    condition     = var.pi.api_keys.chat_provider != "custom" || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
-    error_message = "pi.api_keys.chat_provider = \"custom\" needs chat_model, the model ID that API expects (on Azure OpenAI, the deployment name)."
+    condition     = var.pi.api_keys.chat_provider != "custom" || (var.pi.api_keys.chat_base_url != null && var.pi.api_keys.chat_model != null)
+    error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_base_url (the base URL of an OpenAI-compatible API) and pi.api_keys.chat_model (the model ID it expects)."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_base_url == null || can(regex("^https?://[^\\s/]+(/\\S*)?$", var.pi.api_keys.chat_base_url))
+    error_message = "pi.api_keys.chat_base_url must be the base URL of an OpenAI-compatible API (OpenAI Chat Completions), e.g. \"https://my-llm.example.com/v1\"."
+  }
+  validation {
+    condition     = var.pi.api_keys.chat_model == null || try(length(trimspace(var.pi.api_keys.chat_model)) > 0, false)
+    error_message = "pi.api_keys.chat_model must be the model ID the OpenAI-compatible API expects, e.g. \"gpt-oss-120b\"."
   }
   validation {
     condition     = var.pi.api_keys.chat_max_tokens == null || try(var.pi.api_keys.chat_max_tokens >= 1000 && floor(var.pi.api_keys.chat_max_tokens) == var.pi.api_keys.chat_max_tokens, false)
     error_message = "pi.api_keys.chat_max_tokens must be a whole number of at least 1000: the chat model's context window."
-  }
-  validation {
-    condition = var.pi.api_keys.chat_provider == "custom" || alltrue([
-      for v in [var.pi.api_keys.chat_base_url, var.pi.api_keys.chat_model, var.pi.api_keys.chat_model_name, var.pi.api_keys.chat_max_tokens] : v == null
-    ])
-    error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\": a vendor key uses that vendor's API and models."
   }
   validation {
     condition = alltrue([
@@ -232,6 +236,10 @@ variable "ingress" {
   validation {
     condition     = contains(["internet-facing", "internal"], var.ingress.scheme)
     error_message = "ingress.scheme must be \"internet-facing\" or \"internal\"."
+  }
+  validation {
+    condition     = length(var.ingress.allowed_cidrs) > 0 && alltrue([for c in var.ingress.allowed_cidrs : can(regex(local.ipv4_cidr_regex, c)) && can(cidrhost(c, 0)) && try(cidrhost(c, 0) == split("/", c)[0], false)])
+    error_message = "ingress.allowed_cidrs must list at least one IPv4 CIDR whose address is the start of the range (e.g. 203.0.113.0/24, or 203.0.113.10/32 for one address)."
   }
   validation {
     condition     = var.ingress.mode != "automated" || ((var.acme_email != null) != (var.ingress.tls_certificate_secret_id != null))
@@ -332,9 +340,9 @@ variable "zones" {
 ################################################################################
 
 variable "kubernetes_version" {
-  description = "AKS Kubernetes version (minor, e.g. \"1.35\"). AKS applies patch upgrades automatically."
+  description = "AKS Kubernetes version (minor, e.g. \"1.36\"). AKS applies patch upgrades automatically."
   type        = string
-  default     = "1.35"
+  default     = "1.36"
   nullable    = false
 }
 

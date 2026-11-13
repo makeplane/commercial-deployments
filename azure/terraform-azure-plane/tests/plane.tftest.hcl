@@ -18,7 +18,7 @@ variables {
   oidc_issuer_url       = "https://eastus2.oic.prod-aks.azure.com/tenant/issuer/"
   domain                = "plane.example.com"
   plane_version         = "v4.0.1"
-  chart_version         = "3.12.2"
+  chart_version         = "3.14.0"
   pod_cidr              = "192.168.0.0/16"
   enable_components     = { silo = true, drawio = true, pi = false }
   tls_secret_name       = "plane-tls"
@@ -120,7 +120,7 @@ run "in_cluster_services" {
 
   assert {
     condition     = yamldecode(output.helm_values).services.rabbitmq.local_setup && yamldecode(output.helm_values).external_secrets.rabbitmq.secretName == "plane-rabbitmq"
-    error_message = "The bundled RabbitMQ and the apps must read one Secret synced from Key Vault (external_secrets.rabbitmq, chart 3.12.2)."
+    error_message = "The bundled RabbitMQ and the apps must read one Secret synced from Key Vault (external_secrets.rabbitmq, chart 3.14.0)."
   }
   assert {
     condition     = !strcontains(output.helm_values, "default_password") && !strcontains(output.helm_values, "root_password")
@@ -148,7 +148,7 @@ run "in_cluster_services" {
   assert {
     condition = toset(flatten([
       for o in yamldecode(output.helm_values).extraObjects : keys(o.spec.target.template.data)
-      if o.metadata.name == "plane-opensearch-creds"
+      if o.metadata.name == "plane-opensearch"
       ])) == toset([
       "OPENSEARCH_ENABLED", "OPENSEARCH_URL", "OPENSEARCH_USERNAME", "OPENSEARCH_PASSWORD",
       "OPENSEARCH_INITIAL_ADMIN_PASSWORD", "OPENSEARCH_INDEX_PREFIX", "OPENSEARCH_EMBEDDING_DIMENSION",
@@ -194,7 +194,7 @@ run "opensearch_off" {
     error_message = "opensearch.enabled = false must remove the in-cluster OpenSearch and its Secret."
   }
   assert {
-    condition     = !contains([for o in yamldecode(output.helm_values).extraObjects : o.metadata.name], "plane-opensearch-creds")
+    condition     = !contains([for o in yamldecode(output.helm_values).extraObjects : o.metadata.name], "plane-opensearch")
     error_message = "No OpenSearch ExternalSecret without OpenSearch."
   }
 }

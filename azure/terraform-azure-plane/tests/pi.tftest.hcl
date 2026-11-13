@@ -98,7 +98,7 @@ variables {
 run "embedding_dimension_default_pi_off" {
   assert {
     condition = one([
-      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch-creds"
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
     ]) == "1536"
     error_message = "With pi off, the OpenSearch Secret must carry the default model's dimension (cohere/embed-v4.0, 1536)."
   }
@@ -127,7 +127,7 @@ run "embedding_dimension_follows_model_pi_off" {
 
   assert {
     condition = one([
-      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch-creds"
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
     ]) == "1024"
     error_message = "With pi off, the OpenSearch Secret must carry the chosen model's dimension (cohere/embed-english-v3.0, 1024)."
   }
@@ -156,7 +156,7 @@ run "pi_on_azure_blob" {
   }
   assert {
     condition = one([
-      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch-creds"
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
     ]) == "1536"
     error_message = "The OpenSearch Secret must carry the embedding model's dimension (1536)."
   }
@@ -346,7 +346,7 @@ run "pi_custom_json_fields" {
     condition = (
       yamldecode(output.plane_helm_values).services.pi.ai_providers.embedding_model == { enabled = true, name = "cohere/embed-english-v3.0", embedding_dimension = 1024 }
       && one([
-        for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch-creds"
+        for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
       ]) == "1024"
     )
     error_message = "The embedding model sets pi's model and the search indexes' dimension (1024)."
@@ -398,7 +398,7 @@ run "pi_embedding_dimension_follows_model" {
   }
   assert {
     condition = one([
-      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch-creds"
+      for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.target.template.data.OPENSEARCH_EMBEDDING_DIMENSION if o.metadata.name == "plane-opensearch"
     ]) == "4096"
     error_message = "The OpenSearch Secret must carry the chosen model's dimension (4096)."
   }
