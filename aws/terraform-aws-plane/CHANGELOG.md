@@ -3,8 +3,18 @@
 ## Unreleased
 
 ### Security
-- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
-  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+- Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the five Traefik advisories published 2026-11-12, among them a
+  path-rule bypass ([GHSA-x5pf-cqh3-2gv8](https://github.com/traefik/traefik/security/advisories/GHSA-x5pf-cqh3-2gv8),
+  [GHSA-cp28-5662-543f](https://github.com/traefik/traefik/security/advisories/GHSA-cp28-5662-543f),
+  [GHSA-p956-6gvv-mxqp](https://github.com/traefik/traefik/security/advisories/GHSA-p956-6gvv-mxqp),
+  [GHSA-ccgh-9g52-6vwg](https://github.com/traefik/traefik/security/advisories/GHSA-ccgh-9g52-6vwg),
+  [GHSA-rr42-h8r2-f28g](https://github.com/traefik/traefik/security/advisories/GHSA-rr42-h8r2-f28g)), and the denial
+  of service any client could trigger on the public entry point, fixed in v3.7.17
+  ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)). Traefik now
+  keeps accepting requests for 5 seconds after it is told to stop (the chart's new default) to avoid rollout errors.
+- The api's client-IP setting now uses `TRUSTED_PROXY_IPS`, the variable the api reads (it was set as
+  `TRUSTED_PROXIES`, which nothing reads, so the api trusted forwarding headers from any client). Forwarded client IPs
+  are now trusted only from the VPC range (`vpc_cidr`).
 
 ### Changed (breaking)
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.

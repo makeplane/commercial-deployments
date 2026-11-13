@@ -124,7 +124,7 @@ run "existing_app_keys" {
     error_message = "machine_signature must reach Plane as MACHINE_SIGNATURE."
   }
   assert {
-    condition     = contains([for e in yamldecode(output.plane_helm_values).extraEnv : e.name], "TRUSTED_PROXIES")
+    condition     = contains([for e in yamldecode(output.plane_helm_values).extraEnv : e.name], "TRUSTED_PROXY_IPS")
     error_message = "machine_signature must not drop the module's other extraEnv entries."
   }
 }

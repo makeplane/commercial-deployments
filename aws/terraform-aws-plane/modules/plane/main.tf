@@ -376,10 +376,10 @@ locals {
       { for k, v in { ai_providers_existingSecret = local.pi_ai_secret } : k => v if local.pi_api_keys },
     )
 
-    # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). Traefik sits
-    # behind the NLB inside the VPC, so the VPC CIDR is the trusted proxy range.
+    # The api trusts forwarded client IPs only from TRUSTED_PROXY_IPS; the chart has no value for it
+    # yet (chart change C-8). The proxies in front of the api sit in the VPC, so the VPC CIDR.
     extraEnv = concat([
-      { name = "TRUSTED_PROXIES", value = var.vpc_cidr },
+      { name = "TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
       ],
