@@ -1,7 +1,7 @@
 # Deploying Plane on Google Cloud
 
 This guide takes you from a Google Cloud project to a running Plane Commercial installation, using the
-`terraform-gcp-plane` module. One `terraform apply` enables the project APIs and creates the network, a GKE cluster,
+`terraform-google-plane` module. One `terraform apply` enables the project APIs and creates the network, a GKE cluster,
 managed databases and Plane itself. You then create a few DNS records and, depending on the option you choose, finish
 the ingress setup.
 
