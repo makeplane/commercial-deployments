@@ -44,8 +44,9 @@ variable "plane_version" {
 variable "chart_version" {
   description = "plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service)."
   type        = string
-  default     = "3.11.3"
-  nullable    = false
+  # The chart the GCP and Azure modules need too (helm-charts#377, pending release); AWS itself works from 3.11.3.
+  default  = "3.14.0"
+  nullable = false
 }
 
 variable "chart_repository" {
@@ -172,7 +173,7 @@ variable "pi" {
     error_message = "pi.api_keys.chat_base_url, chat_model, chat_model_name and chat_max_tokens are only for chat_provider = \"custom\" (your own model on any OpenAI-compatible API). With a vendor key, Plane AI offers that vendor's built-in models: leave them unset."
   }
   validation {
-    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || var.pi.api_keys.chat_provider != "custom" || (var.pi.api_keys.chat_base_url != null && var.pi.api_keys.chat_model != null)
+    condition     = var.pi.provider != "api_keys" || var.pi.api_keys.chat_provider != "custom" || (var.pi.api_keys.chat_base_url != null && var.pi.api_keys.chat_model != null)
     error_message = "pi.api_keys.chat_provider = \"custom\" needs pi.api_keys.chat_base_url (the base URL of an OpenAI-compatible API) and pi.api_keys.chat_model (the model ID it expects)."
   }
   validation {

@@ -26,6 +26,9 @@
 - `pi.bedrock.chat_model_id` must be a cross-Region inference profile ID (`global.` or a geography prefix such as `us.`
   or `eu.`): a bare `anthropic.claude-*` ID is rejected at plan, since current Claude models aren't served on demand in
   a single region. The Bedrock embedding models stay in-region model IDs.
+- `chart_version` defaults to 3.14.0, the chart the GCP and Azure modules ship on; AWS still works from 3.11.3.
+- `pi.api_keys.chat_provider = "custom"` needs `chat_base_url` and `chat_model` even with Plane AI off, as on GCP and
+  Azure, so a half-set custom model is caught before Plane AI is turned on.
 
 ### Added
 - `use_storage_proxy` (default false, as before): true sends work item attachments, editor images and similar through
@@ -50,7 +53,8 @@
 - Email service on by default with its own internet-facing NLB (ports 25/465/587), the sender's IP preserved, receiving
   mail for `intake.<domain>` by default; the MX record is yours. `email.load_balancer = false` keeps the service without
   a load balancer.
-- Plane v4.0.1 on plane-enterprise chart 3.11.3 (configurable email Service, `/dav/` route, unbuffered live streaming).
+- Plane v4.0.1 on plane-enterprise chart 3.14.0 by default (3.11.3 or later: configurable email Service, `/dav/` route,
+  unbuffered live streaming).
   `chart_repository` and `chart_name` to test a preview build.
 - Amazon OpenSearch Service on by default, as today. Search indexes are created by the chart's post-install/upgrade Job
   (3.11.3); index names use the `opensearch.index_prefix`, default `plane`, as today.

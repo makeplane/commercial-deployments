@@ -580,6 +580,15 @@ run "reject_custom_without_model" {
   expect_failures = [var.pi]
 }
 
+# Checked with pi off too (as on GCP and Azure), so a half-set custom model fails before pi is turned on.
+run "reject_custom_without_base_url_pi_off" {
+  command = plan
+  variables {
+    pi = { api_keys = { chat_provider = "custom", chat_model = "my-model" } }
+  }
+  expect_failures = [var.pi]
+}
+
 run "reject_vendor_with_chat_base_url" {
   command = plan
   variables {

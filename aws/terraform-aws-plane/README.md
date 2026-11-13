@@ -108,7 +108,7 @@ AWS assigns and can change. For a zone apex, use your provider's alias/flattenin
 DNS-only (no proxy): Traefik terminates TLS.
 
 **Path B routes:** generate Plane's routes for your controller from the chart and the values the module generated
-(`chart_version`, default 3.11.3; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the Secret named by `tls_secret_name` (`plane-tls`) in
+(`chart_version`, default 3.14.0; if you set `plane_values`, add it as a second `-f`). The routes serve TLS from the Secret named by `tls_secret_name` (`plane-tls`) in
 namespace `plane`, except on OpenShift, where the router terminates TLS (edge).
 
 ```bash
@@ -385,7 +385,7 @@ the admin UI (`/god-mode`); Plane AI's models come from the module (see [Plane A
 | bucket\_force\_destroy | Allow terraform destroy to delete the uploads bucket even when it holds objects. | `bool` | `false` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
-| chart\_version | plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service). | `string` | `"3.11.3"` | no |
+| chart\_version | plane-enterprise Helm chart version. 3.11.3 or later (configurable email Service). | `string` | `"3.14.0"` | no |
 | cluster\_admin\_principal\_arns | IAM role or user ARNs granted cluster-admin through EKS access entries (not STS assumed-role session ARNs). The identity running Terraform is added automatically: don't list it again. | `list(string)` | `[]` | no |
 | cluster\_endpoint\_public\_access\_cidrs | CIDRs allowed to reach the public EKS API endpoint. The private endpoint is always on. Restrict this to your office, VPN or CI ranges. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | deployment\_mode | How Plane runs. Only "eks" is available in this release; "docker" (one EC2 instance with prime-cli) comes in v0.2. | `string` | `"eks"` | no |
