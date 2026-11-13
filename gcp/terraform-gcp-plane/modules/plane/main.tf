@@ -340,9 +340,10 @@ locals {
     # Memorystore's server CA for the Node.js services (live, silo).
     customCA = { s3Secrets = [{ name = local.redis_ca_secret, key = "ca.crt" }] }
 
-    # No chart value for TRUSTED_PROXIES yet (chart change C-8); Traefik reaches the api from a pod IP.
+    # The api trusts forwarded client IPs only from these CIDRs; Traefik reaches it from a pod IP.
+    # No chart value for TRUSTED_PROXY_IPS yet (chart change C-8).
     extraEnv = [
-      { name = "TRUSTED_PROXIES", value = var.pods_cidr },
+      { name = "TRUSTED_PROXY_IPS", value = var.pods_cidr },
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
     ]

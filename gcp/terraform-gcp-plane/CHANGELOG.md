@@ -3,8 +3,17 @@
 ## Unreleased
 
 ### Security
-- Traefik chart 42.3.1 (Traefik v3.7.17), which fixes a denial of service any client could trigger on the public
-  entry point ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+- Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the five Traefik advisories published 2026-11-12 for v3.7.17
+  (the first is a path-rule bypass):
+  [GHSA-cp28-5662-543f](https://github.com/traefik/traefik/security/advisories/GHSA-cp28-5662-543f),
+  [GHSA-x5pf-cqh3-2gv8](https://github.com/traefik/traefik/security/advisories/GHSA-x5pf-cqh3-2gv8),
+  [GHSA-p956-6gvv-mxqp](https://github.com/traefik/traefik/security/advisories/GHSA-p956-6gvv-mxqp),
+  [GHSA-ccgh-9g52-6vwg](https://github.com/traefik/traefik/security/advisories/GHSA-ccgh-9g52-6vwg),
+  [GHSA-rr42-h8r2-f28g](https://github.com/traefik/traefik/security/advisories/GHSA-rr42-h8r2-f28g).
+  It keeps the earlier fix for a denial of service any client could trigger on the public entry point
+  ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
+- The api's trusted proxies use `TRUSTED_PROXY_IPS`, the variable it reads (was `TRUSTED_PROXIES`, which it ignores),
+  so forwarded client IPs are trusted only from the GKE pods range.
 
 ### Changed
 - Terraform Registry name `terraform-gcp-plane` (`makeplane/plane/gcp`), the same as its folder and its

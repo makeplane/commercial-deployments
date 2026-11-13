@@ -204,8 +204,12 @@ run "secret_store_and_no_secret_values" {
     error_message = "plane_helm_values must carry no password: every credential comes from Secret Manager."
   }
   assert {
-    condition     = one([for e in yamldecode(output.plane_helm_values).extraEnv : e.value if e.name == "TRUSTED_PROXIES"]) == "10.61.0.0/16"
+    condition     = one([for e in yamldecode(output.plane_helm_values).extraEnv : e.value if e.name == "TRUSTED_PROXY_IPS"]) == "10.61.0.0/16"
     error_message = "The api must trust the pods range (Traefik reaches it from a pod IP)."
+  }
+  assert {
+    condition     = length([for e in yamldecode(output.plane_helm_values).extraEnv : e if e.name == "TRUSTED_PROXIES"]) == 0
+    error_message = "TRUSTED_PROXIES is not read by the api; use TRUSTED_PROXY_IPS."
   }
   assert {
     condition     = yamldecode(output.plane_helm_values).services.email_service.service.annotations["networking.gke.io/load-balancer-ip-addresses"] == "plane-test-email"
