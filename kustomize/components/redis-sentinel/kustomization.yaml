@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
 # ============================================================
-# REDIS SENTINEL (customer-run, bring your own)
+# REDIS SENTINEL (bring your own)
 # ============================================================
 # Points Plane at a Redis primary that is managed by a Redis Sentinel set the
 # customer runs. Plane does NOT deploy Sentinel; this component only copies the
