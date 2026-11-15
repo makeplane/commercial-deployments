@@ -708,7 +708,7 @@ Secrets that aren't in your overlay are skipped. pi is not covered.
 | `REDIS_DB` | Database index | `0` |
 | `REDIS_SSL` | TLS to the data nodes | `true`/`1`/`yes`/`on` turn it on. |
 | `REDIS_SENTINEL_SSL` | TLS to the sentinels | Empty = same as `REDIS_SSL`. |
-| `REDIS_SSL_VERIFY` | Verify server certificates against the system CA bundle | Off by default (today's behaviour). The certificate must match the address the sentinels report for the primary. |
+| `REDIS_SSL_VERIFY` | Verify server certificates against the system CA bundle | Off by default (today's behaviour). The certificate must match the address the sentinels report for the primary. With your own CA, see [Private CA](#private-ca). |
 
 ### Enable it
 
@@ -757,6 +757,32 @@ Secrets that aren't in your overlay are skipped. pi is not covered.
    ```
 
 Overlays that don't include `redis-sentinel` render exactly as before.
+
+### Private CA
+
+With `REDIS_SSL_VERIFY` on and Redis or Sentinel certificates from your own CA, the
+`custom-ca` component isn't enough on its own, and this setup isn't supported out of
+the box. `custom-ca` sets `NODE_EXTRA_CA_CERTS`, so the Node.js services (live,
+live-exporter, silo, flux) trust your CA. It doesn't set `SSL_CERT_FILE`, which the
+Python services (api, workers, beat, migrator, mcp-server) use to check Redis
+certificates, so they refuse the connection.
+
+To use it anyway, add `SSL_CERT_FILE` in your overlay, next to `custom-ca`:
+
+```yaml
+patches:
+  - target:
+      kind: ConfigMap
+      name: plane-custom-ca-env
+    patch: |-
+      - op: add
+        path: /data/SSL_CERT_FILE
+        value: /combined-ca/ca-bundle.crt
+```
+
+`/combined-ca/ca-bundle.crt` holds the system CAs plus yours, so other TLS connections
+keep working. With `REDIS_SSL_VERIFY` off (the default), the connection is still
+encrypted, and none of this is needed.
 
 ## Configuration
 
