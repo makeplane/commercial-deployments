@@ -77,7 +77,7 @@ variable "enable_components" {
 }
 
 variable "pi" {
-  description = "Plane AI's models (with enable_components.pi = true): provider \"api_keys\" (default: one chat key, a vendor's or a custom model's on an OpenAI-compatible API, and Cohere embeddings, both keys required, in Secrets Manager as plain text or JSON fields) or \"bedrock\" (keyless; the module creates inference profiles)."
+  description = "Plane AI's models (with enable_components.pi = true): provider \"api_keys\" (default: one chat key, a vendor's or a custom model's on an OpenAI-compatible API, and Cohere embeddings, both keys required, in Secrets Manager; the Cohere key as a JSON field, the chat key as plain text or a JSON field) or \"bedrock\" (keyless; the module creates inference profiles)."
   type = object({
     provider = optional(string)
     bedrock = optional(object({

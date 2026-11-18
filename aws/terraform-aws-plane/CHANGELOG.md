@@ -16,7 +16,21 @@
   `TRUSTED_PROXIES`, which nothing reads, so the api trusted forwarding headers from any client). Forwarded client IPs
   are now trusted only from the VPC range (`vpc_cidr`).
 
+### Fixed
+- Plane AI with provider API keys can now create its embedding model on Amazon OpenSearch Service, which refused the
+  Cohere connector (`Invalid Arguments in credential body`): the managed service takes no raw key in a connector, only a
+  Secrets Manager secret and a role to read it. The module now creates that role in key mode too (`<name>-pi-embeddings`,
+  assumable only by the module's domain, with `secretsmanager:GetSecretValue` on the embedding key's secret and
+  `kms:Decrypt` with the module's KMS key through Secrets Manager), and gives Plane AI
+  `AWS_OPENSEARCH_CONNECTOR_ROLE_ARN`, `AWS_OPENSEARCH_CONNECTOR_SECRET_ARN` and `AWS_OPENSEARCH_CONNECTOR_SECRET_KEY`.
+  Needs a Plane AI release that keeps Cohere's `Authorization: Bearer` header in this mode.
+- The connector role may also read the domain (`es:ESHttpGet`, `es:ESHttpHead`, with Bedrock too): Plane AI's setup
+  signs as that role to read cluster settings, models and indexes, not only to create them.
+
 ### Changed (breaking)
+- With Plane AI on in key mode, `pi.api_keys.embedding_key_json_field` is required: store the Cohere key as a JSON field,
+  since Amazon OpenSearch Service reads it from the secret itself. A plain-text Cohere secret is refused at plan; the
+  chat key may stay plain text.
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
 - `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
   null: the MX record names the email NLB's hostname directly.

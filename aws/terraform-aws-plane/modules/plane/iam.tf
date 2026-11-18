@@ -38,13 +38,14 @@ module "plane_pod_identity" {
       actions   = ["es:ESHttpGet", "es:ESHttpHead", "es:ESHttpPost", "es:ESHttpPut", "es:ESHttpPatch", "es:ESHttpDelete"]
       resources = ["${var.data.opensearch_domain_arn}/*"]
     },
+    ] : [], local.pi_connector ? [
+    {
+      # pi's migrator assumes the connector role to create the embeddings connector.
+      sid       = "PlaneAIEmbeddingsSetup"
+      actions   = ["sts:AssumeRole", "sts:TagSession"]
+      resources = [one(aws_iam_role.pi_connector[*].arn)]
+    },
     ] : [], slice([
-      {
-        # pi's migrator assumes the connector role to create the embeddings connector.
-        sid       = "PlaneAIEmbeddingsSetup"
-        actions   = ["sts:AssumeRole", "sts:TagSession"]
-        resources = [one(aws_iam_role.pi_connector[*].arn)]
-      },
       {
         sid       = "PlaneAIChatProfile"
         actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
@@ -57,7 +58,7 @@ module "plane_pod_identity" {
         resources = ["arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"]
         condition = [{ test = "StringEquals", variable = "bedrock:InferenceProfileArn", values = try(local.pi_profile_arns.chat, []) }]
       },
-  ], 0, local.pi_bedrock ? 3 : 0))
+  ], 0, local.pi_bedrock ? 2 : 0))
 
   associations = {
     this = {
@@ -86,10 +87,10 @@ data "aws_iam_policy_document" "opensearch" {
   }
 
   dynamic "statement" {
-    for_each = local.pi_bedrock ? [1] : []
+    for_each = local.pi_connector ? [1] : []
     content {
       sid       = "PlaneAIEmbeddingsSetup"
-      actions   = ["es:ESHttpPost", "es:ESHttpPut"]
+      actions   = local.pi_connector_es_actions
       resources = ["${var.data.opensearch_domain_arn}/*"]
 
       principals {
@@ -140,10 +141,18 @@ resource "aws_bedrock_inference_profile" "pi" {
   tags = var.tags
 }
 
-# OpenSearch assumes this role to call the embeddings profile; pi's migrator assumes it to create the
-# connector (it signs with the role it passes). No fine-grained access control: IAM authorizes ML APIs.
+locals {
+  pi_connector = var.pi.mode != null && var.data.opensearch_enabled
+  # The embedding key's secret and JSON field (keys mode).
+  pi_embedding_key = try(var.pi.api_key_secrets["COHERE_API_KEY"], null)
+  # Signed as the connector role, pi's setup reads cluster settings, models and indexes, then creates them.
+  pi_connector_es_actions = ["es:ESHttpGet", "es:ESHttpHead", "es:ESHttpPost", "es:ESHttpPut"]
+}
+
+# OpenSearch assumes this role to call the embeddings profile or read the Cohere key; pi's migrator assumes it
+# to create the connector (it signs with the role it passes). No fine-grained access control: IAM authorizes ML APIs.
 data "aws_iam_policy_document" "pi_connector_trust" {
-  count = local.pi_bedrock ? 1 : 0
+  count = local.pi_connector ? 1 : 0
 
   statement {
     sid     = "OpenSearch"
@@ -178,41 +187,72 @@ data "aws_iam_policy_document" "pi_connector_trust" {
 }
 
 resource "aws_iam_role" "pi_connector" {
-  count = local.pi_bedrock ? 1 : 0
+  count = local.pi_connector ? 1 : 0
 
   name               = "${var.name}-pi-embeddings"
-  description        = "Plane AI (${var.name}): OpenSearch calls the Bedrock embedding model"
+  description        = local.pi_bedrock ? "Plane AI (${var.name}): OpenSearch calls the Bedrock embedding model" : "Plane AI (${var.name}): OpenSearch reads the embedding key from Secrets Manager"
   assume_role_policy = data.aws_iam_policy_document.pi_connector_trust[0].json
 
   tags = var.tags
 }
 
 data "aws_iam_policy_document" "pi_connector" {
-  count = local.pi_bedrock ? 1 : 0
+  count = local.pi_connector ? 1 : 0
 
-  statement {
-    sid       = "EmbeddingProfile"
-    actions   = ["bedrock:InvokeModel"]
-    resources = local.pi_profile_arns.embeddings
+  dynamic "statement" {
+    for_each = local.pi_bedrock ? [1] : []
+    content {
+      sid       = "EmbeddingProfile"
+      actions   = ["bedrock:InvokeModel"]
+      resources = local.pi_profile_arns.embeddings
+    }
   }
 
   # The profile's model, in any region it routes to, only when called through the profile.
-  statement {
-    sid       = "EmbeddingModel"
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"]
+  dynamic "statement" {
+    for_each = local.pi_bedrock ? [1] : []
+    content {
+      sid       = "EmbeddingModel"
+      actions   = ["bedrock:InvokeModel"]
+      resources = ["arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"]
 
-    condition {
-      test     = "StringEquals"
-      variable = "bedrock:InferenceProfileArn"
-      values   = local.pi_profile_arns.embeddings
+      condition {
+        test     = "StringEquals"
+        variable = "bedrock:InferenceProfileArn"
+        values   = local.pi_profile_arns.embeddings
+      }
     }
   }
 
   statement {
     sid       = "ConnectorSetup"
-    actions   = ["es:ESHttpPost", "es:ESHttpPut"]
+    actions   = local.pi_connector_es_actions
     resources = ["${var.data.opensearch_domain_arn}/*"]
+  }
+
+  # Keys mode: the Cohere key's secret only; the module's KMS key decrypts it through Secrets Manager.
+  dynamic "statement" {
+    for_each = local.pi_api_keys ? [1] : []
+    content {
+      sid       = "EmbeddingKey"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [local.pi_embedding_key.arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = local.pi_api_keys ? [1] : []
+    content {
+      sid       = "EmbeddingKeyEncryption"
+      actions   = ["kms:Decrypt"]
+      resources = [var.data.kms_key_arn]
+
+      condition {
+        test     = "StringEquals"
+        variable = "kms:ViaService"
+        values   = ["secretsmanager.${var.region}.${data.aws_partition.current.dns_suffix}"]
+      }
+    }
   }
 
   statement {
@@ -223,9 +263,9 @@ data "aws_iam_policy_document" "pi_connector" {
 }
 
 resource "aws_iam_role_policy" "pi_connector" {
-  count = local.pi_bedrock ? 1 : 0
+  count = local.pi_connector ? 1 : 0
 
-  name   = "bedrock-embeddings"
+  name   = local.pi_bedrock ? "bedrock-embeddings" : "embedding-key"
   role   = aws_iam_role.pi_connector[0].id
   policy = data.aws_iam_policy_document.pi_connector[0].json
 }

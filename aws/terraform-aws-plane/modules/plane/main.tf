@@ -156,10 +156,19 @@ locals {
   }
 
   # The chart has no values for these: identifiers, not secrets, so they go in extraEnv.
-  pi_bedrock_env = local.pi_bedrock ? [
-    { name = "BEDROCK_EMBEDDING_INFERENCE_PROFILE_ARN", value = try(aws_bedrock_inference_profile.pi["embeddings"].arn, null) },
-    { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = one(aws_iam_role.pi_connector[*].arn) },
-  ] : []
+  pi_connector_env = concat(
+    local.pi_bedrock ? [
+      { name = "BEDROCK_EMBEDDING_INFERENCE_PROFILE_ARN", value = try(aws_bedrock_inference_profile.pi["embeddings"].arn, null) },
+    ] : [],
+    local.pi_connector ? [
+      { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = one(aws_iam_role.pi_connector[*].arn) },
+    ] : [],
+    # Amazon OpenSearch Service takes no raw key in a connector: it reads this secret's field itself.
+    local.pi_connector && local.pi_api_keys ? [
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_ARN", value = try(local.pi_embedding_key.arn, null) },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_KEY", value = try(local.pi_embedding_key.property, null) },
+    ] : [],
+  )
 
   # pi needs its own database; the chart doesn't create it yet (chart change C-1).
   db_init_job = {
@@ -386,7 +395,7 @@ locals {
       # A moved 3.x installation's signature (env beats the chart's derived one): Plane needs it
       # once, to move the licences to the instance key it creates on first start.
       var.machine_signature == null ? [] : [{ name = "MACHINE_SIGNATURE", value = var.machine_signature }],
-      local.pi_bedrock_env,
+      local.pi_connector_env,
     )
 
     extraObjects = concat(

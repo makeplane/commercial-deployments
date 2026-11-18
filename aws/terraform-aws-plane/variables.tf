@@ -108,15 +108,16 @@ variable "pi" {
     OpenAI Chat Completions API at api_keys.chat_base_url (e.g. https://host/v1 serving /chat/completions, bearer
     key) and api_keys.chat_model (the model ID it expects); optional chat_model_name and chat_max_tokens (default
     128000). These four are only for custom. Both keys are required, each a Secrets Manager secret in this account
-    and region (full ARN; encrypted with aws/secretsmanager or this module's KMS key): plain text, or JSON with
-    *_key_json_field naming the field (one JSON secret can hold both). provider = "bedrock" (alternative): keyless
-    Amazon Bedrock through Plane's Pod Identity role; the module creates an application inference profile for each
-    model from bedrock.embedding_model (one of Plane AI's Bedrock embedding models) and bedrock.chat_model_id (an
-    Anthropic Claude cross-Region inference profile ID, global. or a geography prefix such as us. or eu.; Plane AI
-    calls it with the Anthropic API). The models must be available to the account in this region (Anthropic: submit
-    the use case form once). Choose the provider and embedding model before the first install, even if Plane AI is
-    turned on later: Plane's search indexes are created with its dimension, so changing it afterwards needs Plane's
-    search indexes and Plane AI's indexes recreated.
+    and region (full ARN; encrypted with aws/secretsmanager or this module's KMS key). The Cohere key must be a JSON
+    field (embedding_key_json_field): Amazon OpenSearch Service reads it from the secret itself, through a role the
+    module creates. The chat key is plain text, or a JSON field (chat_key_json_field); one JSON secret can hold both.
+    provider = "bedrock" (alternative): keyless Amazon Bedrock through Plane's Pod Identity role; the module creates
+    an application inference profile for each model from bedrock.embedding_model (one of Plane AI's Bedrock embedding
+    models) and bedrock.chat_model_id (an Anthropic Claude cross-Region inference profile ID, global. or a geography
+    prefix such as us. or eu.; Plane AI calls it with the Anthropic API). The models must be available to the account
+    in this region (Anthropic: submit the use case form once). Choose the provider and embedding model before the
+    first install, even if Plane AI is turned on later: Plane's search indexes are created with its dimension, so
+    changing it afterwards needs Plane's search indexes and Plane AI's indexes recreated.
   EOT
   type = object({
     provider = optional(string, "api_keys")
@@ -161,6 +162,10 @@ variable "pi" {
   validation {
     condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || (var.pi.api_keys.chat_key_secret_arn != null && var.pi.api_keys.embedding_key_secret_arn != null)
     error_message = "Plane AI with provider API keys (the default) needs pi.api_keys.chat_key_secret_arn (the chat key) and pi.api_keys.embedding_key_secret_arn (the Cohere key)."
+  }
+  validation {
+    condition     = !var.enable_components.pi || var.pi.provider != "api_keys" || !var.opensearch.enabled || var.pi.api_keys.embedding_key_json_field != null
+    error_message = "Plane AI with provider API keys needs pi.api_keys.embedding_key_json_field: store the Cohere key as a JSON field; Amazon OpenSearch Service reads it from the secret itself. The chat key may stay plain text."
   }
   validation {
     condition     = contains(keys(local.pi_chat_key_envs), var.pi.api_keys.chat_provider)

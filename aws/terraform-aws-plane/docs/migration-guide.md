@@ -226,14 +226,15 @@ email = { smtp_domain = "intake.plane.example.com" }
 # Only if the old installation has USE_STORAGE_PROXY on (step 5)
 # use_storage_proxy = true
 
-# Only if the old installation runs Plane AI (the pi-service component). Both keys are required:
-# see the Plane AI section of the module's README.
+# Only if the old installation runs Plane AI (the pi-service component). Both keys are required, the Cohere key
+# as a JSON field: see the Plane AI section of the module's README.
 # enable_components = { pi = true }
 # pi = {
 #   api_keys = {
 #     chat_provider            = "openai" # default; or anthropic, xai, baseten, meta, or custom (see README)
 #     chat_key_secret_arn      = "arn:aws:secretsmanager:<region>:<account>:secret:plane/openai-key-..."
 #     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/cohere-key-..."
+#     embedding_key_json_field = "cohere_key" # the field holding the Cohere key
 #   }
 # }
 ```

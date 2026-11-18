@@ -201,7 +201,7 @@ run "pi_off_without_opensearch" {
 run "pi_default_api_keys" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
 
   assert {
@@ -296,7 +296,7 @@ run "pi_api_keys" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_provider = "openai", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_provider = "openai", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
 
@@ -309,9 +309,9 @@ run "pi_api_keys" {
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
       { secretKey = "OPENAI_API_KEY", remoteRef = { key = var.openai_key } },
-      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
     ])
-    error_message = "Plain-text secrets: each key whole, into the env var pi reads, with no JSON property."
+    error_message = "A plain-text chat key is synced whole; the Cohere key from its JSON field."
   }
   assert {
     condition = yamldecode(output.plane_helm_values).services.pi.ai_providers == {
@@ -320,15 +320,37 @@ run "pi_api_keys" {
     error_message = "With a vendor key: Cohere embed-v4.0 embeddings and no custom LLM (pi offers the vendor's models)."
   }
   assert {
-    condition     = length(yamldecode(output.plane_helm_values).extraEnv) == 2
-    error_message = "With keys: no Bedrock profile or connector role."
+    condition = [for e in yamldecode(output.plane_helm_values).extraEnv : e if startswith(e.name, "AWS_OPENSEARCH_CONNECTOR_") || startswith(e.name, "BEDROCK_")] == [
+      { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = "arn:aws:iam::123456789012:role/mock" },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_ARN", value = var.cohere_key },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_KEY", value = "cohere_key" },
+    ]
+    error_message = "With keys on Amazon OpenSearch Service: the connector role, the Cohere key's secret and its field, and no Bedrock profile."
+  }
+}
+
+# Amazon OpenSearch Service reads the Cohere key from the secret itself, so only as a JSON field.
+run "reject_api_keys_plain_embedding_key" {
+  command = plan
+  variables {
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+  }
+  expect_failures = [var.pi]
+}
+
+# With pi off, the embedding key's form isn't checked.
+run "accept_plain_embedding_key_pi_off" {
+  command = plan
+  variables {
+    pi = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
   }
 }
 
 run "pi_api_keys_anthropic" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "anthropic", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "anthropic", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
 
   assert {
@@ -336,7 +358,7 @@ run "pi_api_keys_anthropic" {
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
       { secretKey = "CLAUDE_API_KEY", remoteRef = { key = var.openai_key } },
-      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
     ])
     error_message = "The anthropic key must be synced into CLAUDE_API_KEY, the env var pi reads it from."
   }
@@ -349,7 +371,7 @@ run "pi_api_keys_anthropic" {
 run "pi_api_keys_xai" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "xai", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "xai", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
 
   assert {
@@ -357,7 +379,7 @@ run "pi_api_keys_xai" {
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
       { secretKey = "XAI_API_KEY", remoteRef = { key = var.openai_key } },
-      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
     ])
     error_message = "The xai key must be synced into XAI_API_KEY, the env var pi reads it from."
   }
@@ -370,7 +392,7 @@ run "pi_api_keys_xai" {
 run "pi_api_keys_baseten" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "baseten", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "baseten", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
 
   assert {
@@ -378,7 +400,7 @@ run "pi_api_keys_baseten" {
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
       { secretKey = "BASETEN_API_KEY", remoteRef = { key = var.openai_key } },
-      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
     ])
     error_message = "The baseten key must be synced into BASETEN_API_KEY, the env var pi reads it from."
   }
@@ -391,7 +413,7 @@ run "pi_api_keys_baseten" {
 run "pi_api_keys_meta" {
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "meta", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "meta", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
 
   assert {
@@ -399,7 +421,7 @@ run "pi_api_keys_meta" {
       for o in yamldecode(output.plane_helm_values).extraObjects : o.spec.data if o.metadata.name == "plane-ai-providers"
       ])) == toset([
       { secretKey = "META_API_KEY", remoteRef = { key = var.openai_key } },
-      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key } },
+      { secretKey = "COHERE_API_KEY", remoteRef = { key = var.cohere_key, property = "cohere_key" } },
     ])
     error_message = "The meta key must be synced into META_API_KEY, the env var pi reads it from."
   }
@@ -450,7 +472,7 @@ run "pi_custom_defaults" {
     pi = {
       api_keys = {
         chat_provider       = "custom", chat_base_url = "http://vllm.internal:8000/v1", chat_model = "gpt-oss-120b"
-        chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key
+        chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key"
       }
     }
   }
@@ -469,7 +491,7 @@ run "reject_pi_without_opensearch" {
   variables {
     enable_components = { pi = true }
     opensearch        = { enabled = false }
-    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.enable_components]
 }
@@ -543,7 +565,7 @@ run "reject_api_keys_bedrock_embeddings" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "bedrock/amazon.titan-embed-text-v2", embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "bedrock/amazon.titan-embed-text-v2", embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -553,7 +575,7 @@ run "reject_unknown_chat_provider" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "groq", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "groq", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.pi]
 }
@@ -563,7 +585,7 @@ run "reject_custom_without_base_url" {
   variables {
     enable_components = { pi = true }
     pi = {
-      api_keys = { chat_provider = "custom", chat_model = "my-model", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_provider = "custom", chat_model = "my-model", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -574,7 +596,7 @@ run "reject_custom_without_model" {
   variables {
     enable_components = { pi = true }
     pi = {
-      api_keys = { chat_provider = "custom", chat_base_url = "https://llm.example.com/v1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_provider = "custom", chat_base_url = "https://llm.example.com/v1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -593,7 +615,7 @@ run "reject_vendor_with_chat_base_url" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_base_url = "https://api.openai.com/v1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_base_url = "https://api.openai.com/v1", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.pi]
 }
@@ -602,7 +624,7 @@ run "reject_vendor_with_chat_model" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "anthropic", chat_model = "claude-sonnet-4-6", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "anthropic", chat_model = "claude-sonnet-4-6", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.pi]
 }
@@ -611,7 +633,7 @@ run "reject_vendor_with_chat_model_name" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "xai", chat_model_name = "Grok", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "xai", chat_model_name = "Grok", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.pi]
 }
@@ -620,7 +642,7 @@ run "reject_vendor_with_chat_max_tokens" {
   command = plan
   variables {
     enable_components = { pi = true }
-    pi                = { api_keys = { chat_provider = "meta", chat_max_tokens = 64000, chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+    pi                = { api_keys = { chat_provider = "meta", chat_max_tokens = 64000, chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
   }
   expect_failures = [var.pi]
 }
@@ -631,7 +653,7 @@ run "reject_openai_embeddings" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret_arn = var.openai_key }
+      api_keys = { chat_key_secret_arn = var.openai_key, embedding_model = "openai/text-embedding-3-small", embedding_key_secret_arn = var.openai_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -643,7 +665,7 @@ run "reject_bad_chat_base_url" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_provider = "custom", chat_base_url = "llm.example.com/v1", chat_model = "my-model", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_provider = "custom", chat_base_url = "llm.example.com/v1", chat_model = "my-model", chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -655,7 +677,7 @@ run "reject_bad_json_field" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_key_secret_arn = var.openai_key, chat_key_json_field = "open ai", embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_key_secret_arn = var.openai_key, chat_key_json_field = "open ai", embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -667,7 +689,7 @@ run "reject_small_chat_max_tokens" {
     enable_components = { pi = true }
     pi = {
       provider = "api_keys"
-      api_keys = { chat_provider = "custom", chat_base_url = "https://llm.example.com/v1", chat_model = "my-model", chat_max_tokens = 10, chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key }
+      api_keys = { chat_provider = "custom", chat_base_url = "https://llm.example.com/v1", chat_model = "my-model", chat_max_tokens = 10, chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" }
     }
   }
   expect_failures = [var.pi]
@@ -774,10 +796,23 @@ run "iam_bedrock" {
     condition     = length(data.aws_iam_policy_document.opensearch[0].statement) == 2
     error_message = "The domain policy must also allow the connector role."
   }
+  assert {
+    condition = (
+      [for st in data.aws_iam_policy_document.pi_connector[0].statement : st.sid] == ["EmbeddingProfile", "EmbeddingModel", "ConnectorSetup", "PassToOpenSearch"]
+      && aws_iam_role_policy.pi_connector[0].name == "bedrock-embeddings"
+    )
+    error_message = "Bedrock: the connector role's policy keeps its name and statements, with no secret access."
+  }
+  assert {
+    condition = local.pi_connector_env == tolist([
+      { name = "BEDROCK_EMBEDDING_INFERENCE_PROFILE_ARN", value = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/mock" },
+      { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = "arn:aws:iam::123456789012:role/mock" },
+    ])
+    error_message = "Bedrock: pi gets the embeddings profile and the connector role, and no connector secret."
+  }
 }
 
 run "iam_api_keys" {
-  command = plan
   module {
     source = "./modules/plane"
   }
@@ -833,16 +868,139 @@ run "iam_api_keys" {
       chat                = { base_url = "https://api.openai.com/v1", model = "gpt-5.1", name = "gpt-5.1", max_tokens = 128000 }
       api_key_secrets = {
         CUSTOM_LLM_API_KEY = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:a", property = null }
-        COHERE_API_KEY     = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:b", property = null }
+        COHERE_API_KEY     = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:b", property = "cohere_key" }
       }
     }
   }
 
   assert {
     condition = (
-      length(aws_iam_role.pi_connector) == 0 && length(aws_bedrock_inference_profile.pi) == 0
-      && length(data.aws_iam_policy_document.opensearch[0].statement) == 1
+      length(aws_iam_role.pi_connector) == 1 && length(aws_iam_role_policy.pi_connector) == 1
+      && aws_iam_role_policy.pi_connector[0].name == "embedding-key" && length(aws_bedrock_inference_profile.pi) == 0
     )
-    error_message = "With keys: no Bedrock profiles or connector role, and the domain policy is unchanged."
+    error_message = "With keys: the connector role and its policy, and no Bedrock profiles."
+  }
+  assert {
+    condition = (
+      one(data.aws_iam_policy_document.pi_connector_trust[0].statement[0].principals).identifiers == toset(["opensearchservice.amazonaws.com"])
+      && toset([for c in data.aws_iam_policy_document.pi_connector_trust[0].statement[0].condition : "${c.variable}=${join(",", c.values)}"]) == toset([
+        "aws:SourceAccount=123456789012", "aws:SourceArn=arn:aws:es:us-east-1:123456789012:domain/plane-test",
+      ])
+    )
+    error_message = "Only the module's OpenSearch domain may assume the connector role."
+  }
+  assert {
+    condition     = [for st in data.aws_iam_policy_document.pi_connector[0].statement : st.sid] == ["ConnectorSetup", "EmbeddingKey", "EmbeddingKeyEncryption", "PassToOpenSearch"]
+    error_message = "With keys: ML setup on the domain, the embedding key, its decryption and the pass; nothing for Bedrock."
+  }
+  assert {
+    condition = alltrue([
+      for st in data.aws_iam_policy_document.pi_connector[0].statement : st.sid == "EmbeddingKey" ? (
+        st.actions == toset(["secretsmanager:GetSecretValue"]) && st.resources == toset(["arn:aws:secretsmanager:us-east-1:123456789012:secret:b"])
+      ) : length([for a in st.actions : a if startswith(a, "secretsmanager:")]) == 0
+    ])
+    error_message = "The connector role may read only the embedding key's secret (GetSecretValue), not the chat key's."
+  }
+  assert {
+    condition = alltrue([
+      for st in data.aws_iam_policy_document.pi_connector[0].statement : st.sid != "EmbeddingKeyEncryption" || (
+        st.actions == toset(["kms:Decrypt"]) && st.resources == toset(["arn:aws:kms:us-east-1:123456789012:key/mock"])
+        && toset([for c in st.condition : "${c.test} ${c.variable}=${join(",", c.values)}"]) == toset(["StringEquals kms:ViaService=secretsmanager.us-east-1.amazonaws.com"])
+      )
+    ])
+    error_message = "The connector role may decrypt with the module's KMS key only through Secrets Manager."
+  }
+  assert {
+    condition = alltrue([
+      for st in data.aws_iam_policy_document.pi_connector[0].statement : st.sid != "ConnectorSetup" || (
+        st.actions == toset(["es:ESHttpGet", "es:ESHttpHead", "es:ESHttpPost", "es:ESHttpPut"])
+        && st.resources == toset(["arn:aws:es:us-east-1:123456789012:domain/plane-test/*"])
+      )
+    ])
+    error_message = "pi's setup, signed as the connector role, reads and creates ML objects on the module's domain."
+  }
+  assert {
+    condition     = length(data.aws_iam_policy_document.opensearch[0].statement) == 2
+    error_message = "The domain policy must also allow the connector role."
+  }
+  assert {
+    condition = local.pi_connector_env == tolist([
+      { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = "arn:aws:iam::123456789012:role/mock" },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_ARN", value = "arn:aws:secretsmanager:us-east-1:123456789012:secret:b" },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_KEY", value = "cohere_key" },
+    ])
+    error_message = "pi must get the connector role, the embedding key's secret and its JSON field."
+  }
+}
+
+run "iam_pi_off" {
+  module {
+    source = "./modules/plane"
+  }
+  variables {
+    region                     = "us-east-1"
+    cluster_name               = "plane-test"
+    plane_version              = "v4.0.1"
+    chart_version              = "3.11.3"
+    vpc_cidr                   = "10.60.0.0/16"
+    enable_components          = { silo = true, drawio = true, pi = false }
+    tls_secret_name            = "plane-tls"
+    ingress_enabled            = false
+    tls_certificate_secret_arn = null
+    email                      = { enabled = false, smtp_domain = null, load_balancer = false, certificate_secret_arn = null }
+    public_subnet_ids          = []
+    chart_repository           = "https://helm.plane.so/"
+    chart_name                 = "plane-enterprise"
+    acme_email                 = null
+    acme_server                = "https://acme-v02.api.letsencrypt.org/directory"
+    use_storage_proxy          = false
+    helm_timeout               = 3600
+    plane_values               = ""
+    addons_ready               = "ready"
+    machine_signature          = null
+    tags                       = {}
+    data = {
+      kms_key_arn            = "arn:aws:kms:us-east-1:123456789012:key/mock"
+      bucket_name            = "plane-test-uploads"
+      bucket_arn             = "arn:aws:s3:::plane-test-uploads"
+      postgres_host          = "postgres.mock"
+      postgres_port          = 5432
+      postgres_db            = "plane"
+      postgres_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:postgres"
+      redis_host             = "redis.mock"
+      redis_port             = 6379
+      redis_secret_arn       = "arn:aws:secretsmanager:us-east-1:123456789012:secret:redis"
+      rabbitmq_host          = "rabbitmq.mock"
+      rabbitmq_port          = 5671
+      rabbitmq_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rabbitmq"
+      app_keys_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:app-keys"
+      app_key_names          = ["SECRET_KEY", "AES_SECRET_KEY"]
+      opensearch_enabled     = true
+      opensearch_endpoint    = "opensearch.mock"
+      opensearch_domain_name = "plane-test"
+      opensearch_domain_arn  = "arn:aws:es:us-east-1:123456789012:domain/plane-test"
+      opensearch_prefix      = "plane"
+    }
+    pi = {
+      mode                = null
+      embedding_model     = null
+      embedding_dimension = 1536
+      bedrock             = null
+      chat                = null
+      api_key_secrets     = {}
+    }
+  }
+
+  assert {
+    condition = (
+      length(aws_iam_role.pi_connector) == 0 && length(aws_iam_role_policy.pi_connector) == 0
+      && length(data.aws_iam_policy_document.pi_connector) == 0 && length(data.aws_iam_policy_document.pi_connector_trust) == 0
+      && length(aws_bedrock_inference_profile.pi) == 0
+    )
+    error_message = "With pi off: no connector role, policy or inference profiles."
+  }
+  assert {
+    condition     = length(data.aws_iam_policy_document.opensearch[0].statement) == 1 && length(local.pi_connector_env) == 0
+    error_message = "With pi off: the domain policy allows only Plane's role, and pi gets no connector settings."
   }
 }

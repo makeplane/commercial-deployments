@@ -110,8 +110,10 @@ domain = "plane.example.com" # never change after install
 # }
 
 # Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat key (a vendor's, OpenAI by
-# default) and Cohere embeddings, both keys required, in Secrets Manager (same account and region): plain text, or JSON
-# with *_key_json_field naming the field. Choose the embedding model before the first install, even with Plane AI off.
+# default) and Cohere embeddings, both keys required, in Secrets Manager (same account and region). The Cohere key must
+# be a JSON field (embedding_key_json_field): Amazon OpenSearch Service reads it from the secret itself, through a role
+# the module creates. The chat key is plain text or a JSON field. Choose the embedding model before the first install,
+# even with Plane AI off.
 # pi = {
 #   api_keys = {
 #     chat_provider            = "openai"                     # or "anthropic", "xai", "baseten", "meta", "custom"
@@ -119,7 +121,7 @@ domain = "plane.example.com" # never change after install
 #     chat_key_json_field      = "chat_key"                   # omit for a plain-text secret
 #     embedding_model          = "cohere/embed-v4.0"
 #     embedding_key_secret_arn = "arn:aws:secretsmanager:<region>:<account>:secret:plane/ai-keys-..."
-#     embedding_key_json_field = "cohere_key"
+#     embedding_key_json_field = "cohere_key"                 # required: the field holding the Cohere key
 #   }
 # }
 # chat_provider = "custom": your own model on any OpenAI-compatible API (pi's custom LLM). It requires the OpenAI Chat
