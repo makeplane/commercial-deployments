@@ -769,8 +769,8 @@ run "iam_bedrock" {
     error_message = "Profiles copy the in-region embedding model and the chat model's cross-Region profile."
   }
   assert {
-    condition     = length(aws_iam_role.pi_connector) == 1 && length(aws_iam_role_policy.pi_connector) == 1
-    error_message = "Bedrock embeddings need the connector role and its policy."
+    condition     = length(aws_iam_role.pi_connector) == 1 && length(aws_iam_role_policy.pi_connector) == 1 && length(time_sleep.pi_connector_propagation) == 1
+    error_message = "Bedrock embeddings need the connector role, its policy, and the wait for IAM before the domain policy."
   }
   assert {
     condition = (
@@ -876,6 +876,7 @@ run "iam_api_keys" {
   assert {
     condition = (
       length(aws_iam_role.pi_connector) == 1 && length(aws_iam_role_policy.pi_connector) == 1
+      && length(time_sleep.pi_connector_propagation) == 1
       && aws_iam_role_policy.pi_connector[0].name == "embedding-key" && length(aws_bedrock_inference_profile.pi) == 0
     )
     error_message = "With keys: the connector role and its policy, and no Bedrock profiles."

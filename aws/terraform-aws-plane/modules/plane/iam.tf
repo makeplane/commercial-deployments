@@ -101,11 +101,21 @@ data "aws_iam_policy_document" "opensearch" {
   }
 }
 
+# OpenSearch refuses a policy naming a role IAM hasn't propagated yet (InvalidTypeException).
+resource "time_sleep" "pi_connector_propagation" {
+  count = length(aws_iam_role.pi_connector)
+
+  create_duration = "30s"
+  triggers        = { role_arn = aws_iam_role.pi_connector[0].arn }
+}
+
 resource "aws_opensearch_domain_policy" "plane" {
   count = var.data.opensearch_enabled ? 1 : 0
 
   domain_name     = var.data.opensearch_domain_name
   access_policies = data.aws_iam_policy_document.opensearch[0].json
+
+  depends_on = [time_sleep.pi_connector_propagation]
 }
 
 # Plane AI on Amazon Bedrock: one application inference profile per model (cost tracking by tag, and

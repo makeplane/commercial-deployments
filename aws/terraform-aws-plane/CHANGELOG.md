@@ -17,6 +17,8 @@
   are now trusted only from the VPC range (`vpc_cidr`).
 
 ### Fixed
+- Plane AI on Amazon OpenSearch Service: the first apply no longer fails setting the domain policy
+  (`InvalidTypeException`) while IAM is still propagating the new connector role; the module waits 30 s.
 - Plane AI with provider API keys can now create its embedding model on Amazon OpenSearch Service, which refused the
   Cohere connector (`Invalid Arguments in credential body`): the managed service takes no raw key in a connector, only a
   Secrets Manager secret and a role to read it. The module now creates that role in key mode too (`<name>-pi-embeddings`,
