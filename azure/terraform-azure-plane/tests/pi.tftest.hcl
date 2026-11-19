@@ -118,6 +118,10 @@ run "embedding_dimension_default_pi_off" {
     condition     = !can(yamldecode(output.plane_helm_values).services.opensearch.javaOpts) && !can(yamldecode(output.plane_helm_values).services.opensearch.memoryLimit)
     error_message = "With pi off, OpenSearch keeps the chart's heap and limit."
   }
+  assert {
+    condition     = !can(yamldecode(output.plane_helm_values).env.pi_envs)
+    error_message = "With pi off, the module must leave pi's indexing settings to the chart."
+  }
 }
 
 run "embedding_dimension_follows_model_pi_off" {
@@ -191,6 +195,10 @@ run "pi_on_azure_blob" {
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.javaOpts == "-Xms1536m -Xmx1536m" && yamldecode(output.plane_helm_values).services.opensearch.memoryLimit == "3Gi"
     error_message = "With Plane AI, OpenSearch gets a 1.5 GB heap in a 3 GiB limit."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.pi_envs == { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } }
+    error_message = "With pi on, vector and workspace-plan sync must be on (the chart leaves them off), with the chart's intervals."
   }
 }
 

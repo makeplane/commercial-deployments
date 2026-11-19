@@ -5,6 +5,7 @@ locals {
   external_secrets_sa        = "external-secrets"
   cert_manager_namespace     = "cert-manager"
   cert_manager_sa            = "cert-manager"
+  traefik_namespace          = "traefik"
 
   # HTTP-01 through Traefik: cert-manager needs no Azure access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
@@ -27,6 +28,16 @@ locals {
       "service.beta.kubernetes.io/azure-load-balancer-resource-group" = var.resource_group_name
     },
   )
+
+  # The api prefers these client-settable headers to X-Forwarded-For, so any client could set the IP Plane
+  # records. Traefik removes them (an empty value) on both entry points, which covers every chart route.
+  client_ip_headers_middleware = {
+    apiVersion = "traefik.io/v1alpha1"
+    kind       = "Middleware"
+    metadata   = { name = "strip-client-ip-headers", namespace = local.traefik_namespace }
+    spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
+  }
+  entrypoint_middlewares = ["${local.traefik_namespace}-${local.client_ip_headers_middleware.metadata.name}@kubernetescrd"]
 }
 
 resource "terraform_data" "cluster_ready" {
@@ -106,7 +117,7 @@ resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 
   name             = "traefik"
-  namespace        = "traefik"
+  namespace        = local.traefik_namespace
   create_namespace = true
   repository       = "https://traefik.github.io/charts"
   chart            = "traefik"
@@ -134,6 +145,7 @@ resource "helm_release" "traefik" {
     ports = {
       web = {
         http = {
+          middlewares = local.entrypoint_middlewares
           redirections = {
             entryPoint = {
               to        = "websecure"
@@ -144,6 +156,9 @@ resource "helm_release" "traefik" {
         }
       }
       websecure = {
+        http = {
+          middlewares = local.entrypoint_middlewares
+        }
         # No read deadline: live's websockets and large uploads.
         transport = {
           respondingTimeouts = {
@@ -160,6 +175,7 @@ resource "helm_release" "traefik" {
         loadBalancerSourceRanges = var.allowed_cidrs
       }
     }
+    extraObjects = [local.client_ip_headers_middleware]
   })]
 
   depends_on = [terraform_data.cluster_ready]

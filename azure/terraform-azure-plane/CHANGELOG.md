@@ -14,6 +14,9 @@
   keeps accepting requests for 5 seconds after a Traefik pod is told to stop, so rollouts drop fewer connections.
 - The api's client-IP setting now uses the variable the api reads (`TRUSTED_PROXY_IPS`, was `TRUSTED_PROXIES`), so
   forwarded client IPs are trusted only from the pod range (Traefik's pods), not from any client.
+- Path A: Traefik removes the `CF-Connecting-IP` and `True-Client-IP` request headers on both entry points (a
+  `Middleware` shipped with the Traefik release), so a client can no longer set the IP Plane records: the api prefers
+  them to `X-Forwarded-For`. In path B, your ingress should remove them (see README).
 
 > **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and plane-enterprise chart
 > 3.14.0 ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which renders it
@@ -85,3 +88,6 @@
   `chat_model`, and the custom-only inputs are refused with a vendor key.
 - The in-cluster OpenSearch credentials Secret is named `plane-opensearch` (was `plane-opensearch-creds`), as on GCP.
 - `rabbitmq_port` is left to the chart's default (5672) instead of being set in the values.
+- With Plane AI on, the module turns on its indexing (`env.pi_envs.celery.vector_sync_enabled` and
+  `workspace_plan_sync_enabled`, off in the chart), so pi embeds workspace data; the sync intervals stay the chart's,
+  and `plane_values` can still override both.

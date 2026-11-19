@@ -301,6 +301,9 @@ locals {
     drawio = { local_setup = var.enable_components.drawio }
   }
 
+  # The chart leaves pi's indexing off, so it would never embed workspace data. Intervals stay the chart's.
+  pi_env = var.enable_components.pi ? { pi_envs = { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } } } : {}
+
   reloader_services = {
     for s in local.reloaded_services : s => { annotations = { "reloader.stakater.com/auto" = "true" } }
   }
@@ -367,7 +370,7 @@ locals {
 
       # As in today's managed deployment.
       allow_all_attachment_types = true
-    }, local.blob_env)
+    }, local.blob_env, local.pi_env)
 
     external_secrets = {
       database                    = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }

@@ -58,6 +58,19 @@ run "internet_facing_static_ip" {
     error_message = "ingress.allowed_cidrs must reach loadBalancerSourceRanges."
   }
   assert {
+    condition = one([
+      for o in yamldecode(helm_release.traefik[0].values[0]).extraObjects : o.spec.headers.customRequestHeaders
+      if o.kind == "Middleware" && o.metadata.name == "strip-client-ip-headers" && o.metadata.namespace == "traefik"
+    ]) == { "CF-Connecting-IP" = "", "True-Client-IP" = "" }
+    error_message = "Traefik must remove the client-settable IP headers (CF-Connecting-IP, True-Client-IP)."
+  }
+  assert {
+    condition = alltrue([
+      for p in ["web", "websecure"] : yamldecode(helm_release.traefik[0].values[0]).ports[p].http.middlewares == ["traefik-strip-client-ip-headers@kubernetescrd"]
+    ])
+    error_message = "Both entry points must apply the header middleware, so every chart route is covered."
+  }
+  assert {
     condition     = length(helm_release.cert_manager) == 0
     error_message = "No cert-manager without Let's Encrypt."
   }
@@ -100,6 +113,10 @@ run "path_b_no_traefik" {
   assert {
     condition     = length(helm_release.traefik) == 0
     error_message = "Path B installs no Traefik."
+  }
+  assert {
+    condition     = length([for r in helm_release.traefik : r if strcontains(r.values[0], "strip-client-ip-headers")]) == 0
+    error_message = "Path B renders no Traefik middleware or entry-point reference: the customer's ingress drops the headers."
   }
 }
 
