@@ -139,7 +139,8 @@ kubectl -n plane apply -f plane-routes.yaml   # regenerate and re-apply after ev
 ```
 
 Other controllers: use the generated NGINX Ingress as the route table (paths → services and ports). Plane needs
-WebSockets on `/live/` and an upload limit of at least 20 MB.
+WebSockets on `/live/` and an upload limit of at least 20 MB. Your ingress should drop client-sent `CF-Connecting-IP`
+and `True-Client-IP` headers (path A's Traefik does): the api prefers them to `X-Forwarded-For`.
 
 Destroy in path B in reverse: remove your routes, then your ingress controller and its load balancer, then
 `terraform destroy`.

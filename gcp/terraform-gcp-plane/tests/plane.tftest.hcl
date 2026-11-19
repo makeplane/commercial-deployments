@@ -226,6 +226,7 @@ run "secret_store_and_no_secret_values" {
       !can(yamldecode(output.plane_helm_values).external_secrets.ai_providers_existingSecret) &&
       !can(yamldecode(output.plane_helm_values).services.opensearch.javaOpts) &&
       !can(yamldecode(output.plane_helm_values).services.opensearch.memoryLimit) &&
+      !can(yamldecode(output.plane_helm_values).env.pi_envs) &&
       !contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.name], "plane-ai-providers")
     )
     error_message = "Plane AI is off by default and renders nothing of its own."
@@ -380,6 +381,10 @@ run "pi_on_gcs" {
   assert {
     condition     = yamldecode(output.plane_helm_values).services.opensearch.javaOpts == "-Xms1536m -Xmx1536m" && yamldecode(output.plane_helm_values).services.opensearch.memoryLimit == "3Gi"
     error_message = "With Plane AI, OpenSearch gets a 1.5 GB heap in a 3 GiB limit."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.pi_envs == { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } }
+    error_message = "With Plane AI, workspace indexing (vector and workspace plan sync) must be on, intervals left to the chart."
   }
 }
 
@@ -783,7 +788,7 @@ run "plane_identity" {
     opensearch         = { enabled = true, volume_size_gb = 50, index_prefix = "plane" }
     pi                 = { embedding_model = "cohere/embed-v4.0", embedding_dimension = 1536, custom_llm = null, api_key_secrets = {} }
     helm_timeout       = 3600
-    plane_values       = ""
+    plane_values       = "env:\n  pi_envs:\n    celery:\n      vector_sync_enabled: false\n"
     addons_ready       = "ready"
     email_address_name = "plane-test-email"
 
@@ -814,5 +819,9 @@ run "plane_identity" {
   assert {
     condition     = google_service_account_iam_member.plane_token_creator.member == google_service_account.plane.member
     error_message = "Plane signs URLs as itself: TokenCreator on its own service account."
+  }
+  assert {
+    condition     = length(helm_release.plane.values) == 2 && helm_release.plane.values[1] == var.plane_values
+    error_message = "plane_values must be the last values file, so it overrides the module's values (e.g. Plane AI indexing)."
   }
 }

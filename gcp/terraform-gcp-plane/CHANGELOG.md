@@ -14,6 +14,9 @@
   ([GHSA-xv5x-242w-7hf7](https://github.com/traefik/traefik/security/advisories/GHSA-xv5x-242w-7hf7)).
 - The api's trusted proxies use `TRUSTED_PROXY_IPS`, the variable it reads (was `TRUSTED_PROXIES`, which it ignores),
   so forwarded client IPs are trusted only from the GKE pods range.
+- Path A: Traefik removes client-sent `CF-Connecting-IP` and `True-Client-IP` headers on both entry points (a
+  `Middleware` in the Traefik release), so a client can't set the IP Plane records; the api prefers them to
+  `X-Forwarded-For`. In path B your ingress should drop them (README).
 
 ### Changed
 - Terraform Registry name `terraform-gcp-plane` (`makeplane/plane/gcp`), the same as its folder and its
@@ -37,6 +40,9 @@
   and pi don't read it and Plane AI keeps signed URLs, so the bucket keeps its CORS configuration.
 
 ### Fixed
+- With Plane AI on, workspace indexing is on: `env.pi_envs.celery.vector_sync_enabled` and
+  `workspace_plan_sync_enabled` are `true` (the chart defaults them off, and pi then never embeds workspace data).
+  The chart's intervals are kept; `plane_values` can still override both.
 - `examples/complete` outputs `secret_ids`, which the deployment guide uses.
 - Deployment guide: Plane AI's keys, `jq` use, `terraform init` when upgrading, the `null` values in `dns_records`, and
   keeping other `postgres` fields when preparing to destroy.

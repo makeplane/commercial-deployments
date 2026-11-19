@@ -16,6 +16,10 @@ locals {
     reloader         = "2.2.19"
   }
 
+  # Clients could set these and the api prefers them to X-Forwarded-For: drop them on every entry point.
+  traefik_strip_headers = { namespace = "traefik", name = "strip-client-ip-headers" }
+  traefik_middlewares   = ["${local.traefik_strip_headers.namespace}-${local.traefik_strip_headers.name}@kubernetescrd"]
+
   traefik_service_annotations = merge(
     { "networking.gke.io/load-balancer-ip-addresses" = var.web_address_name },
     var.load_balancer_scheme == "internal" ? { "networking.gke.io/load-balancer-type" = "Internal" } : {},
@@ -95,7 +99,7 @@ resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 
   name             = "traefik"
-  namespace        = "traefik"
+  namespace        = local.traefik_strip_headers.namespace
   create_namespace = true
   repository       = "https://traefik.github.io/charts"
   chart            = "traefik"
@@ -123,6 +127,7 @@ resource "helm_release" "traefik" {
     ports = {
       web = {
         http = {
+          middlewares = local.traefik_middlewares
           redirections = {
             entryPoint = {
               to        = "websecure"
@@ -133,6 +138,7 @@ resource "helm_release" "traefik" {
         }
       }
       websecure = {
+        http = { middlewares = local.traefik_middlewares }
         # Long-lived websockets (live) and large uploads: no read deadline on the entrypoint.
         transport = {
           respondingTimeouts = {
@@ -151,6 +157,13 @@ resource "helm_release" "traefik" {
         loadBalancerSourceRanges = var.allowed_cidrs
       }, var.load_balancer_scheme == "internal" ? {} : { loadBalancerClass = "networking.gke.io/l4-regional-external" })
     }
+    # An empty value removes the header.
+    extraObjects = [{
+      apiVersion = "traefik.io/v1alpha1"
+      kind       = "Middleware"
+      metadata   = local.traefik_strip_headers
+      spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
+    }]
   })]
 
   depends_on = [terraform_data.cluster_ready]

@@ -54,6 +54,24 @@ run "internet_facing_external_address" {
     error_message = "Traefik's Service must allow only ingress.allowed_cidrs."
   }
   assert {
+    condition = (
+      yamldecode(helm_release.traefik[0].values[0]).ports.websecure.http.middlewares == ["traefik-strip-client-ip-headers@kubernetescrd"] &&
+      yamldecode(helm_release.traefik[0].values[0]).ports.web.http.middlewares == ["traefik-strip-client-ip-headers@kubernetescrd"]
+    )
+    error_message = "Both entry points must run the Middleware that drops client-sent IP headers."
+  }
+  assert {
+    condition = one([
+      for o in yamldecode(helm_release.traefik[0].values[0]).extraObjects : o if o.kind == "Middleware"
+      ]) == {
+      apiVersion = "traefik.io/v1alpha1"
+      kind       = "Middleware"
+      metadata   = { namespace = "traefik", name = "strip-client-ip-headers" }
+      spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
+    }
+    error_message = "Traefik must remove CF-Connecting-IP and True-Client-IP (an empty value removes the header): clients can forge them."
+  }
+  assert {
     condition     = !can(yamldecode(helm_release.traefik[0].values[0]).ports.websecure.proxyProtocol)
     error_message = "No proxy protocol on GKE: the passthrough load balancer keeps the client IP."
   }
@@ -99,7 +117,7 @@ run "path_b_no_traefik" {
 
   assert {
     condition     = length(helm_release.traefik) == 0
-    error_message = "Path B must not install Traefik."
+    error_message = "Path B must not install Traefik (nor its header-stripping Middleware: that is the customer's ingress)."
   }
 }
 

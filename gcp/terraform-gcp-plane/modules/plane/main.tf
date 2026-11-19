@@ -290,7 +290,7 @@ locals {
       )
     }
 
-    env = {
+    env = merge({
       # Fail the render rather than fall back to the chart's public example keys.
       requireExplicitSecrets = true
 
@@ -323,7 +323,10 @@ locals {
       use_storage_proxy = var.use_storage_proxy
 
       allow_all_attachment_types = true
-    }
+      },
+      # The chart defaults these off, and pi then never indexes workspace data.
+      var.enable_components.pi ? { pi_envs = { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } } } : {},
+    )
 
     external_secrets = merge(
       {
