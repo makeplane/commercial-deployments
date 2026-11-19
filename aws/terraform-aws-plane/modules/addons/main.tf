@@ -10,6 +10,17 @@ locals {
   # Fixed name, so Terraform can find the NLB the controller creates (edge module).
   load_balancer_name = "${var.name}-traefik"
 
+  traefik_namespace = "traefik"
+  # Any client can send these and the api prefers them to X-Forwarded-For: Traefik drops them on
+  # every request (an empty value removes a header), so the api records the real client IP.
+  client_ip_headers_middleware = {
+    apiVersion = "traefik.io/v1alpha1"
+    kind       = "Middleware"
+    metadata   = { name = "strip-client-ip-headers", namespace = local.traefik_namespace }
+    spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
+  }
+  entrypoint_middlewares = ["${local.traefik_namespace}-${local.client_ip_headers_middleware.metadata.name}@kubernetescrd"]
+
   # cert-manager runs only when the module issues the web certificate (path A, Let's Encrypt).
   # HTTP-01 through Traefik: it needs no AWS access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
@@ -138,7 +149,7 @@ resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 
   name             = "traefik"
-  namespace        = "traefik"
+  namespace        = local.traefik_namespace
   create_namespace = true
   repository       = "https://traefik.github.io/charts"
   chart            = "traefik"
@@ -173,10 +184,12 @@ resource "helm_release" "traefik" {
               permanent = true
             }
           }
+          middlewares = local.entrypoint_middlewares
         }
         proxyProtocol = { trustedIPs = [var.vpc_cidr] }
       }
       websecure = {
+        http          = { middlewares = local.entrypoint_middlewares }
         proxyProtocol = { trustedIPs = [var.vpc_cidr] }
         # Long-lived websockets (live) and large uploads: no read deadline on the entrypoint.
         transport = {
@@ -202,6 +215,7 @@ resource "helm_release" "traefik" {
         loadBalancerSourceRanges = var.allowed_cidrs
       }
     }
+    extraObjects = [local.client_ip_headers_middleware]
   })]
 
   # The LB controller must be running to create the NLB, and still running (plus the cleanup

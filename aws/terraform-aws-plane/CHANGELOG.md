@@ -15,8 +15,15 @@
 - The api's client-IP setting now uses `TRUSTED_PROXY_IPS`, the variable the api reads (it was set as
   `TRUSTED_PROXIES`, which nothing reads, so the api trusted forwarding headers from any client). Forwarded client IPs
   are now trusted only from the VPC range (`vpc_cidr`).
+- Path A: Traefik drops the `CF-Connecting-IP` and `True-Client-IP` request headers on every request (a `Middleware`
+  on both entry points). Any client could set them, and the api prefers them to `X-Forwarded-For`, so a client could
+  choose the IP Plane records. Behind a Cloudflare proxy, Plane now records Cloudflare's IP. Path B: your ingress should
+  drop them too.
 
 ### Fixed
+- Plane AI now indexes workspace data: with `enable_components.pi` on, the module turns on pi's vector and workspace
+  plan syncs (`env.pi_envs.celery.vector_sync_enabled` and `workspace_plan_sync_enabled`), which the chart leaves off;
+  `plane_values` can still turn them off.
 - Plane AI on Amazon OpenSearch Service: the first apply no longer fails setting the domain policy
   (`InvalidTypeException`) while IAM is still propagating the new connector role; the module waits 30 s.
 - Plane AI with provider API keys can now create its embedding model on Amazon OpenSearch Service, which refused the

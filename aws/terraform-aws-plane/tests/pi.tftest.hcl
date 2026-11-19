@@ -128,6 +128,10 @@ run "pi_off_unchanged" {
     ]) == 0
     error_message = "With pi off, no Plane AI objects."
   }
+  assert {
+    condition     = !can(yamldecode(output.plane_helm_values).env.pi_envs)
+    error_message = "With pi off, the chart's Plane AI sync defaults stay untouched."
+  }
 }
 
 run "pi_off_bedrock_dimension" {
@@ -212,6 +216,10 @@ run "pi_default_api_keys" {
     )
     error_message = "Without a provider, Plane AI must use the API keys: Cohere embeddings and OpenAI chat."
   }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.pi_envs == { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } }
+    error_message = "With pi on (API keys), pi must index workspace data: vector and workspace plan syncs on, intervals left to the chart."
+  }
 }
 
 run "reject_pi_without_keys" {
@@ -269,6 +277,10 @@ run "pi_bedrock_defaults" {
       && contains([for o in yamldecode(output.plane_helm_values).extraObjects : o.metadata.name], "plane-pi-db-init")
     )
     error_message = "Bedrock needs no API key Secret; pi needs its database Job."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).env.pi_envs == { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } }
+    error_message = "With pi on (Bedrock), pi must index workspace data: vector and workspace plan syncs on, intervals left to the chart."
   }
 }
 
@@ -719,7 +731,7 @@ run "iam_bedrock" {
     acme_server                = "https://acme-v02.api.letsencrypt.org/directory"
     use_storage_proxy          = false
     helm_timeout               = 3600
-    plane_values               = ""
+    plane_values               = "env:\n  pi_envs:\n    celery:\n      vector_sync_enabled: false\n"
     addons_ready               = "ready"
     machine_signature          = null
     tags                       = {}
@@ -809,6 +821,13 @@ run "iam_bedrock" {
       { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = "arn:aws:iam::123456789012:role/mock" },
     ])
     error_message = "Bedrock: pi gets the embeddings profile and the connector role, and no connector secret."
+  }
+  assert {
+    condition = (
+      yamldecode(helm_release.plane.values[0]).env.pi_envs.celery.vector_sync_enabled
+      && helm_release.plane.values[1] == var.plane_values
+    )
+    error_message = "plane_values must come after the module's values, so it can turn the Plane AI syncs back off."
   }
 }
 

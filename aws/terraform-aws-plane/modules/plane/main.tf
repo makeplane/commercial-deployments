@@ -374,6 +374,8 @@ locals {
       # The api's and pi's vector indexes use this dimension, pi on or off: it must match the embedding model
       # pi uses (now or when turned on later), since the api creates its indexes once.
       { for k, v in { opensearch_embedding_dimension = tostring(var.pi.embedding_dimension) } : k => v if var.data.opensearch_enabled },
+      # pi embeds workspace data only with these periodic syncs on (the chart defaults them off).
+      { for k, v in { pi_envs = { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } } } : k => v if var.enable_components.pi },
     )
 
     external_secrets = merge({
