@@ -1,6 +1,6 @@
-# Customer Secrets Manager ARNs (web and email certificates, Plane AI keys; app_keys_secret_arn in
-# app_keys.tftest.hcl): full ARN with its 6-character suffix, in this account and region. External Secrets is
-# granted each exact ARN in this region's Secrets Manager, so anything else would fail at sync time.
+# Customer Secrets Manager ARNs (web and email certificates, Plane AI keys): full ARN with its 6-character suffix,
+# in this account and region. External Secrets is granted each exact ARN in this region's Secrets Manager, so
+# anything else would fail at sync time.
 # Mock providers: no AWS credentials or cluster needed. Run: terraform init && terraform test
 
 mock_provider "aws" {

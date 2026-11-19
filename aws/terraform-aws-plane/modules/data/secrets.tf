@@ -45,13 +45,11 @@ locals {
     CURSOR_WEBHOOK_SECRET  = 48
     RUNNER_HMAC_SECRET_KEY = 48
   }
-  # An existing installation brings its own keys (app_keys_secret_arn): nothing is generated.
-  generate_app_keys   = var.app_keys_secret_arn == null
-  app_keys_secret_arn = local.generate_app_keys ? aws_secretsmanager_secret.app_keys[0].arn : var.app_keys_secret_arn
+  app_keys_secret_arn = aws_secretsmanager_secret.app_keys[0].arn
 }
 
 resource "random_password" "app_keys" {
-  for_each = local.generate_app_keys ? local.app_key_lengths : {}
+  for_each = local.app_key_lengths
 
   length  = each.value
   special = false
@@ -64,7 +62,8 @@ resource "random_password" "app_keys" {
 
 resource "aws_secretsmanager_secret" "app_keys" {
   # checkov:skip=CKV2_AWS_57:These keys encrypt stored data and must never rotate.
-  count = local.generate_app_keys ? 1 : 0
+  # Always one: count keeps the [0] address existing installs have state at. Never remove it.
+  count = 1
 
   name                    = "plane/${var.name}/app-keys"
   description             = "Plane (${var.name}) signing and encryption keys. Never rotate."
@@ -75,13 +74,13 @@ resource "aws_secretsmanager_secret" "app_keys" {
 }
 
 resource "aws_secretsmanager_secret_version" "app_keys" {
-  count = local.generate_app_keys ? 1 : 0
+  count = 1 # keeps the [0] address, as above
 
   secret_id     = aws_secretsmanager_secret.app_keys[0].id
   secret_string = jsonencode({ for k, v in random_password.app_keys : k => v.result })
 }
 
-# Addresses before app_keys_secret_arn: keep the secret, never recreate it.
+# Addresses from before count was added: keep the secret, never recreate it.
 moved {
   from = aws_secretsmanager_secret.app_keys
   to   = aws_secretsmanager_secret.app_keys[0]

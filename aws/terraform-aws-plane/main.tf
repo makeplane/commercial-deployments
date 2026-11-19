@@ -117,7 +117,6 @@ module "data" {
   rabbitmq                  = var.rabbitmq
   opensearch                = var.opensearch
   bucket_force_destroy      = var.bucket_force_destroy
-  app_keys_secret_arn       = var.app_keys_secret_arn
   tags                      = local.tags
 }
 
@@ -180,7 +179,6 @@ module "plane" {
   use_storage_proxy = var.use_storage_proxy
 
   tls_certificate_secret_arn = var.ingress.tls_certificate_secret_arn
-  machine_signature          = var.machine_signature
   pi = {
     mode                = local.pi_mode
     embedding_model     = local.pi_mode == null ? null : local.pi_embedding_model[local.pi_mode]

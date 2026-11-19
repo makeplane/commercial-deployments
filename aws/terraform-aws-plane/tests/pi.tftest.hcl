@@ -733,7 +733,6 @@ run "iam_bedrock" {
     helm_timeout               = 3600
     plane_values               = "env:\n  pi_envs:\n    celery:\n      vector_sync_enabled: false\n"
     addons_ready               = "ready"
-    machine_signature          = null
     tags                       = {}
     data = {
       kms_key_arn            = "arn:aws:kms:us-east-1:123456789012:key/mock"
@@ -855,7 +854,6 @@ run "iam_api_keys" {
     helm_timeout               = 3600
     plane_values               = ""
     addons_ready               = "ready"
-    machine_signature          = null
     tags                       = {}
     data = {
       kms_key_arn            = "arn:aws:kms:us-east-1:123456789012:key/mock"
@@ -977,7 +975,6 @@ run "iam_pi_off" {
     helm_timeout               = 3600
     plane_values               = ""
     addons_ready               = "ready"
-    machine_signature          = null
     tags                       = {}
     data = {
       kms_key_arn            = "arn:aws:kms:us-east-1:123456789012:key/mock"

@@ -69,8 +69,8 @@ locals {
     }
   }
 
-  # Generated, or an existing installation's (app_keys_secret_arn). Each key is mapped by name, so a
-  # secret missing one fails to sync rather than Plane starting without it.
+  # Each key is mapped by name, so a secret missing one fails to sync rather than Plane starting
+  # without it.
   app_keys_external_secret = {
     apiVersion = "external-secrets.io/v1"
     kind       = "ExternalSecret"
@@ -394,9 +394,6 @@ locals {
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
       ],
-      # A moved 3.x installation's signature (env beats the chart's derived one): Plane needs it
-      # once, to move the licences to the instance key it creates on first start.
-      var.machine_signature == null ? [] : [{ name = "MACHINE_SIGNATURE", value = var.machine_signature }],
       local.pi_connector_env,
     )
 

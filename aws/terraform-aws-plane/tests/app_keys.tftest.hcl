@@ -1,5 +1,5 @@
-# App keys: generated (default) or an existing installation's (app_keys_secret_arn), and a moved
-# 3.x installation's machine_signature. Mock providers: no AWS credentials or cluster needed.
+# App keys: generated once, in the module's own secret, at the addresses existing installs have.
+# Mock providers: no AWS credentials or cluster needed.
 
 mock_provider "aws" {
   mock_data "aws_availability_zones" {
@@ -79,7 +79,6 @@ variables {
     "SECRET_KEY", "AES_SECRET_KEY", "AES_SALT", "LIVE_SERVER_SECRET_KEY", "PI_INTERNAL_SECRET",
     "SILO_HMAC_SECRET_KEY", "CURSOR_WEBHOOK_SECRET", "RUNNER_HMAC_SECRET_KEY",
   ]
-  existing_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/existing-app-keys-AbCdEf"
 }
 
 run "generated_by_default" {
@@ -95,42 +94,10 @@ run "generated_by_default" {
     ] == [true]
     error_message = "plane-app-keys must map every app key from the generated secret."
   }
-  assert {
-    condition     = !contains([for e in yamldecode(output.plane_helm_values).extraEnv : e.name], "MACHINE_SIGNATURE")
-    error_message = "Without machine_signature, the chart's own MACHINE_SIGNATURE must be used."
-  }
 }
 
-run "existing_app_keys" {
-  variables {
-    app_keys_secret_arn = var.existing_arn
-    machine_signature   = "1cc520b3830d49399d60ea7e07cf1f000eced636bcaf1c92e72e8b90edb238bb"
-  }
-
-  assert {
-    condition     = output.secret_arns.app_keys == var.existing_arn
-    error_message = "secret_arns.app_keys must be the given secret (External Secrets is granted read on it)."
-  }
-  assert {
-    condition = [
-      for o in yamldecode(output.plane_helm_values).extraObjects :
-      sort([for d in o.spec.data : d.secretKey]) == sort(var.app_keys) && alltrue([for d in o.spec.data : d.remoteRef.key == var.existing_arn && d.remoteRef.property == d.secretKey])
-      if o.metadata.name == "plane-app-keys"
-    ] == [true]
-    error_message = "plane-app-keys must map every app key from the given secret."
-  }
-  assert {
-    condition     = contains(yamldecode(output.plane_helm_values).extraEnv, { name = "MACHINE_SIGNATURE", value = "1cc520b3830d49399d60ea7e07cf1f000eced636bcaf1c92e72e8b90edb238bb" })
-    error_message = "machine_signature must reach Plane as MACHINE_SIGNATURE."
-  }
-  assert {
-    condition     = contains([for e in yamldecode(output.plane_helm_values).extraEnv : e.name], "TRUSTED_PROXY_IPS")
-    error_message = "machine_signature must not drop the module's other extraEnv entries."
-  }
-}
-
-# The data module on its own: nothing generated when the keys are given.
-run "existing_app_keys_nothing_generated" {
+# The data module on its own: the keys' resource addresses must not change.
+run "generated_addresses" {
   module {
     source = "./modules/data"
   }
@@ -144,55 +111,14 @@ run "existing_app_keys_nothing_generated" {
     opensearch                = { enabled = true, engine_version = "OpenSearch_2.19", instance_type = "r7g.large.search", instance_count = 2, volume_size_gb = 10, index_prefix = "plane" }
     bucket_force_destroy      = false
     tags                      = {}
-    app_keys_secret_arn       = var.existing_arn
   }
 
   assert {
-    condition     = length(aws_secretsmanager_secret.app_keys) == 0 && length(aws_secretsmanager_secret_version.app_keys) == 0 && length(random_password.app_keys) == 0
-    error_message = "With app_keys_secret_arn, the module must not create or generate app keys."
+    condition     = length(aws_secretsmanager_secret.app_keys) == 1 && length(aws_secretsmanager_secret_version.app_keys) == 1 && sort(keys(random_password.app_keys)) == sort(var.app_keys)
+    error_message = "The app keys must stay at app_keys[0] and random_password.app_keys[<key name>]."
   }
   assert {
-    condition     = output.plane_inputs.app_keys_secret_arn == var.existing_arn
-    error_message = "Plane must read the given secret."
+    condition     = output.plane_inputs.app_keys_secret_arn == aws_secretsmanager_secret.app_keys[0].arn
+    error_message = "Plane must read the generated secret."
   }
-}
-
-run "reject_secret_name" {
-  command = plan
-  variables {
-    app_keys_secret_arn = "plane/existing-app-keys"
-  }
-  expect_failures = [var.app_keys_secret_arn]
-}
-
-run "reject_partial_arn" {
-  command = plan
-  variables {
-    app_keys_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/existing-app-keys"
-  }
-  expect_failures = [var.app_keys_secret_arn]
-}
-
-run "reject_other_region" {
-  command = plan
-  variables {
-    app_keys_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:plane/existing-app-keys-AbCdEf"
-  }
-  expect_failures = [var.app_keys_secret_arn]
-}
-
-run "reject_other_account" {
-  command = plan
-  variables {
-    app_keys_secret_arn = "arn:aws:secretsmanager:us-east-1:210987654321:secret:plane/existing-app-keys-AbCdEf"
-  }
-  expect_failures = [var.app_keys_secret_arn]
-}
-
-run "reject_bad_machine_signature" {
-  command = plan
-  variables {
-    machine_signature = "\"1cc520b3830d49399d60ea7e07cf1f00\""
-  }
-  expect_failures = [var.machine_signature]
 }

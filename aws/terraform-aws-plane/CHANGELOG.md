@@ -67,11 +67,8 @@
 - `use_storage_proxy` (default false, as before): true sends work item attachments, editor images and similar through
   Plane's api instead of direct signed URLs (Plane v4.0.1 or later). silo, live and pi don't read it, and Plane AI keeps
   signed URLs in both modes, so the bucket's CORS configuration doesn't change.
-- Moving an existing installation (older `aws/terraform` module + `kustomize/`): `docs/migration-guide.md`, with
-  `app_keys_secret_arn` (bring the existing app keys from a Secrets Manager secret; nothing generated, the keys never
-  pass through Terraform, every key required by name) and `machine_signature` (a Plane 3.x installation's signature,
-  so Plane 4 can move its licences to the new instance key). The app-keys ExternalSecret now maps each key by name for
-  generated keys too.
+- The app-keys ExternalSecret maps each key by name, so a secret missing one fails to sync rather than Plane starting
+  without it.
 - `deployment_mode = "eks"`: VPC, EKS (fixed-size managed node group), RDS PostgreSQL Multi-AZ DB cluster,
   ElastiCache Valkey (TLS + AUTH + at-rest encryption, primary + replica with Multi-AZ failover), Amazon MQ for
   RabbitMQ, S3, KMS and Secrets Manager.
@@ -104,7 +101,7 @@
   (`ingress.tls_certificate_secret_arn`); **none** (path B, default) installs no ingress controller or routes. The
   module configures no DNS: the `dns_records` output lists the records to create. Email certificate from Secrets
   Manager (`email.certificate_secret_arn`) in either path, else self-signed (a warning in path A).
-- Every Secrets Manager ARN you pass (certificates, Plane AI keys, `app_keys_secret_arn`) is checked at plan: a full
+- Every Secrets Manager ARN you pass (certificates, Plane AI keys) is checked at plan: a full
   ARN with its 6-character suffix, in this account and region (External Secrets is granted each exact ARN).
 - Plane AI set up end to end when `enable_components.pi = true` (`pi` input): chat and semantic search. Default
   `pi.provider = "api_keys"`: one chat key and Cohere embeddings. `pi.api_keys.chat_provider` picks the chat key: a

@@ -45,7 +45,6 @@ variables {
   redis                = { engine_version = "8.2", node_type = "cache.t3.medium", replicas = 1 }
   rabbitmq             = { engine_version = "3.13", instance_type = "mq.m7g.medium", deployment_mode = "CLUSTER_MULTI_AZ" }
   opensearch           = { enabled = false, engine_version = "OpenSearch_2.19", instance_type = "r7g.large.search", instance_count = 2, volume_size_gb = 10, index_prefix = "plane" }
-  app_keys_secret_arn  = null
   bucket_force_destroy = false
   tags                 = {}
 }

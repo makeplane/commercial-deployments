@@ -157,11 +157,6 @@ variable "data" {
   })
 }
 
-variable "machine_signature" {
-  description = "A moved 3.x installation's MACHINE_SIGNATURE (null = the chart's)."
-  type        = string
-}
-
 variable "addons_ready" {
   description = "Readiness signal from the addons module. Gates the Plane release (and orders its destroy first)."
   type        = string
