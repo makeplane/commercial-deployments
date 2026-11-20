@@ -348,6 +348,24 @@ run "redis_persistence_needs_high_availability" {
   expect_failures = [var.redis]
 }
 
+run "reject_postgres_password_version_zero" {
+  command = plan
+  variables {
+    postgres = { password_version = 0 }
+  }
+
+  expect_failures = [var.postgres]
+}
+
+run "reject_postgres_password_version_fraction" {
+  command = plan
+  variables {
+    postgres = { password_version = 1.5 }
+  }
+
+  expect_failures = [var.postgres]
+}
+
 run "redis_without_high_availability_or_persistence" {
   command = plan
   variables {

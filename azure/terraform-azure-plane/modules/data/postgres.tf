@@ -3,6 +3,9 @@
 resource "random_password" "postgres" {
   length  = 40
   special = false
+
+  # No keepers at version 1: adding them to an existing password would replace it, so upgrades keep the password.
+  keepers = var.postgres.password_version == 1 ? null : { version = var.postgres.password_version }
 }
 
 # Must end in .postgres.database.azure.com; the server-name prefix keeps it unique.

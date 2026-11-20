@@ -38,6 +38,7 @@ variables {
     backup_retention_days        = 14
     geo_redundant_backup_enabled = false
     deletion_protection          = true
+    password_version             = 1
   }
   redis              = { sku_name = "Balanced_B3", high_availability_enabled = true, clustering_policy = "NoCluster", persistence = true }
   opensearch_enabled = true
@@ -109,6 +110,37 @@ run "defaults" {
     condition     = azurerm_key_vault.this.rbac_authorization_enabled && azurerm_key_vault.this.purge_protection_enabled && azurerm_key_vault.this.network_acls[0].default_action == "Allow"
     error_message = "Key Vault: RBAC mode, purge protection, public endpoint by default."
   }
+  assert {
+    condition     = random_password.postgres.keepers == null
+    error_message = "password_version 1 must leave keepers null, so upgrading an existing install keeps its password."
+  }
+}
+
+run "postgres_password_version" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      engine_version               = "15"
+      sku_name                     = "GP_Standard_D2ds_v5"
+      storage_mb                   = 131072
+      high_availability_mode       = "ZoneRedundant"
+      backup_retention_days        = 14
+      geo_redundant_backup_enabled = false
+      deletion_protection          = true
+      password_version             = 3
+    }
+  }
+
+  assert {
+    condition     = random_password.postgres.keepers == tomap({ version = "3" })
+    error_message = "postgres.password_version must flow into the password's keepers."
+  }
+  assert {
+    condition     = azurerm_postgresql_flexible_server.this.administrator_password == random_password.postgres.result && jsondecode(azurerm_key_vault_secret.this["plane-db"].value).password == random_password.postgres.result
+    error_message = "The server and the plane-db Key Vault secret must both get the generated password."
+  }
 }
 
 run "unprotected_without_opensearch" {
@@ -126,6 +158,7 @@ run "unprotected_without_opensearch" {
       backup_retention_days        = 7
       geo_redundant_backup_enabled = false
       deletion_protection          = false
+      password_version             = 1
     }
     storage = {
       replication_type           = "ZRS"

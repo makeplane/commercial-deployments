@@ -58,6 +58,7 @@ variable "postgres" {
     backup_retention_days        = number
     geo_redundant_backup_enabled = bool
     deletion_protection          = bool
+    password_version             = number
   })
 }
 

@@ -70,6 +70,7 @@ location = "eastus2"
 #   backup_retention_days        = 14
 #   geo_redundant_backup_enabled = false
 #   deletion_protection          = true
+#   password_version             = 1 # bump to rotate the database password (short interruption)
 # }
 
 # redis = {

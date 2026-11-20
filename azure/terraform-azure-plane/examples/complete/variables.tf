@@ -221,7 +221,8 @@ variable "postgres" {
   description = <<-EOT
     Azure Database for PostgreSQL Flexible Server: VNet-integrated (no public access), TLS required, zone-redundant HA,
     databases plane and plane_pi. deletion_protection puts a CanNotDelete lock on the server: set it to false and apply
-    before a destroy.
+    before a destroy. password_version (default 1): Bump to rotate the database password on the next apply: Plane has a
+    short, planned interruption while its pods pick up the new password. There is no automatic rotation.
   EOT
   type = object({
     engine_version               = optional(string, "15")
@@ -231,6 +232,7 @@ variable "postgres" {
     backup_retention_days        = optional(number, 14)
     geo_redundant_backup_enabled = optional(bool, false)
     deletion_protection          = optional(bool, true)
+    password_version             = optional(number, 1)
   })
   default = null
 }

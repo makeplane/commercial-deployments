@@ -25,6 +25,9 @@
 > defaults are placeholders until those releases exist. See README, "Requires".
 
 ### Added
+- `postgres.password_version` (default 1): bump it to rotate the PostgreSQL password on the next apply, with a short,
+  planned interruption while Plane's pods pick up the new password; there is no automatic rotation. The same input as
+  on AWS and GCP. The default leaves the current password unchanged on upgrade.
 - `deployment_mode = "aks"`: resource group (or an existing empty one), VNet with NAT gateway egress, AKS (Entra ID +
   Azure RBAC, local accounts off, Workload Identity, Azure CNI Overlay with Cilium, one autoscaled node pool),
   PostgreSQL Flexible Server 15 (VNet-integrated, TLS required, zone-redundant HA, delete lock, databases `plane` and
