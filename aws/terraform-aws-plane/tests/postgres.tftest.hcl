@@ -1,4 +1,5 @@
-# RDS PostgreSQL storage settings and major version upgrades. Runs the data module on its own with mock providers.
+# RDS PostgreSQL storage settings, major version upgrades and the master password. Runs the data module on its own
+# with mock providers.
 
 mock_provider "aws" {
   mock_data "aws_iam_policy_document" {
@@ -13,8 +14,8 @@ mock_provider "aws" {
   mock_resource "aws_kms_key" {
     defaults = { arn = "arn:aws:kms:us-east-1:123456789012:key/mock" }
   }
-  mock_resource "aws_rds_cluster" {
-    defaults = { master_user_secret = [{ secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rds-AbCdEf" }] }
+  mock_resource "aws_secretsmanager_secret" {
+    defaults = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/plane-test/mock-AbCdEf" }
   }
   mock_resource "aws_mq_broker" {
     defaults = { instances = [{ endpoints = ["amqps://b-mock.mq.us-east-1.on.aws:5671"] }] }
@@ -126,5 +127,79 @@ run "major_upgrade_16" {
   assert {
     condition     = aws_rds_cluster.postgres.engine_version == "16.6" && aws_rds_cluster.postgres.allow_major_version_upgrade && aws_rds_cluster.postgres.apply_immediately
     error_message = "A major upgrade must plan the new engine version, allowed and applied immediately."
+  }
+}
+
+# Not RDS-managed (its rotation broke Plane's connections): the module's password, in the module's own secret.
+# Version 1 sets no keepers, so an install from before password_version keeps its password on upgrade.
+run "postgres_password_version_default" {
+  module {
+    source = "./modules/data"
+  }
+  override_resource {
+    target = aws_secretsmanager_secret.postgres
+    values = { arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/plane-test/postgres-AbCdEf" }
+  }
+
+  assert {
+    condition     = random_password.postgres.keepers == null && random_password.postgres.length == 40 && !random_password.postgres.special
+    error_message = "At the default password_version the password must have no keepers (40 characters, no specials)."
+  }
+  assert {
+    condition     = aws_rds_cluster.postgres.manage_master_user_password != true && aws_rds_cluster.postgres.master_password == random_password.postgres.result
+    error_message = "RDS must not manage the master password; the cluster must use the generated one."
+  }
+  assert {
+    condition = (
+      aws_secretsmanager_secret.postgres.name == "plane/plane-test/postgres" &&
+      aws_secretsmanager_secret.postgres.kms_key_id == aws_kms_key.this.arn &&
+      jsondecode(aws_secretsmanager_secret_version.postgres.secret_string) == { username = "plane", password = random_password.postgres.result }
+    )
+    error_message = "The secret must be KMS-encrypted with the module's key and hold the username and password plane-db reads."
+  }
+  assert {
+    condition = (
+      output.plane_inputs.postgres_secret_arn == aws_secretsmanager_secret.postgres.arn &&
+      output.secret_arns.postgres == aws_secretsmanager_secret.postgres.arn
+    )
+    error_message = "plane-db and External Secrets' policy must use the module's postgres secret."
+  }
+  assert {
+    condition = (
+      sort(keys(output.secret_arns)) == tolist(["app_keys", "postgres", "rabbitmq", "redis"]) &&
+      !anytrue([for a in values(output.secret_arns) : strcontains(a, ":secret:rds!")])
+    )
+    error_message = "External Secrets must be scoped to exactly the module's four secrets, none RDS-managed."
+  }
+}
+
+run "postgres_password_version_bump" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      engine_version        = "15.19"
+      instance_class        = "db.m6gd.large"
+      allocated_storage_gb  = 100
+      storage_type          = "io1"
+      iops                  = null
+      backup_retention_days = 14
+      deletion_protection   = true
+      apply_immediately     = false
+      password_version      = 2
+    }
+  }
+
+  assert {
+    condition     = random_password.postgres.keepers == tomap({ version = "2" })
+    error_message = "postgres.password_version must reach the password's keepers."
+  }
+  assert {
+    condition = (
+      aws_rds_cluster.postgres.master_password == random_password.postgres.result &&
+      jsondecode(aws_secretsmanager_secret_version.postgres.secret_string).password == random_password.postgres.result
+    )
+    error_message = "The cluster and the secret External Secrets reads must carry the rotated password."
   }
 }

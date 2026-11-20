@@ -1,5 +1,21 @@
 # Secrets Manager entries, in the JSON shape the plane-enterprise chart reads through External
-# Secrets. The RDS master secret is created and rotated by RDS itself (postgres.tf).
+# Secrets.
+
+resource "aws_secretsmanager_secret" "postgres" {
+  # checkov:skip=CKV2_AWS_57:The database password isn't rotated automatically; bump postgres.password_version.
+  name                    = "plane/${var.name}/postgres"
+  description             = "Plane (${var.name}) RDS PostgreSQL master user"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = 7
+
+  tags = var.tags
+}
+
+# The keys the plane-db ExternalSecret reads, as in the RDS-managed secret this replaces.
+resource "aws_secretsmanager_secret_version" "postgres" {
+  secret_id     = aws_secretsmanager_secret.postgres.id
+  secret_string = jsonencode({ username = aws_rds_cluster.postgres.master_username, password = random_password.postgres.result })
+}
 
 resource "aws_secretsmanager_secret" "valkey" {
   # checkov:skip=CKV2_AWS_57:The ElastiCache AUTH token isn't rotated automatically in this release.

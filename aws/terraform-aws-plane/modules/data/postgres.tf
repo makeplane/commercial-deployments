@@ -1,6 +1,6 @@
 # RDS for PostgreSQL Multi-AZ DB cluster (1 writer + 2 readable standbys), as today's module.
-# The master password is managed by RDS in Secrets Manager (never in Terraform state); Plane
-# connects as the master user and External Secrets + Reloader follow RDS's rotation.
+# Plane connects as the master user, with a module-generated password (in Secrets Manager and in
+# Terraform state, as on GCP and Azure); nothing rotates it automatically (postgres.password_version).
 
 locals {
   postgres_major = split(".", var.postgres.engine_version)[0]
@@ -51,9 +51,17 @@ resource "aws_rds_cluster_parameter_group" "postgres" {
   }
 }
 
+resource "random_password" "postgres" {
+  length  = 40
+  special = false
+
+  # No keepers at version 1: adding them to an existing password would replace it, so upgrades keep the password.
+  keepers = var.postgres.password_version == 1 ? null : { version = var.postgres.password_version }
+}
+
 resource "aws_rds_cluster" "postgres" {
   # checkov:skip=CKV2_AWS_27:Logging every statement risks capturing personal data and adds cost; enable through the parameter group if needed.
-  # checkov:skip=CKV_AWS_162:Plane authenticates with the RDS-managed password, not IAM database auth.
+  # checkov:skip=CKV_AWS_162:Plane authenticates with the module-generated password, not IAM database auth.
   # checkov:skip=CKV_AWS_133:Defaults to 14 days (postgres.backup_retention_days); checkov can't read optional() defaults.
   # checkov:skip=CKV_AWS_139:Defaults to true (postgres.deletion_protection); checkov can't read optional() defaults.
   # checkov:skip=CKV2_AWS_8:An AWS Backup plan is planned (A25); RDS keeps automated backups (14 days) and a final snapshot meanwhile.
@@ -70,10 +78,11 @@ resource "aws_rds_cluster" "postgres" {
   # io1/io2 need IOPS (1000 by default); gp3 below 400 GiB takes none.
   iops = var.postgres.storage_type == "gp3" ? var.postgres.iops : coalesce(var.postgres.iops, 1000)
 
-  database_name                 = "plane"
-  master_username               = "plane"
-  manage_master_user_password   = true
-  master_user_secret_kms_key_id = aws_kms_key.this.arn
+  database_name   = "plane"
+  master_username = "plane"
+  # Not RDS-managed (no manage_master_user_password): its 7-day rotation broke Plane's connections each
+  # time. On an install from before, the apply turns it off and sets this password in place.
+  master_password = random_password.postgres.result
 
   db_subnet_group_name            = aws_db_subnet_group.postgres.name
   vpc_security_group_ids          = [aws_security_group.postgres.id]

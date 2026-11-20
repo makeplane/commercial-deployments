@@ -73,6 +73,7 @@ domain = "plane.example.com" # never change after install
 #   backup_retention_days = 14
 #   deletion_protection   = true
 #   apply_immediately     = false  # true for a major version upgrade (README)
+#   password_version      = 1      # bump to rotate the database password (short interruption)
 # }
 
 # redis = {

@@ -1,4 +1,5 @@
-# Input rules: network ranges, admin principals, PostgreSQL storage, the cache replicas and the storage proxy.
+# Input rules: network ranges, admin principals, PostgreSQL storage and password version, the cache replicas and the
+# storage proxy.
 # Mock providers: no AWS credentials or cluster needed. Run: terraform init && terraform test
 
 mock_provider "aws" {
@@ -255,6 +256,39 @@ run "reject_postgres_gp3_iops_out_of_range" {
   command = plan
   variables { postgres = { storage_type = "gp3", allocated_storage_gb = 500, iops = 80000 } }
   expect_failures = [var.postgres]
+}
+
+run "postgres_password_version_default" {
+  command = plan
+  assert {
+    condition     = var.postgres.password_version == 1
+    error_message = "postgres.password_version defaults to 1, which sets no keepers: an upgrade keeps the password."
+  }
+}
+
+run "reject_postgres_password_version_zero" {
+  command = plan
+  variables { postgres = { password_version = 0 } }
+  expect_failures = [var.postgres]
+}
+
+run "reject_postgres_password_version_fraction" {
+  command = plan
+  variables { postgres = { password_version = 1.5 } }
+  expect_failures = [var.postgres]
+}
+
+# plane-db reads the data module's postgres secret, re-read every minute so a rotation reaches the pods quickly.
+run "plane_db_reads_postgres_secret" {
+  command = plan
+  assert {
+    condition = [
+      for o in yamldecode(output.plane_helm_values).extraObjects :
+      o.spec.dataFrom[0].extract.key == "arn:aws:secretsmanager:us-east-1:123456789012:secret:postgres" && o.spec.refreshInterval == "1m"
+      if o.kind == "ExternalSecret" && o.metadata.name == "plane-db"
+    ] == [true]
+    error_message = "The plane-db ExternalSecret must read the postgres secret every minute."
+  }
 }
 
 run "storage_proxy_off_by_default" {

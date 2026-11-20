@@ -37,6 +37,11 @@
   signs as that role to read cluster settings, models and indexes, not only to create them.
 
 ### Changed (breaking)
+- RDS no longer manages the database password: its 7-day rotation interrupted Plane each time (about 165 s), since Plane
+  connects as the master user. The module generates the password, as on GCP and Azure, and stores it in its own secret
+  `plane/<name>/postgres` (KMS-encrypted), which External Secrets now reads; the password is now in Terraform state.
+  On an existing install the next apply changes the password on the cluster in place, RDS deletes its managed secret,
+  and Plane has a one-time short interruption until its pods pick up the new password.
 - With Plane AI on in key mode, `pi.api_keys.embedding_key_json_field` is required: store the Cohere key as a JSON field,
   since Amazon OpenSearch Service reads it from the secret itself. A plain-text Cohere secret is refused at plan; the
   chat key may stay plain text.
@@ -64,6 +69,9 @@
   Azure, so a half-set custom model is caught before Plane AI is turned on.
 
 ### Added
+- `postgres.password_version` (default 1): bump it to rotate the RDS password on the next apply, with a short, planned
+  interruption while Plane's pods pick up the new password; there is no automatic rotation. The same input as on GCP
+  and Azure. The default leaves the current password unchanged on upgrade.
 - `use_storage_proxy` (default false, as before): true sends work item attachments, editor images and similar through
   Plane's api instead of direct signed URLs (Plane v4.0.1 or later). silo, live and pi don't read it, and Plane AI keeps
   signed URLs in both modes, so the bucket's CORS configuration doesn't change.
@@ -90,8 +98,8 @@
   (3.11.3); index names use the `opensearch.index_prefix`, default `plane`, as today.
 - Node group range 2–4 nodes (`node_group.min_size` / `max_size` / `desired_size`), as today, replacing the fixed `count`.
 - `plane_helm_values` output: the chart values the module generates (YAML, no secret values).
-- Imports run on worker-importers' own queue; the RDS-managed database password is re-read every minute (RDS rotates it
-  every 7 days); api, worker, web and live replicas spread across nodes.
+- Imports run on worker-importers' own queue; the database password is re-read every minute, so a rotation reaches the
+  pods quickly; api, worker, web and live replicas spread across nodes.
 - Plane's background services for paid features on by default (outbox-poller, automation-consumer, runner,
   agent-consumer, webhook-consumer, iframely, worker-importers), as in today's managed deployment.
   api, worker, web and live run 2 replicas with PodDisruptionBudgets. Any attachment type allowed, as today. The

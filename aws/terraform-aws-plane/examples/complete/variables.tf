@@ -221,6 +221,7 @@ variable "postgres" {
     backup_retention_days = optional(number)
     deletion_protection   = optional(bool)
     apply_immediately     = optional(bool)
+    password_version      = optional(number)
   })
   default = null
 }

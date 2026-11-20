@@ -34,6 +34,7 @@ variable "postgres" {
     backup_retention_days = number
     deletion_protection   = bool
     apply_immediately     = bool
+    password_version      = optional(number, 1)
   })
 }
 

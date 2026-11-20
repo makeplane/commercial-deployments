@@ -415,6 +415,8 @@ variable "postgres" {
     (default), io2 or gp3. iops: io1/io2 default 1000 (1000-256000); gp3 leaves it unset below 400 GiB (a fixed 3000),
     12000-64000 from 400 GiB. apply_immediately: false (default) leaves database changes to the maintenance window;
     set it true for a major version upgrade (engine_version 15.x to 16.x, see the README) and any change you want now.
+    password_version (default 1): Bump to rotate the database password on the next apply: Plane has a short, planned
+    interruption while its pods pick up the new password. There is no automatic rotation.
   EOT
   type = object({
     engine_version        = optional(string, "15.19")
@@ -425,6 +427,7 @@ variable "postgres" {
     backup_retention_days = optional(number, 14)
     deletion_protection   = optional(bool, true)
     apply_immediately     = optional(bool, false)
+    password_version      = optional(number, 1)
   })
   default  = {}
   nullable = false
@@ -452,6 +455,10 @@ variable "postgres" {
   validation {
     condition     = var.postgres.storage_type != "io1" || coalesce(var.postgres.iops, 1000) <= 50 * var.postgres.allocated_storage_gb
     error_message = "postgres.iops on io1 can be at most 50 per GiB of postgres.allocated_storage_gb."
+  }
+  validation {
+    condition     = var.postgres.password_version >= 1 && floor(var.postgres.password_version) == var.postgres.password_version
+    error_message = "postgres.password_version must be a whole number, 1 or more."
   }
 }
 

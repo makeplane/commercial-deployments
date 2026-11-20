@@ -58,8 +58,8 @@ locals {
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        # RDS rotates its managed master password every 7 days and the old one stops working at
-        # once: re-read it every minute (Reloader then rolls the pods). The others don't rotate.
+        # Re-read the database password every minute, so a rotation (postgres.password_version)
+        # reaches the pods quickly (Reloader then rolls them). The others don't rotate.
         refreshInterval = name == "plane-db" ? "1m" : "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
