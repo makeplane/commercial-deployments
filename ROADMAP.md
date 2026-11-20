@@ -37,7 +37,7 @@ The next targeted items. Not in priority order; the order and release grouping a
     ALB + ACM (keeps the instance private).
   - Managed data services (RDS, S3) in Docker mode come later: `prime-cli setup` requires S3 access keys, and the
     Compose file falls back to placeholder keys, so keyless S3 from the instance role needs both fixed in prime-cli.
-- **GCP module** (`terraform-google-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
+- **GCP module** (`terraform-gcp-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
   GKE with Workload Identity, Cloud SQL (private IP), Memorystore, GCS (Plane supports GCS natively, keyless), Secret
   Manager. RabbitMQ in-cluster (no managed option on GCP). No DNS records, as on AWS.
 - **Release CI with e2e.** On every `v*` tag: assume a role in a sandbox account through GitHub OIDC, apply
@@ -86,7 +86,7 @@ The next targeted items. Not in priority order; the order and release grouping a
   on dev or on Plane's own installation before setting larger defaults. Then presets, e.g. `evaluation` and
   `production` (today's sizes); a small preset needs module changes (single-instance RDS on gp3, single-instance
   RabbitMQ, 1-node OpenSearch), since Multi-AZ DB clusters have no small instance classes.
-- **Azure module** (`terraform-azurerm-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
+- **Azure module** (`terraform-azure-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
   chart), so files would need MinIO today. Native Blob support is preferred over an S3-compatible gateway, which
   would need static keys.
 - **DNS automation for Route 53 and Cloudflare** (optional, off by default). v0.1.0 writes no DNS: the customer
