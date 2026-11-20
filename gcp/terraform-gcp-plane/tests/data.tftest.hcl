@@ -33,6 +33,7 @@ variables {
     deletion_protection         = true
     final_backup                = true
     final_backup_retention_days = 30
+    password_version            = 1
   }
   redis = {
     version             = "REDIS_7_2"
@@ -117,6 +118,7 @@ run "final_backup_off" {
       deletion_protection         = false
       final_backup                = false
       final_backup_retention_days = 30
+      password_version            = 1
     }
   }
 
@@ -126,6 +128,59 @@ run "final_backup_off" {
       google_sql_database_instance.postgres.settings[0].final_backup_config[0].retention_days == null
     )
     error_message = "With the final backup off, the module must turn it off explicitly and send no retention."
+  }
+}
+
+# Version 1 sets no keepers, so an install from before password_version keeps its password on upgrade.
+run "postgres_password_version_default" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition     = random_password.postgres.keepers == null
+    error_message = "At the default password_version the password must have no keepers."
+  }
+  assert {
+    condition = (
+      google_sql_user.plane.password == random_password.postgres.result &&
+      jsondecode(google_secret_manager_secret_version.this["postgres"].secret_data).password == random_password.postgres.result
+    )
+    error_message = "The Cloud SQL user and the secret External Secrets reads must carry the generated password."
+  }
+}
+
+run "postgres_password_version_bump" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      database_version            = "POSTGRES_15"
+      tier                        = "db-custom-2-8192"
+      edition                     = "ENTERPRISE"
+      availability_type           = "REGIONAL"
+      disk_size_gb                = 100
+      disk_type                   = "PD_SSD"
+      backup_retention_days       = 14
+      point_in_time_recovery      = true
+      deletion_protection         = true
+      final_backup                = true
+      final_backup_retention_days = 30
+      password_version            = 2
+    }
+  }
+
+  assert {
+    condition     = random_password.postgres.keepers == tomap({ version = "2" })
+    error_message = "postgres.password_version must reach the password's keepers."
+  }
+  assert {
+    condition = (
+      google_sql_user.plane.password == random_password.postgres.result &&
+      jsondecode(google_secret_manager_secret_version.this["postgres"].secret_data).password == random_password.postgres.result
+    )
+    error_message = "The Cloud SQL user and the secret External Secrets reads must carry the rotated password."
   }
 }
 

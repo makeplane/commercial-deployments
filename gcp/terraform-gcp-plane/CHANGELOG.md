@@ -48,6 +48,9 @@
   keeping other `postgres` fields when preparing to destroy.
 
 ### Added
+- `postgres.password_version` (default 1): bump it to rotate the Cloud SQL password on the next apply, with a short,
+  planned interruption while Plane's pods pick up the new password; there is no automatic rotation. The same input as
+  on AWS and Azure. The default leaves the current password unchanged on upgrade.
 - `deployment_mode = "gke"`: an empty GCP project to a running Plane Commercial in one apply. The module enables the
   project APIs, then builds a VPC (one subnet with GKE's ranges, Cloud NAT, private services access, flow logs), GKE
   Standard (regional, private nodes, Workload Identity, Dataplane V2, shielded nodes, release channel, cluster

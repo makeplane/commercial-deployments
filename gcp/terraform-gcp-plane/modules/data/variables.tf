@@ -42,6 +42,7 @@ variable "postgres" {
     deletion_protection         = bool
     final_backup                = bool
     final_backup_retention_days = number
+    password_version            = number
   })
 }
 

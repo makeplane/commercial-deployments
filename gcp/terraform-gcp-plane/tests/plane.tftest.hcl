@@ -738,6 +738,10 @@ run "data_service_defaults" {
     error_message = "A final Cloud SQL backup, kept 30 days, is on by default (AWS keeps a final snapshot)."
   }
   assert {
+    condition     = var.postgres.password_version == 1
+    error_message = "postgres.password_version defaults to 1, which sets no keepers: an upgrade keeps the password."
+  }
+  assert {
     condition     = var.redis.persistence && var.redis.rdb_snapshot_period == "TWENTY_FOUR_HOURS"
     error_message = "Memorystore persistence is on by default, with a daily snapshot."
   }
@@ -755,6 +759,22 @@ run "reject_final_backup_retention_too_long" {
   command = plan
   variables {
     postgres = { final_backup_retention_days = 366 }
+  }
+  expect_failures = [var.postgres]
+}
+
+run "reject_postgres_password_version_zero" {
+  command = plan
+  variables {
+    postgres = { password_version = 0 }
+  }
+  expect_failures = [var.postgres]
+}
+
+run "reject_postgres_password_version_fraction" {
+  command = plan
+  variables {
+    postgres = { password_version = 1.5 }
   }
   expect_failures = [var.postgres]
 }
