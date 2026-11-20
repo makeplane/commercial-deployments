@@ -376,6 +376,7 @@ before applying.
 | Send files through Plane's api, or stop | Set `use_storage_proxy`, then plan and apply. The bucket and its files don't change. Size the api and your ingress's limit first (section 5). |
 | Renew your certificate (A.2, email) | Update the secret's value in Secrets Manager. Plane picks it up within an hour. Option A.1 renews automatically. |
 | Backups | RDS keeps automated backups for 14 days, and takes a final snapshot if the database is deleted. S3 keeps old versions of files for 30 days. |
+| Update node images | Node images never change on their own. Find the latest release (module README, "Updating node images"), set `node_group = { ami_release_version = "<release>" }`, plan and apply: the nodes are replaced one at a time. |
 | Rotate the database password | Bump `postgres.password_version` and apply; Plane has a short, planned interruption while its pods pick up the new password. There is no automatic rotation. See the module README ("Rotating the database password"). |
 | Secrets | The database password, cache and queue credentials and Plane's app keys are in Secrets Manager under `plane/<name>/`. |
 

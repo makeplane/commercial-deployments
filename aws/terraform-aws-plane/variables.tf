@@ -360,14 +360,18 @@ variable "node_group" {
     The managed node group: starts at desired_size nodes and can range from min_size to max_size (2 to 4 by default, as
     today). No node autoscaler in this release, so it stays at desired_size until scaled by hand (aws eks
     update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired_size
-    only at creation and leaves later changes alone.
+    only at creation and leaves later changes alone. Node images don't change on their own: null ami_release_version
+    keeps the group's current EKS-optimized AL2023 release (AWS's latest when the group is created). Set it, e.g.
+    "1.36.5-20261119" (see the README for how to find the latest release), to update the nodes, which replaces them one
+    at a time.
   EOT
   type = object({
-    instance_types = optional(list(string), ["m7a.xlarge"])
-    min_size       = optional(number, 2)
-    max_size       = optional(number, 4)
-    desired_size   = optional(number, 2)
-    disk_size_gb   = optional(number, 50)
+    instance_types      = optional(list(string), ["m7a.xlarge"])
+    min_size            = optional(number, 2)
+    max_size            = optional(number, 4)
+    desired_size        = optional(number, 2)
+    disk_size_gb        = optional(number, 50)
+    ami_release_version = optional(string)
   })
   default  = {}
   nullable = false
@@ -375,6 +379,11 @@ variable "node_group" {
   validation {
     condition     = var.node_group.min_size >= 1 && var.node_group.min_size <= var.node_group.desired_size && var.node_group.desired_size <= var.node_group.max_size
     error_message = "node_group needs 1 <= min_size <= desired_size <= max_size."
+  }
+
+  validation {
+    condition     = var.node_group.ami_release_version == null || can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]{8}$", var.node_group.ami_release_version))
+    error_message = "node_group.ami_release_version must be null or an EKS AMI release version such as \"1.36.5-20261119\"."
   }
 }
 

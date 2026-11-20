@@ -49,11 +49,12 @@ domain = "plane.example.com" # never change after install
 # kubernetes_version = "1.36"
 
 # node_group = {
-#   instance_types = ["m7a.xlarge"]
-#   min_size       = 2
-#   max_size       = 4
-#   desired_size   = 2
-#   disk_size_gb   = 50
+#   instance_types      = ["m7a.xlarge"]
+#   min_size            = 2
+#   max_size            = 4
+#   desired_size        = 2
+#   disk_size_gb        = 50
+#   ami_release_version = null # keeps the node image; a release such as "1.36.5-20261119" updates the nodes (README)
 # }
 
 # addon_versions = {

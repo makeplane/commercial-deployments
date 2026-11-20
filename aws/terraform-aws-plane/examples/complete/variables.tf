@@ -174,14 +174,18 @@ variable "node_group" {
     The managed node group: starts at desired_size nodes and can range from min_size to max_size (2 to 4 by default, as
     today). No node autoscaler in this release, so it stays at desired_size until scaled by hand (aws eks
     update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired_size
-    only at creation and leaves later changes alone.
+    only at creation and leaves later changes alone. Node images don't change on their own: null ami_release_version
+    keeps the group's current EKS-optimized AL2023 release (AWS's latest when the group is created). Set it, e.g.
+    "1.36.5-20261119" (see the README for how to find the latest release), to update the nodes, which replaces them one
+    at a time.
   EOT
   type = object({
-    instance_types = optional(list(string))
-    min_size       = optional(number)
-    max_size       = optional(number)
-    desired_size   = optional(number)
-    disk_size_gb   = optional(number)
+    instance_types      = optional(list(string))
+    min_size            = optional(number)
+    max_size            = optional(number)
+    desired_size        = optional(number)
+    disk_size_gb        = optional(number)
+    ami_release_version = optional(string)
   })
   default = null
 }

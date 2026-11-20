@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Upgrade notes
+- Installs applied from `main`: the apply that switches to the module-generated database password changes it on RDS
+  before Plane's pods pick it up, so expect a short interruption on that apply: about the time External Secrets needs
+  to sync the new secret (it re-reads it every minute) plus the pod restarts by Reloader. Apply it without other pending
+  changes, such as a node image or Kubernetes version update.
+
 ### Security
 - Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the five Traefik advisories published 2026-11-12, among them a
   path-rule bypass ([GHSA-x5pf-cqh3-2gv8](https://github.com/traefik/traefik/security/advisories/GHSA-x5pf-cqh3-2gv8),
@@ -67,6 +73,13 @@
 - `chart_version` defaults to 3.14.0, the chart the GCP and Azure modules ship on; AWS still works from 3.11.3.
 - `pi.api_keys.chat_provider = "custom"` needs `chat_base_url` and `chat_model` even with Plane AI off, as on GCP and
   Azure, so a half-set custom model is caught before Plane AI is turned on.
+
+### Changed
+- The node image no longer follows AWS's newest EKS-optimized AMI on every plan (the EKS module's
+  `use_latest_ami_release_version` is off), so an unrelated apply no longer replaces the nodes. New
+  `node_group.ami_release_version` (default null: keep the current release; a new node group starts on AWS's latest)
+  updates them on purpose, one node at a time; see the README's "Updating node images". An existing install's next plan
+  shows no node group change.
 
 ### Added
 - `postgres.password_version` (default 1): bump it to rotate the RDS password on the next apply, with a short, planned

@@ -1,5 +1,5 @@
-# Input rules: network ranges, admin principals, PostgreSQL storage and password version, the cache replicas and the
-# storage proxy.
+# Input rules: network ranges, admin principals, the node image release, PostgreSQL storage and password version, the
+# cache replicas and the storage proxy.
 # Mock providers: no AWS credentials or cluster needed. Run: terraform init && terraform test
 
 mock_provider "aws" {
@@ -196,6 +196,23 @@ run "reject_admin_duplicate" {
   command = plan
   variables { cluster_admin_principal_arns = ["arn:aws:iam::123456789012:role/Admin", "arn:aws:iam::123456789012:role/Admin"] }
   expect_failures = [var.cluster_admin_principal_arns]
+}
+
+run "accepts_node_image_release" {
+  command = plan
+  variables { node_group = { ami_release_version = "1.36.5-20261119" } }
+}
+
+run "reject_node_image_release_ami_id" {
+  command = plan
+  variables { node_group = { ami_release_version = "ami-0123456789abcdef0" } }
+  expect_failures = [var.node_group]
+}
+
+run "reject_node_image_release_no_date" {
+  command = plan
+  variables { node_group = { ami_release_version = "1.36.5" } }
+  expect_failures = [var.node_group]
 }
 
 run "reject_redis_replicas_too_many" {
