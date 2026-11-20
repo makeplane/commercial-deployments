@@ -19,13 +19,14 @@ output "email_load_balancer_dns_name" {
 }
 
 output "dns_records" {
-  description = "The DNS records to create (the module creates none). web: path A only; in path B, point domain at your own ingress load balancer."
+  description = "The DNS records to create (the module creates none), with the same keys on every cloud. web: path A only; in path B, point domain at your own ingress load balancer. email_host is always null on AWS: the MX record (email_mx) names the email NLB's hostname directly, so no A record is needed."
   value = {
     web = module.edge.load_balancer_dns_name == null ? null : {
       name  = var.domain
       type  = "CNAME (or alias A in Route 53; DNS-only, no proxy)"
       value = module.edge.load_balancer_dns_name
     }
+    email_host = null
     email_mx = module.plane.email_load_balancer_dns_name == null ? null : {
       name  = local.email.smtp_domain
       type  = "MX"
@@ -70,8 +71,8 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  description = "ElastiCache primary endpoint (TLS)."
-  value       = module.data.redis_host
+  description = "ElastiCache primary endpoint (host:port, TLS)."
+  value       = "${module.data.redis_host}:${module.data.redis_port}"
 }
 
 output "rabbitmq_endpoint" {

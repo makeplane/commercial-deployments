@@ -67,11 +67,37 @@ variable "acme_server" {
 }
 
 variable "enable_components" {
-  description = "Optional Plane workloads. pi (Plane AI) needs AI provider keys, which are set in the admin UI in this release."
+  description = "Optional Plane workloads. pi is Plane AI (off by default); its models are set with the pi input: an OpenAI-compatible chat model and Cohere, with keys from Secrets Manager, by default, or Amazon Bedrock (keyless)."
   type = object({
     silo   = optional(bool)
     drawio = optional(bool)
     pi     = optional(bool)
+  })
+  default = null
+}
+
+variable "pi" {
+  description = "Plane AI's models (with enable_components.pi = true): provider \"api_keys\" (default: one chat key, a vendor's or a custom model's on an OpenAI-compatible API, and Cohere embeddings, both keys required, in Secrets Manager; the Cohere key as a JSON field, the chat key as plain text or a JSON field) or \"bedrock\" (keyless; the module creates inference profiles)."
+  type = object({
+    provider = optional(string)
+    bedrock = optional(object({
+      embedding_model = optional(string)
+      chat_model_id   = optional(string)
+      chat_model_name = optional(string)
+      chat_max_tokens = optional(number)
+    }))
+    api_keys = optional(object({
+      chat_provider            = optional(string)
+      chat_key_secret_arn      = optional(string)
+      chat_key_json_field      = optional(string)
+      chat_base_url            = optional(string)
+      chat_model               = optional(string)
+      chat_model_name          = optional(string)
+      chat_max_tokens          = optional(number)
+      embedding_model          = optional(string)
+      embedding_key_secret_arn = optional(string)
+      embedding_key_json_field = optional(string)
+    }))
   })
   default = null
 }
@@ -89,8 +115,8 @@ variable "ingress" {
     default): the module installs no ingress controller or routes; you bring your controller, routes, certificate and
     DNS after the apply. The module configures no DNS: the records are yours in both paths (see the dns_records output).
     Path A only: allowed_cidrs (who can reach Plane), scheme (internet-facing or internal) and
-    tls_certificate_secret_arn (a Secrets Manager secret with JSON keys "tls.crt" and "tls.key", full chain, encrypted
-    with the default aws/secretsmanager key or this module's KMS key).
+    tls_certificate_secret_arn (the full ARN of a Secrets Manager secret in this account and region, with JSON keys
+    "tls.crt" and "tls.key", full chain, encrypted with the default aws/secretsmanager key or this module's KMS key).
   EOT
   type = object({
     mode                       = optional(string)
@@ -148,14 +174,18 @@ variable "node_group" {
     The managed node group: starts at desired_size nodes and can range from min_size to max_size (2 to 4 by default, as
     today). No node autoscaler in this release, so it stays at desired_size until scaled by hand (aws eks
     update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired_size
-    only at creation and leaves later changes alone.
+    only at creation and leaves later changes alone. Node images don't change on their own: null ami_release_version
+    keeps the group's current EKS-optimized AL2023 release (AWS's latest when the group is created). Set it, e.g.
+    "1.36.5-20261119" (see the README for how to find the latest release), to update the nodes, which replaces them one
+    at a time.
   EOT
   type = object({
-    instance_types = optional(list(string))
-    min_size       = optional(number)
-    max_size       = optional(number)
-    desired_size   = optional(number)
-    disk_size_gb   = optional(number)
+    instance_types      = optional(list(string))
+    min_size            = optional(number)
+    max_size            = optional(number)
+    desired_size        = optional(number)
+    disk_size_gb        = optional(number)
+    ami_release_version = optional(string)
   })
   default = null
 }
@@ -194,6 +224,8 @@ variable "postgres" {
     iops                  = optional(number)
     backup_retention_days = optional(number)
     deletion_protection   = optional(bool)
+    apply_immediately     = optional(bool)
+    password_version      = optional(number)
   })
   default = null
 }
@@ -253,6 +285,18 @@ variable "email" {
     certificate_secret_arn = optional(string)
   })
   default = null
+}
+
+variable "use_storage_proxy" {
+  description = <<-EOT
+    How browsers reach files in the uploads bucket. false (default): they upload and download directly from the bucket
+    with signed URLs, and the bucket allows CORS from domain. true: work item attachments, editor images and similar go
+    through Plane's api (Plane v4.0.1 or later), which reaches the bucket with its own IAM role. This adds load on the
+    api and is subject to the ingress body limit, so size both for large files. silo, live and pi don't read this
+    setting, and Plane AI keeps direct signed URLs in both modes, so the bucket keeps its CORS configuration either way.
+  EOT
+  type        = bool
+  default     = null
 }
 
 variable "bucket_force_destroy" {

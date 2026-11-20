@@ -54,7 +54,7 @@ variable "issue_certificate" {
 }
 
 variable "certificate_secret_arns" {
-  description = "Customer certificate secrets (web, email) External Secrets may read."
+  description = "Customer secrets External Secrets may read: certificates (web, email) and the Plane AI embeddings API key."
   type        = list(string)
 }
 

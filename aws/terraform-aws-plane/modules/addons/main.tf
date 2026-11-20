@@ -10,6 +10,17 @@ locals {
   # Fixed name, so Terraform can find the NLB the controller creates (edge module).
   load_balancer_name = "${var.name}-traefik"
 
+  traefik_namespace = "traefik"
+  # Any client can send these and the api prefers them to X-Forwarded-For: Traefik drops them on
+  # every request (an empty value removes a header), so the api records the real client IP.
+  client_ip_headers_middleware = {
+    apiVersion = "traefik.io/v1alpha1"
+    kind       = "Middleware"
+    metadata   = { name = "strip-client-ip-headers", namespace = local.traefik_namespace }
+    spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
+  }
+  entrypoint_middlewares = ["${local.traefik_namespace}-${local.client_ip_headers_middleware.metadata.name}@kubernetescrd"]
+
   # cert-manager runs only when the module issues the web certificate (path A, Let's Encrypt).
   # HTTP-01 through Traefik: it needs no AWS access and touches no DNS.
   cert_manager_enabled = var.issue_certificate
@@ -18,7 +29,7 @@ locals {
     # 1.17.x ships controller v2.17.x. Chart 3.x (controller v3) needs the Gateway API CRDs
     # installed with kubectl, which breaks the Helm-only rule.
     aws_load_balancer_controller = "1.17.1"
-    traefik                      = "42.1.3"
+    traefik                      = "42.4.0"
     cert_manager                 = "v1.21.3"
     external_secrets             = "2.14.0"
     reloader                     = "2.2.19"
@@ -55,8 +66,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   depends_on = [terraform_data.cluster_ready, module.lb_controller_pod_identity]
 }
 
-# On destroy, Traefik's Service is deleted first and the LB controller removes the NLB
-# asynchronously. Keep the controller around long enough for that.
+# On destroy, Traefik's and the email Service are deleted first (both depend on this) and the LB
+# controller removes their NLBs asynchronously. Keep the controller around long enough for that.
 resource "time_sleep" "nlb_cleanup" {
   destroy_duration = "120s"
 
@@ -138,7 +149,7 @@ resource "helm_release" "traefik" {
   count = var.install_traefik ? 1 : 0
 
   name             = "traefik"
-  namespace        = "traefik"
+  namespace        = local.traefik_namespace
   create_namespace = true
   repository       = "https://traefik.github.io/charts"
   chart            = "traefik"
@@ -173,10 +184,12 @@ resource "helm_release" "traefik" {
               permanent = true
             }
           }
+          middlewares = local.entrypoint_middlewares
         }
         proxyProtocol = { trustedIPs = [var.vpc_cidr] }
       }
       websecure = {
+        http          = { middlewares = local.entrypoint_middlewares }
         proxyProtocol = { trustedIPs = [var.vpc_cidr] }
         # Long-lived websockets (live) and large uploads: no read deadline on the entrypoint.
         transport = {
@@ -202,6 +215,7 @@ resource "helm_release" "traefik" {
         loadBalancerSourceRanges = var.allowed_cidrs
       }
     }
+    extraObjects = [local.client_ip_headers_middleware]
   })]
 
   # The LB controller must be running to create the NLB, and still running (plus the cleanup

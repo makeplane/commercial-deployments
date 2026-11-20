@@ -43,7 +43,7 @@ resource "aws_elasticache_parameter_group" "valkey" {
 }
 
 resource "aws_elasticache_replication_group" "valkey" {
-  # checkov:skip=CKV2_AWS_50:Single node is the default size; set redis.replicas >= 1 for Multi-AZ automatic failover.
+  # checkov:skip=CKV2_AWS_50:Multi-AZ failover is on by default (redis.replicas = 1); replicas = 0 is allowed for test installs.
   replication_group_id = "${var.name}-valkey"
   description          = "Plane (${var.name}) cache"
 

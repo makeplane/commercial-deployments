@@ -61,6 +61,7 @@ override_module {
     kms_key_arn   = "arn:aws:kms:us-east-1:123456789012:key/mock"
     postgres_host = "postgres.mock"
     redis_host    = "redis.mock"
+    redis_port    = 6379
     rabbitmq_host = "rabbitmq.mock"
     bucket_name   = "plane-test-uploads"
     secret_arns = {
@@ -84,6 +85,7 @@ override_module {
       rabbitmq_port          = 5671
       rabbitmq_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:rabbitmq"
       app_keys_secret_arn    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:app-keys"
+      app_key_names          = ["SECRET_KEY", "AES_SECRET_KEY"]
       opensearch_enabled     = true
       opensearch_endpoint    = "opensearch.mock"
       opensearch_domain_name = "plane-test"
@@ -106,6 +108,18 @@ run "path_b_default" {
   assert {
     condition     = output.dns_records.email_mx != null
     error_message = "The email NLB (on by default) must give an MX record."
+  }
+  assert {
+    condition     = toset(keys(output.dns_records)) == toset(["web", "email_host", "email_mx"]) && output.dns_records.email_host == null
+    error_message = "dns_records must have the same keys as on GCP and Azure; email_host is null on AWS (the MX names the NLB hostname)."
+  }
+  assert {
+    condition     = yamldecode(output.plane_helm_values).serviceAccount == { create = true, cloudIdentity = true }
+    error_message = "Plane's ServiceAccount must be declared bound to a cloud identity (EKS Pod Identity), with no annotations."
+  }
+  assert {
+    condition     = output.redis_endpoint == "redis.mock:6379"
+    error_message = "redis_endpoint must be host:port, as on GCP and Azure."
   }
   assert {
     condition     = !yamldecode(output.plane_helm_values).ingress.enabled
@@ -146,8 +160,8 @@ run "a1_lets_encrypt" {
 
 run "a2_own_certificates" {
   variables {
-    ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls" }
-    email   = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls" }
+    ingress = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls-AbCdEf" }
+    email   = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls-AbCdEf" }
   }
 
   assert {
@@ -173,7 +187,7 @@ run "a2_own_certificates" {
 
 run "path_b_email_certificate" {
   variables {
-    email = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls" }
+    email = { certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls-AbCdEf" }
   }
 
   assert {
@@ -201,7 +215,7 @@ run "reject_automated_without_certificate" {
 run "reject_automated_with_both_certificates" {
   command = plan
   variables {
-    ingress    = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls" }
+    ingress    = { mode = "automated", tls_certificate_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls-AbCdEf" }
     acme_email = "ops@example.com"
   }
   expect_failures = [var.ingress]
