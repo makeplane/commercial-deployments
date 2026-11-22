@@ -63,7 +63,8 @@ is 20 MiB by default: raise it with `ingress.traefik.maxRequestBodyBytes` in `pl
 
 **Security defaults:**
 - Only the load balancers, the AKS API endpoint and the Key Vault endpoint are public. Limit the AKS API, open to all
-  addresses by default, with `api_server_authorized_ip_ranges`. Key Vault is gated by Entra ID RBAC;
+  addresses by default, with `api_server_authorized_ip_ranges` (the module adds the cluster's NAT egress IP itself, as
+  for the Key Vault firewall). Key Vault is gated by Entra ID RBAC;
   `key_vault.allowed_ips` turns on its firewall.
 - PostgreSQL, Redis and Blob Storage have no public access. PostgreSQL accepts only encrypted connections; Redis uses
   TLS and an access key, because Plane's clients send only a password. The storage account has shared keys turned off.
@@ -203,7 +204,8 @@ location        = "eastus2"
 name            = "plane"             # prefix for all resources, 3–20 characters; never change it
 domain          = "plane.example.com" # never change it
 
-# Who can reach the AKS API (Terraform needs it during the apply). Use your network's ranges.
+# Who can reach the AKS API (Terraform needs it during the apply). Use your network's ranges; the module adds the
+# cluster's NAT egress IP itself.
 api_server_authorized_ip_ranges = ["203.0.113.0/24"]
 
 # Path A.1: Let's Encrypt

@@ -116,10 +116,12 @@ resource "azurerm_kubernetes_cluster" "this" {
     snapshot_controller_enabled = true
   }
 
+  # AKS allows its own egress only for a Standard load balancer's outbound IPs. With the NAT gateway, kubelets and
+  # in-cluster clients reach the API from the NAT IP, so a restricted list must include it.
   dynamic "api_server_access_profile" {
     for_each = length(var.api_server_authorized_ip_ranges) > 0 ? [1] : []
     content {
-      authorized_ip_ranges = var.api_server_authorized_ip_ranges
+      authorized_ip_ranges = distinct(concat(var.api_server_authorized_ip_ranges, ["${var.nat_public_ip}/32"]))
     }
   }
 

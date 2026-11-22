@@ -41,7 +41,7 @@ location = "eastus2"
 # acme_server     = "https://acme-v02.api.letsencrypt.org/directory" # tests: acme-staging-v02
 # tls_secret_name = "plane-tls"
 
-# api_server_authorized_ip_ranges = [] # who can reach the AKS API; empty = everyone
+# api_server_authorized_ip_ranges = [] # who can reach the AKS API; empty = everyone (the NAT egress IP is added to a set list)
 # cluster_admin_object_ids        = [] # Entra ID users/groups/service principals; you are added automatically
 
 # resource_group = {

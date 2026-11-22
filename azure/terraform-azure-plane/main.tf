@@ -158,6 +158,7 @@ module "cluster" {
   zones                           = var.zones
   kubernetes_version              = var.kubernetes_version
   api_server_authorized_ip_ranges = var.api_server_authorized_ip_ranges
+  nat_public_ip                   = module.network.nat_public_ip
   tenant_id                       = data.azurerm_client_config.current.tenant_id
   deployer_object_id              = data.azurerm_client_config.current.object_id
   cluster_admin_object_ids        = var.cluster_admin_object_ids

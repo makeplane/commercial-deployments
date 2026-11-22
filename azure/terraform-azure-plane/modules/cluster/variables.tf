@@ -34,8 +34,13 @@ variable "kubernetes_version" {
 }
 
 variable "api_server_authorized_ip_ranges" {
-  description = "CIDRs allowed to reach the API server (empty = open)."
+  description = "CIDRs allowed to reach the API server (empty = open). nat_public_ip is added to a non-empty list."
   type        = list(string)
+}
+
+variable "nat_public_ip" {
+  description = "Egress public IP of the nodes (NAT gateway), allowed to reach the API server when it is restricted."
+  type        = string
 }
 
 variable "tenant_id" {

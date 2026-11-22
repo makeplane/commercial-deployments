@@ -91,7 +91,8 @@ destroy). For a step-by-step installation, see the [deployment guide](docs/deplo
   `eastus2`, `westus3`, `northeurope`, `westeurope`), and quota for the DDSv5 family (24 vCPUs: 4 per node, up to
   4 nodes, plus upgrade surge), 4 PostgreSQL vCores and 3 Standard public IPs.
 - Network access from where you run Terraform to the AKS API (public by default; restrict it with
-  `api_server_authorized_ip_ranges`) and to the Key Vault.
+  `api_server_authorized_ip_ranges`; the module adds the cluster's NAT egress IP itself, as for the Key Vault firewall)
+  and to the Key Vault.
 - An **encrypted remote state backend** (`backend "azurerm"` with `use_azuread_auth`). State holds generated secrets
   (database and RabbitMQ passwords, the Redis key, app keys).
 - Azure Policy assignments that deny public IPs, LoadBalancer Services, Redis access keys or Key Vault public access
@@ -459,7 +460,7 @@ issues: use these workarounds until they're fixed in Plane.
 | name | Prefix for every resource the module creates. Lowercase letters, digits and hyphens, at most 20 characters. | `string` | n/a | yes |
 | acme\_email | Path A (ingress.mode = "automated"), variant A.1: the Let's Encrypt account email. cert-manager issues the web<br/>certificate with HTTP-01 through Traefik: Plane must be public on port 80, and the certificate is issued once your<br/>DNS record for domain points at load\_balancer\_ip. Leave null for your own certificate<br/>(ingress.tls\_certificate\_secret\_id, variant A.2) or for path B. | `string` | `null` | no |
 | acme\_server | ACME directory URL. Use the Let's Encrypt staging URL for tests to avoid rate limits. | `string` | `"https://acme-v02.api.letsencrypt.org/directory"` | no |
-| api\_server\_authorized\_ip\_ranges | CIDRs allowed to reach the public AKS API server. Empty (default) = open to all, as on AWS. Restrict this to your office, VPN or CI ranges; Terraform needs it during the apply. | `list(string)` | `[]` | no |
+| api\_server\_authorized\_ip\_ranges | CIDRs allowed to reach the public AKS API server. Empty (default) = open to all, as on AWS. Restrict this to your office, VPN or CI ranges; Terraform needs it during the apply. The module adds the cluster's NAT egress IP to a non-empty list, so the nodes and in-cluster add-ons keep reaching the API. | `list(string)` | `[]` | no |
 | chart\_name | Chart name in chart\_repository (preview builds are named <commit>-plane-enterprise). | `string` | `"plane-enterprise"` | no |
 | chart\_repository | Helm repository of the plane-enterprise chart. Override only to test a preview build. | `string` | `"https://helm.plane.so/"` | no |
 | chart\_version | plane-enterprise Helm chart version. Needs 3.14.0+: the bundled-RabbitMQ external secret and the Azure Blob storage values (see README, "Requires"). | `string` | `"3.14.0"` | no |

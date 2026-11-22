@@ -177,7 +177,7 @@ variable "kubernetes_version" {
 }
 
 variable "api_server_authorized_ip_ranges" {
-  description = "CIDRs allowed to reach the public AKS API server. Empty (default) = open to all, as on AWS. Restrict this to your office, VPN or CI ranges; Terraform needs it during the apply."
+  description = "CIDRs allowed to reach the public AKS API server. Empty (default) = open to all, as on AWS. Restrict this to your office, VPN or CI ranges; Terraform needs it during the apply. The module adds the cluster's NAT egress IP to a non-empty list, so the nodes and in-cluster add-ons keep reaching the API."
   type        = list(string)
   default     = null
 }

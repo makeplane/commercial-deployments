@@ -48,6 +48,9 @@
   `dns_records` output lists the A and MX records to create.
 - Email service on by default with its own static public IP (ports 25/465/587, sender IP preserved), certificate from
   Key Vault (`email.certificate_secret_id`) or self-signed.
+- `api_server_authorized_ip_ranges`, when set, also allows the cluster's NAT egress IP (`/32`), as the Key Vault
+  firewall does: with a NAT gateway AKS doesn't add it, and the nodes and in-cluster add-ons would be refused. Empty
+  still leaves the API server unrestricted.
 - Every Key Vault certificate ID you pass (`ingress.tls_certificate_secret_id`, `email.certificate_secret_id`) is checked
   at plan: a full, versionless resource ID in this subscription. `cluster_admin_object_ids` must be GUIDs.
 - Plane AI (pi) on AKS, off by default: `enable_components.pi = true` runs it on the Blob container (Plane's Workload
