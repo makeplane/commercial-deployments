@@ -16,7 +16,8 @@
   so forwarded client IPs are trusted only from the GKE pods range.
 - Path A: Traefik removes client-sent `CF-Connecting-IP` and `True-Client-IP` headers on both entry points (a
   `Middleware` in the Traefik release), so a client can't set the IP Plane records; the api prefers them to
-  `X-Forwarded-For`. In path B your ingress should drop them (README).
+  `X-Forwarded-For`. In path B your ingress should drop them and `X-Real-IP` too, and must not pass a client-sent
+  `X-Forwarded-For` through (README).
 
 ### Changed
 - The `plane-db` ExternalSecret re-reads the database password every minute (was hourly), so a
