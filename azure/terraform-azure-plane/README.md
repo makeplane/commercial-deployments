@@ -112,8 +112,9 @@ the records from the `dns_records` output.
 | Email certificate | Yours from Key Vault (`email.certificate_secret_id`), else self-signed | Same |
 | DNS | Yours: A `domain` → `load_balancer_ip`; A and MX for `smtp_domain` | Yours: `domain` → your ingress; A and MX for `smtp_domain` |
 
-**Path B client IP:** your ingress should remove the `CF-Connecting-IP` and `True-Client-IP` request headers, as the
-module's Traefik does in path A: the api prefers them to `X-Forwarded-For`, so any client could set the IP Plane records.
+**Path B client IP:** your ingress should drop the client-sent `CF-Connecting-IP`, `True-Client-IP` and `X-Real-IP`
+headers and must not pass a client-sent `X-Forwarded-For` through (the api takes its leftmost entry), as path A's
+Traefik does.
 
 **Static addresses:** the module creates the public IPs before the cluster, so `dns_records` is complete after the
 first apply (and you can create the records before Plane is up). The Azure load balancer keeps the client IP

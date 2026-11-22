@@ -16,7 +16,9 @@
   forwarded client IPs are trusted only from the pod range (Traefik's pods), not from any client.
 - Path A: Traefik removes the `CF-Connecting-IP` and `True-Client-IP` request headers on both entry points (a
   `Middleware` shipped with the Traefik release), so a client can no longer set the IP Plane records: the api prefers
-  them to `X-Forwarded-For`. In path B, your ingress should remove them (see README).
+  them to `X-Forwarded-For`. Traefik already replaces a client-sent `X-Real-IP` and `X-Forwarded-For`. In path B, your
+  ingress should drop the client-sent `CF-Connecting-IP`, `True-Client-IP` and `X-Real-IP` and not pass a client-sent
+  `X-Forwarded-For` through (see README).
 
 > **Not releasable yet.** Needs Plane's native Azure Blob storage support (api and silo) and plane-enterprise chart
 > 3.14.0 ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which renders it
