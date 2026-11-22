@@ -184,6 +184,10 @@ it). `email = { load_balancer = false }` keeps the service running with no load 
 internet, like today's managed deployment); `email = { enabled = false }` turns the service and its load balancer off. The NLB costs about $27/month.
 Needs plane-enterprise chart 3.11.3 or later.
 
+**Outgoing email** isn't set up by the module: it covers inbound email (intake) only. Invitations and notifications
+need an SMTP server, configured in the admin UI (`/god-mode`, Email), for example Amazon SES. Without it, invites are
+created but no email is sent.
+
 ## Plane AI
 
 Off by default. `enable_components = { pi = true }` turns it on, and the module then sets up everything it needs: its
@@ -209,6 +213,12 @@ as Anthropic's native API or Bedrock's runtime API, don't work with `custom`: us
 as LiteLLM that exposes an OpenAI-compatible endpoint. With OpenAI's newer model IDs (GPT-5.6 and later) Plane AI
 calls the Responses API, so the endpoint must also serve `/responses`; for OpenAI itself, prefer
 `chat_provider = "openai"`.
+
+The model behind `custom` must support tool calling and structured output (JSON schema) on the OpenAI Chat Completions
+API. Plane AI is only as good as the model: a small model may miss answers about your workspace. `chat_max_tokens` is
+the model's context window as Plane AI sees it; it isn't sent to the endpoint as a limit on answers. Plane AI uses one
+chat provider at a time: a vendor key and a custom model aren't combined, so no Plane AI call goes to a provider you
+didn't choose.
 
 Both keys are required: the module refuses Plane AI without them. Store them in Secrets Manager, in the same account
 and region (encrypted with `aws/secretsmanager` or this module's KMS key), and pass the full ARNs. Store the Cohere key
@@ -262,6 +272,18 @@ module's domain can assume it, and it may read only the embedding key's secret (
 field (`AWS_OPENSEARCH_CONNECTOR_ROLE_ARN`, `AWS_OPENSEARCH_CONNECTOR_SECRET_ARN`, `AWS_OPENSEARCH_CONNECTOR_SECRET_KEY`),
 and its migrator assumes the role once to create the connector. This needs a Plane AI release that keeps Cohere's
 `Authorization: Bearer` header in this mode.
+
+**Moving the Cohere key to another secret.** Amazon OpenSearch Service reads the key from the secret named in the
+connector Plane AI created, and Plane AI doesn't update that connector. After you change
+`pi.api_keys.embedding_key_secret_arn` (or `embedding_key_json_field`) and apply, re-point it, then restart Plane AI:
+
+```bash
+kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch model --force --yes
+kubectl -n plane rollout restart deploy/plane-pi-api-wl deploy/plane-pi-worker-wl deploy/plane-pi-beat-wl
+```
+
+Until then, new data isn't embedded and search by meaning fails. The replaced connector and model stay in OpenSearch,
+undeployed. Rotating the key's value in the same secret needs nothing.
 
 **Amazon Bedrock (alternative, `pi.provider = "bedrock"`): no keys.**
 
@@ -368,6 +390,32 @@ new version or remove `ami_release_version` (the nodes then get AWS's latest rel
   never expire: `/aws/amazonmq/broker/<broker id>/` followed by `general`, and `connection`, `channel`, `federation` or
   `mirroring` as RabbitMQ logs those. The broker ID is the first part of the `rabbitmq_endpoint` output (`b-…`); note it
   before you destroy, then delete them with `aws logs delete-log-group`.
+
+## Known issues
+
+Found in an end-to-end test (2026-11, Plane versions up to the current 4.x build). They are Plane issues, not module
+issues: use these workarounds until they're fixed in Plane.
+
+- **Plane AI chat fails after the first sign-up.** pi-api's log shows `Failed to retrieve OAuth credentials`. Cause: the
+  first admin sign-up (god-mode) doesn't create Plane's marketplace apps. Create them, then restart Plane AI:
+  ```bash
+  kubectl -n plane exec deploy/plane-api-wl -- python manage.py reset_marketplace_app_secrets
+  kubectl -n plane rollout restart deploy/plane-pi-api-wl deploy/plane-pi-worker-wl
+  ```
+- **Semantic search fails on a new install.** pi-api logs `[neural] unknown token [VALUE_NULL] after [model_id]`.
+  Cause: pi-api can start before its migrate job creates the embedding model, and keeps "no model" until it restarts.
+  Once the `plane-pi-api-migrate-<timestamp>` job has completed, restart pi-api and pi-worker (the `rollout restart`
+  above).
+- **Workspace data isn't searchable by meaning until 03:00 UTC on a new install.** Cause: the module turns on Plane
+  AI's indexing, but a workspace's first full feed runs once a day. To feed now, see what would run, then run it:
+  ```bash
+  kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch vectorize --stuck --dry-run
+  kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch vectorize --stuck --yes
+  ```
+  Never name workspaces: `--stuck` picks every workspace that needs a feed.
+- **A changed upload limit shows in the web app only after up to 2 hours.** This is `env.doc_upload_size_limit`, set
+  through `plane_values`. Cause: the api caches the instance settings the web app reads. The api already applies the
+  new limit; the web app catches up on its own.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

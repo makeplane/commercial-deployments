@@ -154,3 +154,5 @@
 - `examples/complete`: `terraform.tfvars` is the one place to configure everything. The example declares every module
   input under the same name and passes it through; unset inputs keep the module default (`nullable = false` on every
   defaulted input). `terraform.tfvars.example` shows every setting with its default, plus a few examples. CI checks that the example declares exactly the module's inputs.
+- README: known issues and notes from the first end-to-end test (Plane AI setup, indexing, custom models, moving the
+  embedding key, outgoing email).
