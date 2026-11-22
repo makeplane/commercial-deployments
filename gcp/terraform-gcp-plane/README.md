@@ -185,6 +185,9 @@ The email load balancer is always internet-facing and open to all senders on its
 `email = { load_balancer = false }` keeps the service running with no load balancer (not reachable from the internet,
 like today's managed deployment); `email = { enabled = false }` turns the service and its load balancer off.
 
+**Outgoing email:** the module sets up inbound email (intake) only. Invitations and notifications need an SMTP server,
+set in god-mode (Email). Without it, invites are created but no email is sent.
+
 ## Plane AI
 
 Off by default. `enable_components = { pi = true }` turns it on, and the module then sets up everything it needs: a
@@ -225,6 +228,15 @@ refuses these four with a vendor key.
 > OpenAI-compatible endpoint or gateway such as LiteLLM in front.
 > With one of OpenAI's newer model IDs as `chat_model` (GPT-5.6 and later), Plane AI calls the Responses API, so the
 > endpoint must also serve `/responses`; to use OpenAI itself, prefer `chat_provider = "openai"`.
+
+**Choosing a custom model:**
+
+- The model must support tool calling and structured output (JSON schema) on the OpenAI Chat Completions API.
+- Plane AI's quality depends on the model. A small model may miss answers about your workspace.
+- `chat_max_tokens` is the model's context window, as shown to Plane AI. It isn't sent to the endpoint as a limit on
+  answers.
+- Plane AI has one chat provider at a time: no vendor key alongside a custom model. So no Plane AI call goes to a
+  provider you didn't choose.
 
 **Embeddings** on Cohere (`pi.api_keys.embedding_model`, default `cohere/embed-v4.0`; or another model below).
 
@@ -289,8 +301,23 @@ the internet through the module's Cloud NAT. If you restrict egress, allow HTTPS
 example `api.openai.com`, `api.anthropic.com`, `api.x.ai`, `api.cohere.ai`, or your `chat_base_url` host).
 
 **Rotating keys:** add a new version of the secret. It's picked up within an hour, and Reloader restarts the pi
-workloads. Plane AI puts the embedding key into the OpenSearch connector it creates, so a rotated embedding key also
-needs the connector updated.
+workloads. That's all the chat key needs. To sync now:
+`kubectl -n plane annotate externalsecret plane-ai-providers force-sync=$(date +%s) --overwrite`.
+
+**The embedding (Cohere) key** is different. When Plane AI creates the embedding model in the in-cluster OpenSearch,
+it copies the key's value into the OpenSearch connector. The connector holds the key itself, not a reference to the
+secret, and Plane AI never updates an existing connector.
+
+- **Moving the key** to another secret or JSON field, same value: change `embedding_key_secret` or
+  `embedding_key_json_field` and apply. The sync is all it needs; the connector keeps working.
+- **A new key value** (rotation): the connector keeps the old key until you re-point it. Once the new value is synced
+  and the pi workloads have restarted, create a new connector with the new key, then restart pi-api and pi-worker.
+  It's the same Cohere model, so stored vectors stay valid. Revoke the old key only after this.
+
+```bash
+kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch model --force --yes
+kubectl -n plane rollout restart deploy/plane-pi-api-wl deploy/plane-pi-worker-wl
+```
 
 ## After install
 
@@ -369,6 +396,35 @@ it back.
   doesn't delete them with the Helm release): find them with `gcloud compute disks list --filter="name~^pvc-"` and
   delete them. The Cloud SQL instance name has a random suffix, so a reinstall with the same `name` isn't blocked by
   Cloud SQL's week-long name reservation. The project APIs stay on.
+
+## Known issues
+
+These are Plane (product) issues found in an end-to-end test (2026-11). They apply until they're fixed in Plane.
+
+- **Plane AI chat fails after the first sign-up in god-mode.** pi-api's log shows "Failed to retrieve OAuth
+  credentials". Cause: the first admin sign-up doesn't create Plane's marketplace apps. Fix:
+
+  ```bash
+  kubectl -n plane exec deploy/plane-api-wl -- python manage.py reset_marketplace_app_secrets
+  kubectl -n plane rollout restart deploy/plane-pi-api-wl deploy/plane-pi-worker-wl
+  ```
+
+- **Semantic search fails on a new install.** pi-api logs `[neural] unknown token [VALUE_NULL] after [model_id]`.
+  Cause: pi-api can start before its migrate Job creates the embedding model, and keeps "no model" until it restarts.
+  Fix: once the `plane-pi-api-migrate-…` Job has completed, restart pi-api and pi-worker (the `rollout restart`
+  above).
+- **Workspace data isn't searchable by meaning until 03:00 UTC on a new install.** Cause: the module turns on Plane
+  AI's indexing, but a workspace's first full feed runs daily. To feed now, check the list, then queue it:
+
+  ```bash
+  kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch vectorize --stuck --dry-run
+  kubectl -n plane exec deploy/plane-pi-api-wl -- python -m pier.cli opensearch vectorize --stuck --yes
+  ```
+
+  `--stuck` picks every workspace that needs a feed; never name workspaces.
+- **A changed upload limit shows in the web app only after up to 2 hours** (`env.doc_upload_size_limit` through
+  `plane_values`). Cause: the api caches the instance settings the web app reads. The api already applies the new
+  limit.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

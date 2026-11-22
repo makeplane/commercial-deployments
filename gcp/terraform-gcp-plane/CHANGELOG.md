@@ -50,6 +50,8 @@
   keeping other `postgres` fields when preparing to destroy.
 
 ### Added
+- README: known issues and notes from the first end-to-end test (Plane AI setup, indexing, custom models, the
+  embedding key, outgoing email).
 - `postgres.password_version` (default 1): bump it to rotate the Cloud SQL password on the next apply, with a short,
   planned interruption while Plane's pods pick up the new password; there is no automatic rotation. The same input as
   on AWS and Azure. The default leaves the current password unchanged on upgrade.
