@@ -86,6 +86,8 @@ variables {
   name     = "plane-test"
   domain   = "plane.example.com"
   location = "eastus2"
+  # At the Azure Blob floor (a placeholder); tests/plane_version.tftest.hcl covers the floor itself.
+  plane_version = "v99.0.0"
 
   kv = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/certs-rg/providers/Microsoft.KeyVault/vaults/customer-kv"
 }

@@ -35,13 +35,22 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, \"Requires\"). Plane AI (enable_components.pi) needs the first release whose pi supports Azure Blob; the module checks it."
+  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage backend: the module refuses releases older than the first one with it (see README, \"Requires\"); build tags (branch or preview builds) aren't checked. Plane AI (enable_components.pi) needs the first release whose pi supports Azure Blob; the module checks it."
   type        = string
   default     = "v4.0.1"
   nullable    = false
 
+  # Both floors compare releases (vX.Y.Z) as one number; other tags (branch, preview or on-demand builds) aren't checked.
   validation {
-    # Releases (vX.Y.Z) compared as one number; other tags (preview or on-demand builds) aren't checked.
+    condition = try(
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.blob_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
+      true
+    )
+    error_message = "plane_version ${var.plane_version} has no Azure Blob storage backend: set ${local.blob_min_plane_version} or later (the first Plane release with Azure Blob storage; see README, \"Requires\"), or a build tag that includes it."
+  }
+
+  validation {
     condition = !var.enable_components.pi || try(
       sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
       sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),

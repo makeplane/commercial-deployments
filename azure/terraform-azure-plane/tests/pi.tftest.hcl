@@ -85,6 +85,8 @@ variables {
   name     = "plane-test"
   domain   = "plane.example.com"
   location = "eastus2"
+  # At the Azure Blob floor (a placeholder); tests/plane_version.tftest.hcl covers the floor itself.
+  plane_version = "v99.0.0"
 
   kv         = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/keys-rg/providers/Microsoft.KeyVault/vaults/customer-kv"
   openai_key = "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/keys-rg/providers/Microsoft.KeyVault/vaults/customer-kv/secrets/plane-openai-key"
@@ -437,6 +439,7 @@ run "reject_pi_below_plane_version_floor" {
   command = plan
   variables {
     enable_components = { pi = true }
+    plane_version     = "v4.0.1"
     pi                = { api_keys = { chat_key_secret_id = var.openai_key, embedding_key_secret_id = var.cohere_key } }
   }
   expect_failures = [var.plane_version]

@@ -32,6 +32,10 @@ locals {
   # Near the end of the AKS subnet (nodes fill from the start), so it's known before the apply.
   internal_ingress_ip = cidrhost(local.aks_subnet_cidr, -10)
 
+  # Placeholder until the Plane release with the Azure Blob storage backend (api, silo) is known: until then every
+  # release is refused and only build tags (not checked) install.
+  blob_min_plane_version = "v99.0.0"
+
   # Placeholder until the Plane release carrying pi Azure Blob support is known: it keeps pi refused until then.
   pi_min_plane_version = "v99.0.0"
 

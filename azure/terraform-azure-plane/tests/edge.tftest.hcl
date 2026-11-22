@@ -84,6 +84,8 @@ variables {
   name     = "plane-test"
   domain   = "plane.example.com"
   location = "eastus2"
+  # At the Azure Blob floor (a placeholder); tests/plane_version.tftest.hcl covers the floor itself.
+  plane_version = "v99.0.0"
 }
 
 run "path_b_default" {

@@ -22,7 +22,8 @@
 > 3.14.0 ([helm-charts#377](https://github.com/makeplane/helm-charts/pull/377), pending release), which renders it
 > and lets the bundled RabbitMQ read `external_secrets.rabbitmq`. The Blob chart values follow the **agreed contract**
 > (`modules/plane/main.tf`, "AZURE BLOB STORAGE"); the `plane_version` (`v4.0.1`) and `chart_version` (`3.14.0`)
-> defaults are placeholders until those releases exist. See README, "Requires".
+> defaults are placeholders until those releases exist, and the Blob floor refuses the `plane_version` default at
+> plan. See README, "Requires".
 
 ### Added
 - `postgres.password_version` (default 1): bump it to rotate the PostgreSQL password on the next apply, with a short,
@@ -48,6 +49,10 @@
   `dns_records` output lists the A and MX records to create.
 - Email service on by default with its own static public IP (ports 25/465/587, sender IP preserved), certificate from
   Key Vault (`email.certificate_secret_id`) or self-signed.
+- `plane_version` is checked at plan against the first Plane release with the Azure Blob storage backend, as Plane AI's
+  floor is: an older release (including the current `v4.0.1` default) is refused with an error, instead of installing
+  a Plane whose uploads fail at runtime. The floor is a placeholder (`v99.0.0`) until that release is known; build
+  tags (branch or preview builds) aren't checked.
 - `api_server_authorized_ip_ranges`, when set, also allows the cluster's NAT egress IP (`/32`), as the Key Vault
   firewall does: with a NAT gateway AKS doesn't add it, and the nodes and in-cluster add-ons would be refused. Empty
   still leaves the API server unrestricted.
@@ -78,8 +83,9 @@
 - A complete [deployment guide](docs/deployment-guide.md), and more outputs in `examples/complete` for the commands it
   uses (`resource_group_name`, `nat_public_ip`, `postgres_endpoint`, `storage_account_name`, `key_vault_uri`).
 - `examples/complete` declares every module input 1:1 (`terraform.tfvars.example` shows every default); mock-provider
-  tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values and the data layer; CI workflow
-  `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).
+  tests (`tests/*.tftest.hcl`) for the edge paths, add-ons, the generated chart values, the data layer, the AKS API
+  allow-list and the `plane_version` floors; CI workflow `terraform-azure-plane.yml` (fmt, validate, test, tflint,
+  checkov, terraform-docs, example inputs).
 
 ### Changed
 - README: known issues and notes from the first end-to-end test (Plane AI setup, indexing, custom models, the embedding

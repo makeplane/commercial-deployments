@@ -23,7 +23,7 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage support (see README, \"Requires\")."
+  description = "Plane release to install (chart planeVersion). Must include Plane's Azure Blob storage backend: the module refuses releases older than the first one with it (see README, \"Requires\"); build tags (branch or preview builds) aren't checked."
   type        = string
   default     = null
 }
