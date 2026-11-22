@@ -117,7 +117,9 @@ locals {
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        refreshInterval = "1h"
+        # Re-read the database password every minute, so a rotation (postgres.password_version)
+        # reaches the pods quickly (Reloader then rolls them). The others don't rotate.
+        refreshInterval = name == "plane-db" ? "1m" : "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
         target   = { name = name, creationPolicy = "Orphan" }

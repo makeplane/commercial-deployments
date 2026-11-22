@@ -79,6 +79,8 @@
   `terraform-azure-plane.yml` (fmt, validate, test, tflint, checkov, terraform-docs, example inputs).
 
 ### Changed
+- The `plane-db` ExternalSecret re-reads the database password every minute (was hourly), so a
+  `postgres.password_version` rotation reaches Plane in about a minute, as on AWS. The other secrets stay hourly.
 - Terraform Registry name `terraform-azure-plane` (`makeplane/plane/azure`), the same as its folder and its
   `managed-by` tag.
 - `kubernetes_version` defaults to AKS 1.36 (was 1.35), GA and the AKS default for new clusters.

@@ -322,8 +322,8 @@ The module generates the PostgreSQL password (user `plane`) once; nothing rotate
 `postgres.password_version` (default 1: set 2, later 3, and so on) and apply. Terraform sets the new password on the
 server in place and adds it to the Key Vault secret `plane-db` as a new version; the server and databases are not
 replaced. Plane has a short, planned interruption: new database connections fail until External Secrets syncs the new
-password (within the hour, or at once with `kubectl -n plane annotate externalsecret plane-db force-sync=$(date +%s)
---overwrite`) and Reloader restarts the apps. Any change of the number rotates the password, including setting it back.
+password (it re-reads this secret every minute) and Reloader restarts the apps. Any change of the number rotates the
+password, including setting it back.
 
 ## Things to know
 

@@ -112,6 +112,22 @@ run "blob_contract" {
   }
 }
 
+# plane-db is re-read every minute, so a rotation (postgres.password_version) reaches the pods quickly.
+run "plane_db_refreshes_every_minute" {
+  command = plan
+  module {
+    source = "./modules/plane"
+  }
+
+  assert {
+    condition = (
+      [for o in yamldecode(output.helm_values).extraObjects : o.spec.refreshInterval if o.kind == "ExternalSecret" && o.metadata.name == "plane-db"] == ["1m"] &&
+      toset([for o in yamldecode(output.helm_values).extraObjects : o.spec.refreshInterval if o.kind == "ExternalSecret" && o.metadata.name != "plane-db"]) == toset(["1h"])
+    )
+    error_message = "The plane-db ExternalSecret must be re-read every minute and every other ExternalSecret hourly."
+  }
+}
+
 run "in_cluster_services" {
   command = plan
   module {
