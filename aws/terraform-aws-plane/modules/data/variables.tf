@@ -35,6 +35,7 @@ variable "postgres" {
     deletion_protection   = bool
     apply_immediately     = bool
     password_version      = optional(number, 1)
+    log_retention_days    = optional(number, 90)
   })
 }
 

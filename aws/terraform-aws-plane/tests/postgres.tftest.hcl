@@ -11,6 +11,9 @@ mock_provider "aws" {
   mock_data "aws_partition" {
     defaults = { partition = "aws", dns_suffix = "amazonaws.com" }
   }
+  mock_data "aws_region" {
+    defaults = { region = "us-east-1", name = "us-east-1" }
+  }
   mock_resource "aws_kms_key" {
     defaults = { arn = "arn:aws:kms:us-east-1:123456789012:key/mock" }
   }
@@ -201,5 +204,61 @@ run "postgres_password_version_bump" {
       jsondecode(aws_secretsmanager_secret_version.postgres.secret_string).password == random_password.postgres.result
     )
     error_message = "The cluster and the secret External Secrets reads must carry the rotated password."
+  }
+}
+
+# The database log group is the module's (the cluster depends_on it): retention, the module's KMS key, and a key
+# policy that lets CloudWatch Logs use the key for that log group only.
+run "postgres_log_group" {
+  command = plan
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_log_group.postgres.name == "/aws/rds/cluster/plane-test-pg/postgresql" &&
+      aws_rds_cluster.postgres.cluster_identifier == "plane-test-pg" &&
+      contains(aws_rds_cluster.postgres.enabled_cloudwatch_logs_exports, "postgresql")
+    )
+    error_message = "The log group must have the exact name RDS exports the cluster's postgresql log to."
+  }
+  assert {
+    condition     = aws_cloudwatch_log_group.postgres.retention_in_days == 90 && aws_cloudwatch_log_group.postgres.kms_key_id == aws_kms_key.this.arn
+    error_message = "The log group must expire after 90 days by default and be encrypted with the module's KMS key."
+  }
+  assert {
+    condition = anytrue([
+      for st in data.aws_iam_policy_document.kms.statement : (
+        st.sid == "CloudWatchLogsPostgresLogGroup" &&
+        one([for p in st.principals : p.identifiers if p.type == "Service"]) == toset(["logs.us-east-1.amazonaws.com"]) &&
+        one([for c in st.condition : c.values if c.variable == "kms:EncryptionContext:aws:logs:arn" && c.test == "ArnEquals"]) == tolist(["arn:aws:logs:us-east-1:123456789012:log-group:/aws/rds/cluster/plane-test-pg/postgresql"])
+      )
+    ])
+    error_message = "The key policy must let CloudWatch Logs in this region use the key only for the module's database log group."
+  }
+}
+
+run "postgres_log_retention_input" {
+  module {
+    source = "./modules/data"
+  }
+  variables {
+    postgres = {
+      engine_version        = "15.19"
+      instance_class        = "db.m6gd.large"
+      allocated_storage_gb  = 100
+      storage_type          = "io1"
+      iops                  = null
+      backup_retention_days = 14
+      deletion_protection   = true
+      apply_immediately     = false
+      log_retention_days    = 365
+    }
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.postgres.retention_in_days == 365
+    error_message = "postgres.log_retention_days must reach the log group."
   }
 }

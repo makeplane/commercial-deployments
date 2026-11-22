@@ -406,12 +406,20 @@ This deletes Plane and all its data.
    bucket_force_destroy = true
    ```
    Then `terraform apply`.
-3. `terraform destroy`.
-4. Delete your DNS records.
+3. Note the queue's broker ID, the first part of the `rabbitmq_endpoint` output (`b-…`), for step 5.
+4. `terraform destroy`.
+5. Delete Amazon MQ's log groups, which Amazon MQ creates itself and which never expire:
+   ```bash
+   aws logs describe-log-groups --log-group-name-prefix /aws/amazonmq/broker/<broker id>/ \
+     --query 'logGroups[].logGroupName' --output text
+   aws logs delete-log-group --log-group-name /aws/amazonmq/broker/<broker id>/general   # and each other name listed
+   ```
+6. Delete your DNS records.
 
 RDS keeps a final snapshot of the database, named `<name>-pg-final`. It's encrypted with the installation's KMS key,
 which AWS deletes 30 days after the destroy: if you may need the data, restore or copy the snapshot with another key
-before then. The secrets stay recoverable for 7 days.
+before then. The secrets stay recoverable for 7 days. The database log group is the module's, so the destroy deletes
+it with its logs.
 
 To reinstall with the same `name`, first delete that snapshot, and delete the `plane/<name>/*` secrets for good
 (`aws secretsmanager delete-secret --force-delete-without-recovery --secret-id <arn>`). Otherwise the apply fails

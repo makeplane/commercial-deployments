@@ -7,6 +7,16 @@
   before Plane's pods pick it up, so expect a short interruption on that apply: about the time External Secrets needs
   to sync the new secret (it re-reads it every minute) plus the pod restarts by Reloader. Apply it without other pending
   changes, such as a node image or Kubernetes version update.
+- Installs applied from `main`: RDS already created the database log group, so the module's log group fails to create
+  (`ResourceAlreadyExistsException`). Import it once, in your root module, before that apply (the module address is
+  `module.<your module name>.module.data`); the apply then sets its retention, KMS key and tags, and the key applies
+  to new log data only:
+  ```hcl
+  import {
+    to = module.plane.module.data.aws_cloudwatch_log_group.postgres
+    id = "/aws/rds/cluster/<name>-pg/postgresql"
+  }
+  ```
 
 ### Security
 - Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the five Traefik advisories published 2026-11-12, among them a
@@ -27,6 +37,12 @@
   drop them too.
 
 ### Fixed
+- `terraform destroy` no longer leaves the database log group behind with no retention: the module creates
+  `/aws/rds/cluster/<name>-pg/postgresql` before the cluster (RDS then uses it, not its own), with
+  `postgres.log_retention_days` (new, default 90 days as the EKS control-plane logs) and the module's KMS key. The key
+  policy lets CloudWatch Logs in the region use the key for that log group only. Amazon MQ's broker log groups
+  (`/aws/amazonmq/broker/<broker id>/…`) stay documented leftovers: their names hold the broker ID, known only once the
+  broker exists, and Amazon MQ creates them itself (with its service-linked role), so Terraform can't own them.
 - Plane AI now indexes workspace data: with `enable_components.pi` on, the module turns on pi's vector and workspace
   plan syncs (`env.pi_envs.celery.vector_sync_enabled` and `workspace_plan_sync_enabled`), which the chart leaves off;
   `plane_values` can still turn them off.

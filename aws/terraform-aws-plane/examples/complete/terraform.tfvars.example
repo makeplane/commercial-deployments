@@ -75,6 +75,7 @@ domain = "plane.example.com" # never change after install
 #   deletion_protection   = true
 #   apply_immediately     = false  # true for a major version upgrade (README)
 #   password_version      = 1      # bump to rotate the database password (short interruption)
+#   log_retention_days    = 90     # CloudWatch Logs retention of the database log
 # }
 
 # redis = {

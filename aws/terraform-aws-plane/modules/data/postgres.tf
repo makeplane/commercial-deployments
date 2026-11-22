@@ -4,6 +4,20 @@
 
 locals {
   postgres_major = split(".", var.postgres.engine_version)[0]
+
+  # The name RDS writes the postgresql log export to; it uses this group when it already exists.
+  postgres_log_group     = "/aws/rds/cluster/${var.name}-pg/postgresql"
+  postgres_log_group_arn = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:${local.postgres_log_group}"
+}
+
+# Created before the cluster, so RDS doesn't create its own (no retention, kept after destroy).
+resource "aws_cloudwatch_log_group" "postgres" {
+  # checkov:skip=CKV_AWS_338:Retention is postgres.log_retention_days (default 90, as the EKS control-plane logs).
+  name              = local.postgres_log_group
+  retention_in_days = var.postgres.log_retention_days
+  kms_key_id        = aws_kms_key.this.arn
+
+  tags = var.tags
 }
 
 resource "aws_db_subnet_group" "postgres" {
@@ -103,4 +117,6 @@ resource "aws_rds_cluster" "postgres" {
   enabled_cloudwatch_logs_exports = ["postgresql"]
 
   tags = var.tags
+
+  depends_on = [aws_cloudwatch_log_group.postgres]
 }

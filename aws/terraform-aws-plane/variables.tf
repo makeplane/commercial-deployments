@@ -425,7 +425,8 @@ variable "postgres" {
     12000-64000 from 400 GiB. apply_immediately: false (default) leaves database changes to the maintenance window;
     set it true for a major version upgrade (engine_version 15.x to 16.x, see the README) and any change you want now.
     password_version (default 1): Bump to rotate the database password on the next apply: Plane has a short, planned
-    interruption while its pods pick up the new password. There is no automatic rotation.
+    interruption while its pods pick up the new password. There is no automatic rotation. log_retention_days (default
+    90, as the EKS control-plane logs): how long CloudWatch Logs keeps the database log, in a log group the module owns.
   EOT
   type = object({
     engine_version        = optional(string, "15.19")
@@ -437,6 +438,7 @@ variable "postgres" {
     deletion_protection   = optional(bool, true)
     apply_immediately     = optional(bool, false)
     password_version      = optional(number, 1)
+    log_retention_days    = optional(number, 90)
   })
   default  = {}
   nullable = false
@@ -468,6 +470,10 @@ variable "postgres" {
   validation {
     condition     = var.postgres.password_version >= 1 && floor(var.postgres.password_version) == var.postgres.password_version
     error_message = "postgres.password_version must be a whole number, 1 or more."
+  }
+  validation {
+    condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653], var.postgres.log_retention_days)
+    error_message = "postgres.log_retention_days must be a CloudWatch Logs retention: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288 or 3653."
   }
 }
 

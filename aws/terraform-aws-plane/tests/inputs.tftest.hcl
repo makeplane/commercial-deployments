@@ -295,6 +295,20 @@ run "reject_postgres_password_version_fraction" {
   expect_failures = [var.postgres]
 }
 
+run "postgres_log_retention_default" {
+  command = plan
+  assert {
+    condition     = var.postgres.log_retention_days == 90
+    error_message = "postgres.log_retention_days defaults to 90 days, as the EKS control-plane logs."
+  }
+}
+
+run "reject_postgres_log_retention_not_cloudwatch" {
+  command = plan
+  variables { postgres = { log_retention_days = 45 } }
+  expect_failures = [var.postgres]
+}
+
 # plane-db reads the data module's postgres secret, re-read every minute so a rotation reaches the pods quickly.
 run "plane_db_reads_postgres_secret" {
   command = plan
