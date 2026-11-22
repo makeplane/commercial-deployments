@@ -417,14 +417,15 @@ run "accept_default_plane_version_pi_off" {
   }
 }
 
-# Bedrock mode's connector (inference profile and role, no Secrets Manager key) doesn't need the key-mode fix.
-run "accept_bedrock_below_plane_version_floor" {
+# Bedrock mode doesn't use the key-mode fix, but it's held to the same floor until it is tested (A2).
+run "reject_bedrock_below_plane_version_floor" {
   command = plan
   variables {
     plane_version     = "v4.0.1"
     enable_components = { pi = true }
     pi                = { provider = "bedrock" }
   }
+  expect_failures = [var.plane_version]
 }
 
 run "pi_api_keys_anthropic" {

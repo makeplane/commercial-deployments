@@ -51,9 +51,8 @@ locals {
     "bedrock/cohere.embed-english-v3"      = "cohere.embed-english-v3"
     "bedrock/cohere.embed-multilingual-v3" = "cohere.embed-multilingual-v3"
   }
-  # Plane AI with API keys: on Amazon OpenSearch Service the connector reads the Cohere key from Secrets Manager, and
-  # pi must keep Cohere's Authorization header in that mode. Placeholder until the Plane release with that fix is
-  # known: it keeps key mode refused until then. Bedrock mode builds its connector another way and isn't checked.
+  # Plane AI needs the release whose pi keeps Cohere's Authorization header when OpenSearch reads the key from Secrets
+  # Manager (key mode); Bedrock mode is held to it until tested. Placeholder until that release is known.
   pi_min_plane_version = "v99.0.0"
 
   pi_mode = var.enable_components.pi ? var.pi.provider : null
