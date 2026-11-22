@@ -101,6 +101,8 @@ override_module {
 variables {
   name   = "plane-test"
   domain = "plane.example.com"
+  # At the Plane AI key-mode floor (a placeholder), so key-mode runs test their own rules; the floor runs set their own.
+  plane_version = "v99.0.0"
 
   openai_key = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/openai-key-AbCdEf"
   cohere_key = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/cohere-key-AbCdEf"
@@ -356,6 +358,72 @@ run "accept_plain_embedding_key_pi_off" {
   command = plan
   variables {
     pi = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key } }
+  }
+}
+
+# plane_version floor for key mode (pi_min_plane_version, a v99.0.0 placeholder): releases below it are refused;
+# branch and preview build tags, Bedrock mode and pi off aren't checked.
+run "reject_api_keys_below_plane_version_floor" {
+  command = plan
+  variables {
+    plane_version     = "v4.0.1" # the module's default
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
+  }
+  expect_failures = [var.plane_version]
+}
+
+run "reject_api_keys_suffixed_release_below_floor" {
+  command = plan
+  variables {
+    plane_version     = "v4.1.0-rc5"
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
+  }
+  expect_failures = [var.plane_version]
+}
+
+run "api_keys_branch_build_tag_not_checked" {
+  variables {
+    plane_version     = "featINFRA-1261-azure-blob"
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).planeVersion == "featINFRA-1261-azure-blob" && yamldecode(output.plane_helm_values).services.pi.enabled
+    error_message = "A branch build tag must pass the floor and reach the chart as is, with Plane AI on."
+  }
+}
+
+run "accept_api_keys_at_plane_version_floor" {
+  variables {
+    plane_version     = "v99.0.0"
+    enable_components = { pi = true }
+    pi                = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
+  }
+
+  assert {
+    condition     = yamldecode(output.plane_helm_values).planeVersion == "v99.0.0" && yamldecode(output.plane_helm_values).services.pi.enabled
+    error_message = "A release at the floor must be accepted with Plane AI on."
+  }
+}
+
+run "accept_default_plane_version_pi_off" {
+  command = plan
+  variables {
+    plane_version = "v4.0.1"
+    pi            = { api_keys = { chat_key_secret_arn = var.openai_key, embedding_key_secret_arn = var.cohere_key, embedding_key_json_field = "cohere_key" } }
+  }
+}
+
+# Bedrock mode's connector (inference profile and role, no Secrets Manager key) doesn't need the key-mode fix.
+run "accept_bedrock_below_plane_version_floor" {
+  command = plan
+  variables {
+    plane_version     = "v4.0.1"
+    enable_components = { pi = true }
+    pi                = { provider = "bedrock" }
   }
 }
 

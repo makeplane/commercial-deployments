@@ -109,7 +109,7 @@ domain = "plane.example.com" # never change after install
 # enable_components = {
 #   silo   = true
 #   drawio = true
-#   pi     = false
+#   pi     = false # Plane AI: also set pi below; key mode needs a newer plane_version (see plane_version)
 # }
 
 # Plane AI (enable_components.pi = true): semantic search and chat. Default: one chat key (a vendor's, OpenAI by
@@ -149,7 +149,7 @@ domain = "plane.example.com" # never change after install
 # use_storage_proxy    = false # true: attachments and images go through Plane's api instead of signed URLs
 # bucket_force_destroy = false
 
-# plane_version   = "v4.0.1"
+# plane_version   = "v4.0.1" # with Plane AI in key mode, refused at plan until the first Plane release with its fix
 # chart_version    = "3.14.0"
 # chart_repository = "https://helm.plane.so/"
 # chart_name       = "plane-enterprise"

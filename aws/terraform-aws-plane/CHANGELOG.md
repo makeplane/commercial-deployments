@@ -67,6 +67,12 @@
 - With Plane AI on in key mode, `pi.api_keys.embedding_key_json_field` is required: store the Cohere key as a JSON field,
   since Amazon OpenSearch Service reads it from the secret itself. A plain-text Cohere secret is refused at plan; the
   chat key may stay plain text.
+- With Plane AI on in key mode, `plane_version` has a floor: the first Plane release whose Plane AI keeps Cohere's
+  `Authorization: Bearer` header when Amazon OpenSearch Service reads the key from Secrets Manager. Older releases
+  can't create the embedding model, so they are refused at plan (the `pier.cli opensearch` commands in the README need
+  Plane v4.1.0 or later too). The floor is a placeholder (`v99.0.0`) until that release is known, so the `plane_version`
+  default (`v4.0.1`) is refused with key mode on. Build tags (branch or preview builds), Bedrock mode and Plane AI off
+  aren't checked.
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
 - `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
   null: the MX record names the email NLB's hostname directly.

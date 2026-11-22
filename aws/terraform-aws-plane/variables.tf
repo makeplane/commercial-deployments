@@ -35,10 +35,20 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI with provider API keys (enable_components.pi, pi.provider = \"api_keys\") needs the first release whose pi keeps Cohere's auth header when Amazon OpenSearch Service reads the key from Secrets Manager; the module checks it."
   type        = string
   default     = "v4.0.1"
   nullable    = false
+
+  validation {
+    # Releases (vX.Y.Z) compared as one number; other tags (branch, preview or on-demand builds) aren't checked.
+    condition = !var.enable_components.pi || var.pi.provider != "api_keys" || try(
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", var.plane_version) : tonumber(n) * pow(1000, 2 - i)]) >=
+      sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
+      true
+    )
+    error_message = "Plane AI with provider API keys (enable_components.pi, pi.provider = \"api_keys\") needs plane_version ${local.pi_min_plane_version} or later: on Amazon OpenSearch Service, the first Plane release whose Plane AI keeps Cohere's Authorization header when the connector reads the key from Secrets Manager."
+  }
 }
 
 variable "chart_version" {

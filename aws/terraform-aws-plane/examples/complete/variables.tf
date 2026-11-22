@@ -26,7 +26,7 @@ variable "deployment_mode" {
 }
 
 variable "plane_version" {
-  description = "Plane release to install (chart planeVersion)."
+  description = "Plane release to install (chart planeVersion). Plane AI with provider API keys (enable_components.pi, pi.provider = \"api_keys\") needs the first release whose pi keeps Cohere's auth header when Amazon OpenSearch Service reads the key from Secrets Manager; the module checks it."
   type        = string
   default     = null
 }

@@ -98,6 +98,8 @@ override_module {
 variables {
   name   = "plane-test"
   domain = "plane.example.com"
+  # At the Plane AI key-mode floor (a placeholder), so runs with Plane AI on test only the secret ARNs.
+  plane_version = "v99.0.0"
 
   web_tls    = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/web-tls-AbCdEf"
   mail_tls   = "arn:aws:secretsmanager:us-east-1:123456789012:secret:plane/mail-tls-AbCdEf"
