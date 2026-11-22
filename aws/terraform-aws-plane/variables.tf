@@ -361,9 +361,9 @@ variable "node_group" {
     today). No node autoscaler in this release, so it stays at desired_size until scaled by hand (aws eks
     update-nodegroup-config --scaling-config desiredSize=N) or by an autoscaler added later. Terraform sets desired_size
     only at creation and leaves later changes alone. Node images don't change on their own: null ami_release_version
-    keeps the group's current EKS-optimized AL2023 release (AWS's latest when the group is created). Set it, e.g.
-    "1.36.5-20261119" (see the README for how to find the latest release), to update the nodes, which replaces them one
-    at a time.
+    keeps the group's current EKS-optimized AL2023 release (AWS's latest when the group is created). Set it to a release
+    of kubernetes_version, e.g. "1.36.5-20261119" (see the README for how to find the latest release), to update the
+    nodes, which replaces them one at a time.
   EOT
   type = object({
     instance_types      = optional(list(string), ["m7a.xlarge"])
@@ -384,6 +384,11 @@ variable "node_group" {
   validation {
     condition     = var.node_group.ami_release_version == null || can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]{8}$", var.node_group.ami_release_version))
     error_message = "node_group.ami_release_version must be null or an EKS AMI release version such as \"1.36.5-20261119\"."
+  }
+  validation {
+    # try: Terraform 1.10 evaluates both sides of ||, and startswith rejects null.
+    condition     = var.node_group.ami_release_version == null || try(startswith(var.node_group.ami_release_version, "${var.kubernetes_version}."), false)
+    error_message = "node_group.ami_release_version must be a release of kubernetes_version (${var.kubernetes_version}.x-YYYYMMDD): when you raise kubernetes_version, set a release of the new version or remove it."
   }
 }
 

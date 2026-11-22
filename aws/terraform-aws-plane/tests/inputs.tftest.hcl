@@ -215,6 +215,23 @@ run "reject_node_image_release_no_date" {
   expect_failures = [var.node_group]
 }
 
+run "accepts_node_image_release_new_version" {
+  command = plan
+  variables {
+    kubernetes_version = "1.37"
+    node_group         = { ami_release_version = "1.37.1-20261201" }
+  }
+}
+
+run "reject_node_image_release_other_version" {
+  command = plan
+  variables {
+    kubernetes_version = "1.37"
+    node_group         = { ami_release_version = "1.36.5-20261119" }
+  }
+  expect_failures = [var.node_group]
+}
+
 run "reject_redis_replicas_too_many" {
   command = plan
   variables { redis = { replicas = 6 } }

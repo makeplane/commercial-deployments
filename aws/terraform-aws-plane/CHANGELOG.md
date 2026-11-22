@@ -34,7 +34,7 @@
 - Path A: Traefik drops the `CF-Connecting-IP` and `True-Client-IP` request headers on every request (a `Middleware`
   on both entry points). Any client could set them, and the api prefers them to `X-Forwarded-For`, so a client could
   choose the IP Plane records. Behind a Cloudflare proxy, Plane now records Cloudflare's IP. Path B: your ingress should
-  drop them too.
+  drop them and `X-Real-IP` too, and must not pass a client-sent `X-Forwarded-For` through.
 
 ### Fixed
 - `terraform destroy` no longer leaves the database log group behind with no retention: the module creates
@@ -95,7 +95,8 @@
   `use_latest_ami_release_version` is off), so an unrelated apply no longer replaces the nodes. New
   `node_group.ami_release_version` (default null: keep the current release; a new node group starts on AWS's latest)
   updates them on purpose, one node at a time; see the README's "Updating node images". An existing install's next plan
-  shows no node group change.
+  shows no node group change. The plan fails if the release isn't one of `kubernetes_version`, so a release left over
+  from the old version can't fail an upgrade halfway.
 
 ### Added
 - `postgres.password_version` (default 1): bump it to rotate the RDS password on the next apply, with a short, planned

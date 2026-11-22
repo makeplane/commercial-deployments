@@ -21,9 +21,9 @@ researched and picked up on its own.
 | Docs | Module README, customer deployment guide |
 
 **Known limits of v0.1.0:** the module always creates its own VPC and cluster; no node or pod autoscaling; images
-pulled from Docker Hub anonymously; SMTP, SSO and AI keys are set in the admin UI; the EKS API endpoint is public
-(`0.0.0.0/0`) by default; one module-managed KMS key; backups are RDS automated backups and a final snapshot only;
-the email load balancer is internet-facing; releases are tested by hand.
+pulled from Docker Hub anonymously; SMTP and SSO are set in god-mode (the module configures the Plane AI keys); the EKS
+API endpoint is public (`0.0.0.0/0`) by default; one module-managed KMS key; backups are RDS automated backups and a
+final snapshot only; the email load balancer is internet-facing; releases are tested by hand.
 
 ## 2. Future releases
 
@@ -62,16 +62,16 @@ The next targeted items. Not in priority order; the order and release grouping a
   endpoint off, and either require the CIDR list or document running Terraform from inside the VPC (Terraform's Helm
   provider talks to the API directly).
 - **`extra_secrets`.** An input map → Secrets Manager → External Secrets → the chart's `*_existingSecret` values, so
-  SMTP, SSO, AI and integration keys are managed in Terraform instead of the admin UI.
+  SMTP, SSO and integration keys are managed in Terraform instead of the admin UI (the Plane AI keys already are).
 - **Amazon SES for intake email.** SES receives the intake mail (receipt rule to S3 or SNS) instead of Plane's email
   service and its internet-facing load balancer. Needs Plane to read intake mail from SES; SES email receiving is
   available in only some regions.
 - **Image pulls.** Images come from Docker Hub anonymously, so Docker Hub rate limits apply to all nodes through
   the single NAT IP. Optional authenticated pulls first, then an ECR pull-through cache. Also document the outbound
   allow-list (`prime.plane.so`, Docker Hub, `helm.plane.so`, chart repos, Let's Encrypt for path A, AWS APIs).
-- **Dedicated database user, or Plane's `RDS_SECRET_ARN` support.** The app connects as the RDS master user, whose
-  password RDS rotates; Reloader restarts pods but leaves a short window of failed connections. Either a dedicated
-  app user without rotation, or the api's built-in `RDS_SECRET_ARN` support, which handles rotation itself.
+- **Automatic database password rotation.** The app connects as the RDS master user, whose password the module
+  generates; nothing rotates it automatically, and `postgres.password_version` rotates it on a planned apply (a short
+  window of failed connections while pods restart). Automatic rotation with a dedicated app user could come later.
 - **Version and upgrade policy.** Pin and upgrade EKS, add-ons, the chart and Plane through module releases;
   Renovate on customer templates. Add a pre-upgrade RDS snapshot keyed on the Plane version and a rollback runbook
   (Helm rollback doesn't undo database migrations).
