@@ -775,6 +775,33 @@ run "reject_final_backup_retention_too_long" {
   expect_failures = [var.postgres]
 }
 
+run "reject_backup_retention_not_above_log_days" {
+  command = plan
+  variables {
+    postgres = { backup_retention_days = 7 }
+  }
+  expect_failures = [var.postgres]
+}
+
+run "accept_backup_retention_min" {
+  command = plan
+  variables {
+    postgres = { backup_retention_days = 8 }
+  }
+  assert {
+    condition     = var.postgres.backup_retention_days == 8
+    error_message = "8 backups, one more than the 7 days of transaction logs, is the smallest accepted value."
+  }
+}
+
+run "reject_backup_retention_too_long" {
+  command = plan
+  variables {
+    postgres = { backup_retention_days = 366 }
+  }
+  expect_failures = [var.postgres]
+}
+
 run "reject_postgres_password_version_zero" {
   command = plan
   variables {

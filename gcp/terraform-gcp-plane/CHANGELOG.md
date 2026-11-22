@@ -28,6 +28,9 @@
   needs; 3.12.2 was never released.
 - `ingress.allowed_cidrs` is checked at plan, as on AWS: at least one IPv4 CIDR whose address is the start of the range
   (`203.0.113.10/32` for one address).
+- `postgres.backup_retention_days` is checked at plan: a whole number from 8 to 365. Cloud SQL needs more retained
+  backups than the 7 days of transaction logs the module keeps for point-in-time recovery, so a lower value used to
+  fail partway through the first apply.
 - The checks on `pi.api_keys` for `chat_provider = "custom"` match AWS and Azure: `chat_base_url`, `chat_model`,
   `chat_model_name` and `chat_max_tokens` are refused with a vendor key; `custom` needs `chat_base_url` and a non-blank
   `chat_model`.

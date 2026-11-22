@@ -211,8 +211,10 @@ variable "postgres" {
     in Secret Manager). deletion_protection turns on both Terraform's and Cloud SQL's own protection. final_backup: Cloud
     SQL takes a last backup when the instance is deleted and keeps it for final_backup_retention_days (1-365), after
     terraform destroy; automated backups are deleted with the instance. Changing it restarts the instance.
-    password_version (default 1): Bump to rotate the database password on the next apply: Plane has a short, planned
-    interruption while its pods pick up the new password. There is no automatic rotation.
+    backup_retention_days (8-365) is the number of daily backups kept: Cloud SQL needs more backups than the 7 days of
+    transaction logs kept for point-in-time recovery. password_version (default 1): Bump to rotate the database password
+    on the next apply: Plane has a short, planned interruption while its pods pick up the new password. There is no
+    automatic rotation.
   EOT
   type = object({
     database_version            = optional(string)

@@ -83,6 +83,20 @@ run "in_cluster_passwords_never_regenerate" {
   }
 }
 
+run "backup_count_above_log_days" {
+  module {
+    source = "./modules/data"
+  }
+
+  assert {
+    condition = (
+      google_sql_database_instance.postgres.settings[0].backup_configuration[0].backup_retention_settings[0].retained_backups >
+      google_sql_database_instance.postgres.settings[0].backup_configuration[0].transaction_log_retention_days
+    )
+    error_message = "Cloud SQL needs more retained backups than days of transaction logs."
+  }
+}
+
 run "final_backup_on_delete" {
   module {
     source = "./modules/data"
