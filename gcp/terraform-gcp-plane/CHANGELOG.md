@@ -19,6 +19,8 @@
   `X-Forwarded-For`. In path B your ingress should drop them (README).
 
 ### Changed
+- The `plane-db` ExternalSecret re-reads the database password every minute (was hourly), so a
+  `postgres.password_version` rotation reaches Plane in about a minute, as on AWS. The other secrets stay hourly.
 - Terraform Registry name `terraform-gcp-plane` (`makeplane/plane/gcp`), the same as its folder and its
   `managed-by` label.
 - `chart_version` defaults to plane-enterprise 3.14.0 (pending release in

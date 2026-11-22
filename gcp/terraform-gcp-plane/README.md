@@ -303,9 +303,9 @@ the `pi.api_keys` secrets instead.
 The module generates the Cloud SQL password (user `plane`) once; nothing rotates it automatically. To rotate it, raise
 `postgres.password_version` (default 1: set 2, later 3, and so on) and apply. Terraform sets the new password on the
 user in place and adds it to the secret `<name>-plane-db`; the instance and databases are untouched. Plane has a short,
-planned interruption: new database connections fail until External Secrets syncs the new password (within the hour,
-or at once with `kubectl -n plane annotate externalsecret plane-db force-sync=$(date +%s) --overwrite`) and Reloader
-restarts the apps. Any change of the number rotates the password, including setting it back.
+planned interruption: new database connections fail until External Secrets syncs the new password (it re-reads this
+secret every minute) and Reloader restarts the apps. Any change of the number rotates the password, including setting
+it back.
 
 ## Things to know
 
