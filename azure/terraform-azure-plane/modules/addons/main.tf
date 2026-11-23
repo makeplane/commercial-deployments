@@ -38,10 +38,30 @@ locals {
     spec       = { headers = { customRequestHeaders = { "CF-Connecting-IP" = "", "True-Client-IP" = "" } } }
   }
   entrypoint_middlewares = ["${local.traefik_namespace}-${local.client_ip_headers_middleware.metadata.name}@kubernetescrd"]
+
+  # Windows paths start C:/ or //server/: the kubelogin check uses where.exe there and sh elsewhere.
+  windows = can(regex("^([A-Za-z]:|//)", abspath(path.root)))
 }
 
+# Without kubelogin the helm provider reads the releases as gone and plans them as new: stop the plan instead.
+data "local_command" "kubelogin" {
+  command                  = local.windows ? "where" : "sh"
+  arguments                = local.windows ? ["/q", "kubelogin"] : ["-c", "command -v kubelogin >/dev/null"]
+  allow_non_zero_exit_code = true
+
+  lifecycle {
+    postcondition {
+      condition     = self.exit_code == 0
+      error_message = "kubelogin isn't on PATH. Helm authenticates to AKS with kubelogin; without it the helm provider can't read the installed releases and the plan shows them as new. Install it (for example with `az aks install-cli`), make sure it's on PATH in the shell running Terraform (with the azurecli login, also run `az login`), and run the plan again."
+    }
+  }
+}
+
+# Every release waits for the cluster, and for the kubelogin check, through this gate.
 resource "terraform_data" "cluster_ready" {
   input = var.cluster_ready
+
+  depends_on = [data.local_command.kubelogin]
 }
 
 resource "helm_release" "external_secrets" {

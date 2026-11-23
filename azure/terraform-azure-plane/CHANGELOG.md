@@ -109,3 +109,9 @@
 - With Plane AI on, the module turns on its indexing (`env.pi_envs.celery.vector_sync_enabled` and
   `workspace_plan_sync_enabled`, off in the chart), so pi embeds workspace data; the sync intervals stay the chart's,
   and `plane_values` can still override both.
+
+### Fixed
+- `terraform plan` stops with an error naming `kubelogin` and its install command when it isn't on `PATH`. Before,
+  helm provider 3.x couldn't authenticate, read the installed releases as gone and planned them as new, with exit code
+  0; applying that plan failed and left releases to import back into state. The check runs on every plan, before any
+  Helm release is read, and needs the `hashicorp/local` provider (2.6 or later; 2.9.1 in `examples/complete`).

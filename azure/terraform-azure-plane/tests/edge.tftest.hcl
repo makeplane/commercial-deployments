@@ -21,6 +21,7 @@ mock_provider "azurerm" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
 

@@ -8,6 +8,7 @@ mock_provider "azurerm" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 
 variables {
   name                   = "plane-test"
@@ -155,4 +156,35 @@ run "external_secrets_workload_identity" {
     condition     = length(helm_release.cert_manager) == 1
     error_message = "Let's Encrypt needs cert-manager."
   }
+}
+
+# The mock check reports kubelogin found (exit code 0), so the releases are planned.
+run "kubelogin_found" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+
+  assert {
+    condition     = data.local_command.kubelogin.command == "sh" && data.local_command.kubelogin.arguments == tolist(["-c", "command -v kubelogin >/dev/null"])
+    error_message = "Outside Windows the kubelogin check must look kubelogin up on PATH through sh."
+  }
+  assert {
+    condition     = helm_release.external_secrets.name == "external-secrets"
+    error_message = "With kubelogin found, the releases must be planned."
+  }
+}
+
+run "kubelogin_missing" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+  override_data {
+    target = data.local_command.kubelogin
+    values = { exit_code = 1 }
+  }
+
+  # The plan stops before any Helm release is read or planned.
+  expect_failures = [data.local_command.kubelogin]
 }

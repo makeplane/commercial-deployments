@@ -86,7 +86,7 @@ calculator for your region.
 |---|---|---|
 | Terraform | 1.10 or later | The deployment |
 | Azure CLI | any recent | Authentication, and the state storage account |
-| kubelogin | any recent | Helm's and kubectl's authentication to AKS during and after the apply (`az aks install-cli`) |
+| kubelogin | any recent | Helm's and kubectl's authentication to AKS during the plan and apply, and after (`az aks install-cli`). The plan stops with an error if it isn't on `PATH` |
 | kubectl | any recent | Checking the installation (`az aks install-cli`) |
 | Helm | 3 or later | Only if you bring your own ingress (path B) |
 | AzCopy | any recent | Only to copy your uploads out before removing the installation |
@@ -615,7 +615,8 @@ reinstall generates new app keys, so talk to Plane support before restoring old 
 | Browser certificate warning (A.1) | The certificate isn't issued yet: DNS doesn't resolve to the load balancer, the record is proxied, or port 80 isn't reachable from the internet | Check the record (`dig <domain>`), make it DNS-only, then `kubectl -n plane describe certificate plane-tls` and `kubectl -n plane get challenges` |
 | Browser certificate warning (A.2) | The certificate in Key Vault lacks the full chain or doesn't cover the domain | Check the certificate, then `kubectl -n plane describe externalsecret plane-web-tls` |
 | `helm_release` fails with `Forbidden` or a 403 from the cluster during the apply | Azure RBAC hasn't reached the API server. The module waits 2 minutes after granting cluster admin, which may not be enough | Wait a few minutes and apply again |
-| `kubelogin` not found, or Helm can't get a token | kubelogin isn't installed, or your `az login` expired | `az aks install-cli`, then `az login` |
+| `terraform plan` fails with `Resource postcondition failed` on `data.local_command.kubelogin`: `kubelogin isn't on PATH` | kubelogin isn't installed, or isn't on the `PATH` of the shell running Terraform. The plan stops here so the Helm releases aren't read without it | Install it (`az aks install-cli`), check `kubelogin --version` in the same shell, run `az login`, and plan again |
+| Helm can't get a token | Your `az login` expired | `az login`, then plan again |
 | Terraform or kubectl can't reach the cluster | Your IP isn't in `api_server_authorized_ip_ranges` | Add your network's range. If Terraform can't reach the API to refresh, add it with `az aks update --api-server-authorized-ip-ranges` first, then match it in `terraform.tfvars` |
 | An ExternalSecret isn't `SecretSynced` | External Secrets' workload identity can't read the vault yet, the vault's firewall blocks it, or a secret is missing | `kubectl -n plane describe externalsecret <name>` and `kubectl -n external-secrets logs deploy/external-secrets`. Right after the first apply, roles and the federated credential can take a few minutes to work: the error clears on its own |
 | Plane AI keys don't sync (`plane-ai-providers` isn't `SecretSynced`) | A secret is missing or misnamed in your vault, the vault isn't in RBAC mode, or its firewall doesn't allow the cluster's egress IP | `kubectl -n plane describe externalsecret plane-ai-providers` and `kubectl -n plane describe secretstore key-vault-<vault>`. Allow `terraform output nat_public_ip` on the vault |

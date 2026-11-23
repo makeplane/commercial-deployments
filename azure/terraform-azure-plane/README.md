@@ -82,7 +82,8 @@ destroy). For a step-by-step installation, see the [deployment guide](docs/deplo
 
 ## Prerequisites
 
-- Terraform ≥ 1.10, the **Azure CLI** (logged in) and **kubelogin** (Helm authenticates to AKS with Entra ID).
+- Terraform ≥ 1.10, the **Azure CLI** (logged in) and **kubelogin** on `PATH` (Helm authenticates to AKS with Entra ID
+  through kubelogin). Without kubelogin, the plan stops with an error naming it, before any Helm release is read.
 - **Owner** on the subscription (or resource group), or **Contributor + User Access Administrator**: the module
   creates role assignments (AKS RBAC Cluster Admin, Network Contributor, Key Vault Secrets Officer/User, Storage Blob
   Data Contributor) and delete locks. No Entra ID directory roles are needed (managed identities only).
@@ -425,6 +426,7 @@ issues: use these workarounds until they're fixed in Plane.
 | terraform | >= 1.10 |
 | azurerm | >= 5.12 |
 | helm | >= 3.0 |
+| local | >= 2.6 |
 | random | >= 3.6 |
 | time | >= 0.9 |
 

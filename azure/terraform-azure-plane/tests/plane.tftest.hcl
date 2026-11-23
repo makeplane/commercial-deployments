@@ -8,6 +8,7 @@ mock_provider "azurerm" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "time" {}
 
 variables {
