@@ -49,16 +49,23 @@ module "plane_pod_identity" {
       {
         sid       = "PlaneAIChatProfile"
         actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-        resources = try(local.pi_profile_arns.chat, [])
+        resources = try([local.pi_profile_arns.chat], [])
       },
       {
-        # The profile's models, in any region it routes to, only when called through the profile.
+        # The profile's models, in any region it routes to, only when called through the module's profile.
         sid       = "PlaneAIChatModels"
         actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
         resources = ["arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"]
-        condition = [{ test = "StringEquals", variable = "bedrock:InferenceProfileArn", values = try(local.pi_profile_arns.chat, []) }]
+        condition = [{ test = "StringEquals", variable = "bedrock:InferenceProfileArn", values = try([local.pi_profile_arns.chat], []) }]
       },
-  ], 0, local.pi_bedrock ? 2 : 0))
+      {
+        # The cross-Region profile it copies, likewise only through the module's profile.
+        sid       = "PlaneAIChatCrossRegion"
+        actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+        resources = try([local.pi_cross_region_profiles.chat], [])
+        condition = [{ test = "StringEquals", variable = "bedrock:InferenceProfileArn", values = try([local.pi_profile_arns.chat], []) }]
+      },
+  ], 0, local.pi_bedrock ? (contains(keys(local.pi_cross_region_profiles), "chat") ? 3 : 2) : 0))
 
   associations = {
     this = {
@@ -131,11 +138,9 @@ locals {
     ) : "arn:${data.aws_partition.current.partition}:bedrock:${var.region}::foundation-model/${id}"
   } : {}
 
-  # What may be invoked for each model: the module's profile and the cross-Region profile it copies.
-  pi_profile_arns = {
-    for k, source in local.pi_model_sources :
-    k => concat([aws_bedrock_inference_profile.pi[k].arn], strcontains(source, ":inference-profile/") ? [source] : [])
-  }
+  # The module's profile per model, and the cross-Region profile it copies (callable only through the former).
+  pi_profile_arns          = { for k, source in local.pi_model_sources : k => aws_bedrock_inference_profile.pi[k].arn }
+  pi_cross_region_profiles = { for k, source in local.pi_model_sources : k => source if strcontains(source, ":inference-profile/") }
 }
 
 resource "aws_bedrock_inference_profile" "pi" {
@@ -215,7 +220,23 @@ data "aws_iam_policy_document" "pi_connector" {
     content {
       sid       = "EmbeddingProfile"
       actions   = ["bedrock:InvokeModel"]
-      resources = local.pi_profile_arns.embeddings
+      resources = [local.pi_profile_arns.embeddings]
+    }
+  }
+
+  # A cross-Region embedding profile it copies, only when called through the module's profile.
+  dynamic "statement" {
+    for_each = local.pi_bedrock && contains(keys(local.pi_cross_region_profiles), "embeddings") ? [1] : []
+    content {
+      sid       = "EmbeddingCrossRegion"
+      actions   = ["bedrock:InvokeModel"]
+      resources = [local.pi_cross_region_profiles.embeddings]
+
+      condition {
+        test     = "StringEquals"
+        variable = "bedrock:InferenceProfileArn"
+        values   = [local.pi_profile_arns.embeddings]
+      }
     }
   }
 
@@ -230,7 +251,7 @@ data "aws_iam_policy_document" "pi_connector" {
       condition {
         test     = "StringEquals"
         variable = "bedrock:InferenceProfileArn"
-        values   = local.pi_profile_arns.embeddings
+        values   = [local.pi_profile_arns.embeddings]
       }
     }
   }

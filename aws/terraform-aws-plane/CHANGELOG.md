@@ -19,6 +19,8 @@
   ```
 
 ### Security
+- Plane AI on Bedrock: Plane's role can call the chat model only through the module's inference profile, as the
+  README says. Before, it could also call the cross-Region profile the module's profile copies directly.
 - Traefik chart 42.4.0 (Traefik v3.7.18), which fixes the five Traefik advisories published 2026-11-12, among them a
   path-rule bypass ([GHSA-x5pf-cqh3-2gv8](https://github.com/traefik/traefik/security/advisories/GHSA-x5pf-cqh3-2gv8),
   [GHSA-cp28-5662-543f](https://github.com/traefik/traefik/security/advisories/GHSA-cp28-5662-543f),

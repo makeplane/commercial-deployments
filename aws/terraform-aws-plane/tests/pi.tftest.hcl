@@ -869,8 +869,11 @@ run "iam_bedrock" {
     error_message = "The connector role may invoke only the embeddings profile (and its model through it) and set up ML on the domain."
   }
   assert {
-    condition     = toset(local.pi_profile_arns.chat) == toset(["arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/mock", "arn:aws:bedrock:us-east-1:123456789012:inference-profile/global.anthropic.claude-sonnet-4-6"])
-    error_message = "Plane's role may invoke the chat profile and the cross-Region profile it copies."
+    condition = (
+      local.pi_profile_arns.chat == "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/mock"
+      && local.pi_cross_region_profiles == { chat = "arn:aws:bedrock:us-east-1:123456789012:inference-profile/global.anthropic.claude-sonnet-4-6" }
+    )
+    error_message = "Plane's role may invoke the chat profile, and the cross-Region profile it copies only through it."
   }
   assert {
     condition     = length(data.aws_iam_policy_document.opensearch[0].statement) == 2
