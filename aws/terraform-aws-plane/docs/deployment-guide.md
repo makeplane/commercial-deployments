@@ -54,7 +54,7 @@ Every size above can be changed in `terraform.tfvars`.
 | Tool | Version | Used for |
 |---|---|---|
 | Terraform | 1.10 or later | The deployment |
-| AWS CLI | v2 | Authentication to the cluster during the apply |
+| AWS CLI | v2 | Authentication to the cluster during the plan and apply (`aws eks get-token`). The plan stops with an error if `aws` isn't on `PATH` |
 | kubectl | any recent | Checking the installation |
 | Helm | 3 or later | Only if you bring your own ingress (option B) |
 | jq | any | Only if you store your own certificates in Secrets Manager |
@@ -436,6 +436,7 @@ because those names are still taken.
 | Apply fails creating the OpenSearch domain with a service-linked role error | The role doesn't exist in the account | Create it (section 2) and apply again |
 | Apply fails with a quota error | Service quota too low | Raise the quota (section 2) and apply again |
 | Apply fails with `InsufficientInstanceCapacity` | AWS is short of that instance type in a zone; this isn't a quota | Apply again later, or choose another type with `node_group.instance_types` |
+| `terraform plan` fails with `Resource postcondition failed` on `data.local_command.aws_cli`: `The AWS CLI (aws) isn't on PATH` | The AWS CLI isn't installed, or isn't on the `PATH` of the shell running Terraform. The plan stops here so the Helm releases aren't read without it | Install the AWS CLI v2 (section 2), check `aws --version` in the same shell, and plan again |
 | `terraform plan` can't reach the cluster | Your IP isn't in `cluster_endpoint_public_access_cidrs` | Add your network's range and apply |
 | `helm_release.plane` runs for a long time | Database migrations on a new installation (about 15 minutes) | Wait; check with `kubectl -n plane get pods` |
 | Uploads fail with a CORS error in the browser | Plane was opened on a hostname other than `domain`; the bucket accepts only `https://<domain>` | Use the configured domain |

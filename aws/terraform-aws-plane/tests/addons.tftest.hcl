@@ -16,6 +16,7 @@ mock_provider "aws" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "time" {}
 
 variables {
@@ -93,4 +94,35 @@ run "path_b_no_traefik" {
     condition     = length(helm_release.traefik) == 0
     error_message = "Path B installs no Traefik, so no header Middleware: the customer's ingress drops the headers."
   }
+}
+
+# The mock check reports the AWS CLI found (exit code 0), so the releases are planned.
+run "aws_cli_found" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+
+  assert {
+    condition     = data.local_command.aws_cli.command == "sh" && data.local_command.aws_cli.arguments == tolist(["-c", "command -v aws >/dev/null"])
+    error_message = "Outside Windows the AWS CLI check must look aws up on PATH through sh."
+  }
+  assert {
+    condition     = helm_release.external_secrets.name == "external-secrets"
+    error_message = "With the AWS CLI found, the releases must be planned."
+  }
+}
+
+run "aws_cli_missing" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+  override_data {
+    target = data.local_command.aws_cli
+    values = { exit_code = 1 }
+  }
+
+  # The plan stops before any Helm release is read or planned.
+  expect_failures = [data.local_command.aws_cli]
 }

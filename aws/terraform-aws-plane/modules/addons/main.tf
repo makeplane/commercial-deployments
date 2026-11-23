@@ -35,11 +35,30 @@ locals {
     reloader                     = "2.2.19"
     metrics_server               = "3.14.0"
   }
+
+  # Windows paths start C:/ or //server/: the AWS CLI check uses where.exe there and sh elsewhere.
+  windows = can(regex("^([A-Za-z]:|//)", abspath(path.root)))
 }
 
-# Every release waits for the node group through this gate.
+# Without the AWS CLI the helm provider reads the releases as gone and plans them as new: stop the plan instead.
+data "local_command" "aws_cli" {
+  command                  = local.windows ? "where" : "sh"
+  arguments                = local.windows ? ["/q", "aws"] : ["-c", "command -v aws >/dev/null"]
+  allow_non_zero_exit_code = true
+
+  lifecycle {
+    postcondition {
+      condition     = self.exit_code == 0
+      error_message = "The AWS CLI (aws) isn't on PATH. Helm authenticates to EKS with `aws eks get-token`; without it the helm provider can't read the installed releases and the plan shows them as new. Install the AWS CLI v2, make sure `aws` is on PATH in the shell running Terraform, and run the plan again."
+    }
+  }
+}
+
+# Every release waits for the node group, and for the AWS CLI check, through this gate.
 resource "terraform_data" "cluster_ready" {
   input = var.cluster_ready
+
+  depends_on = [data.local_command.aws_cli]
 }
 
 resource "helm_release" "aws_load_balancer_controller" {

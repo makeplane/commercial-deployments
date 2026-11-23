@@ -40,6 +40,7 @@ mock_provider "aws" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "random" {
   # Long enough for the ElastiCache and Amazon MQ password rules.
   mock_resource "random_password" {

@@ -29,6 +29,7 @@ mock_provider "aws" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "tls" {}

@@ -58,7 +58,8 @@ A full example is in [`examples/complete`](examples/complete). For a step-by-ste
 
 ## Prerequisites
 
-- Terraform ≥ 1.10 (S3 state locking with `use_lockfile`) and the **AWS CLI v2** (Helm authenticates to EKS with `aws eks get-token`).
+- Terraform ≥ 1.10 (S3 state locking with `use_lockfile`) and the **AWS CLI v2** on `PATH` (Helm authenticates to EKS
+  with `aws eks get-token`). Without it, the plan stops with an error naming it, before any Helm release is read.
 - Credentials allowed to create VPC and EC2 networking (security groups, launch templates, an Elastic IP), EKS, IAM
   roles and policies, RDS, ElastiCache, Amazon MQ, OpenSearch Service, S3, KMS, Secrets Manager, CloudWatch Logs,
   Amazon Bedrock inference profiles (Plane AI),
@@ -432,6 +433,7 @@ issues: use these workarounds until they're fixed in Plane.
 | terraform | >= 1.10 |
 | aws | >= 6.28 |
 | helm | >= 3.0 |
+| local | >= 2.6 |
 | random | >= 3.6 |
 | time | >= 0.9 |
 

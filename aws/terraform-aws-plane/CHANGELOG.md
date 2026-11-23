@@ -39,6 +39,11 @@
   drop them and `X-Real-IP` too, and must not pass a client-sent `X-Forwarded-For` through.
 
 ### Fixed
+- `terraform plan` stops with an error naming the AWS CLI when `aws` isn't on `PATH`. Before, helm provider 3.x
+  couldn't authenticate (Helm gets its EKS token from `aws eks get-token`), read the installed releases as gone and
+  planned them as new, with exit code 0; applying that plan failed and left releases to import back into state. The
+  check runs on every plan, before any Helm release is read, and needs the `hashicorp/local` provider (2.6 or later;
+  2.9.1 in `examples/complete`).
 - Plane AI on Bedrock: chat failed with HTTP 500 because pi reads the module's chat profile
   (`bedrock:GetInferenceProfile`) before calling it, and Plane's role could only invoke it. The role may now read that
   profile too.
