@@ -897,6 +897,10 @@ run "iam_bedrock" {
     )
     error_message = "plane_values must come after the module's values, so it can turn the Plane AI syncs back off."
   }
+  assert {
+    condition     = alltrue([for p in aws_bedrock_inference_profile.pi : can(regex("^([0-9a-zA-Z:.][ _-]?)+$", p.description))])
+    error_message = "Bedrock rejects profile descriptions outside ([0-9a-zA-Z:.][ _-]?)+ (CreateInferenceProfile ValidationException)."
+  }
 }
 
 run "iam_api_keys" {

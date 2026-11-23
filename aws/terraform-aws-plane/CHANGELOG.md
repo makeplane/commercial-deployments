@@ -37,6 +37,8 @@
   drop them and `X-Real-IP` too, and must not pass a client-sent `X-Forwarded-For` through.
 
 ### Fixed
+- With Plane AI on Bedrock (`pi.provider = "bedrock"`), creating the inference profiles no longer fails with a
+  `ValidationException` on `description`: Bedrock allows no brackets there.
 - `terraform destroy` no longer leaves the database log group behind with no retention: the module creates
   `/aws/rds/cluster/<name>-pg/postgresql` before the cluster (RDS then uses it, not its own), with
   `postgres.log_retention_days` (new, default 90 days as the EKS control-plane logs) and the module's KMS key. The key

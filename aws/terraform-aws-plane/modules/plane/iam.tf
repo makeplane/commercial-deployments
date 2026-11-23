@@ -141,8 +141,9 @@ locals {
 resource "aws_bedrock_inference_profile" "pi" {
   for_each = local.pi_model_sources
 
+  # Bedrock allows only ([0-9a-zA-Z:.][ _-]?)+ in the description: no brackets, no repeated separators.
   name        = "${var.name}-pi-${each.key}"
-  description = "Plane AI (${var.name}) ${each.key}"
+  description = "Plane AI ${replace(var.name, "/-+/", "-")} ${each.key}"
 
   model_source {
     copy_from = each.value
