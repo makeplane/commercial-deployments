@@ -39,6 +39,9 @@
   drop them and `X-Real-IP` too, and must not pass a client-sent `X-Forwarded-For` through.
 
 ### Fixed
+- Plane AI on Bedrock: chat failed with HTTP 500 because pi reads the module's chat profile
+  (`bedrock:GetInferenceProfile`) before calling it, and Plane's role could only invoke it. The role may now read that
+  profile too.
 - With Plane AI on Bedrock (`pi.provider = "bedrock"`), creating the inference profiles no longer fails with a
   `ValidationException` on `description`: Bedrock allows no brackets there.
 - `terraform destroy` no longer leaves the database log group behind with no retention: the module creates

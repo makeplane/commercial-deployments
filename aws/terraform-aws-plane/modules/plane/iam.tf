@@ -47,8 +47,9 @@ module "plane_pod_identity" {
     },
     ] : [], slice([
       {
+        # pi reads the profile (GetInferenceProfile) to find its model before calling it.
         sid       = "PlaneAIChatProfile"
-        actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+        actions   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:GetInferenceProfile"]
         resources = try([local.pi_profile_arns.chat], [])
       },
       {
