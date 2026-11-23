@@ -297,8 +297,8 @@ undeployed. Rotating the key's value in the same secret needs nothing.
 | Chat | Claude Sonnet 4.6 through global cross-Region inference (`global.anthropic.claude-sonnet-4-6`) | `pi.bedrock.chat_model_id`: an Anthropic Claude cross-Region inference profile ID, `global.` or a geography prefix (`us.`, `us-gov.`, `eu.`, `apac.`, `jp.`, `au.`, `ca.`, `in.`) to keep requests in that geography; a bare `anthropic.claude-*` ID is rejected (current Claude models aren't served on demand in one region), plus `chat_model_name` and `chat_max_tokens` (the model's output limit) |
 
 The module creates an application inference profile for each model (`<name>-pi-embeddings`, `<name>-pi-chat`, with
-your tags, for cost allocation). Plane's Pod Identity role may invoke the chat profile, and only through it its
-model. OpenSearch calls the embeddings profile with a role the module creates for it (`<name>-pi-embeddings`): only the
+your tags, for cost allocation). Plane's Pod Identity role may read and invoke the chat profile, and only through it
+the cross-Region profile it copies and its model. OpenSearch calls the embeddings profile with a role the module creates for it (`<name>-pi-embeddings`): only the
 module's domain can assume it, and it may invoke only that profile. Plane AI's migrator assumes the same role once to
 create the connector. The domain has no fine-grained access control, so IAM alone authorizes this.
 
