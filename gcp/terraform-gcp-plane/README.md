@@ -63,7 +63,8 @@ A full example is in [`examples/complete`](examples/complete). For a step-by-ste
 
 ## Prerequisites
 
-- Terraform ≥ 1.10, the **gcloud CLI** and **`gke-gcloud-auth-plugin`** (Helm authenticates to GKE with it).
+- Terraform ≥ 1.10, the **gcloud CLI** and **`gke-gcloud-auth-plugin`** on `PATH` (Helm authenticates to GKE with
+  it). Without the plugin, the plan stops with an error naming it, before any Helm release is read.
 - A GCP project with billing linked, **dedicated to Plane**: GKE's admin role is project-wide. The Service Usage and
   Cloud Resource Manager APIs must be on (they are on new projects); the module enables the rest.
 - Credentials allowed to enable APIs and to create networks (VPC, NAT, peering, addresses), GKE, Cloud SQL,
@@ -436,6 +437,7 @@ These are Plane (product) issues found in an end-to-end test (2026-11). They app
 | terraform | >= 1.10 |
 | google | >= 7.10 |
 | helm | >= 3.0 |
+| local | >= 2.6 |
 | random | >= 3.6 |
 | time | >= 0.9 |
 

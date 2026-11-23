@@ -46,6 +46,11 @@
   and pi don't read it and Plane AI keeps signed URLs, so the bucket keeps its CORS configuration.
 
 ### Fixed
+- `terraform plan` stops with an error naming `gke-gcloud-auth-plugin` and its install command when the plugin isn't
+  on `PATH`. Before, helm provider 3.x couldn't authenticate, read the installed releases as gone and planned them as
+  new, with exit code 0; applying that plan failed and left releases to import back into state. The check runs on
+  every plan, before any Helm release is read, and needs the `hashicorp/local` provider (2.6 or later; 2.9.1 in
+  `examples/complete`).
 - With Plane AI on, workspace indexing is on: `env.pi_envs.celery.vector_sync_enabled` and
   `workspace_plan_sync_enabled` are `true` (the chart defaults them off, and pi then never embeds workspace data).
   The chart's intervals are kept; `plane_values` can still override both.

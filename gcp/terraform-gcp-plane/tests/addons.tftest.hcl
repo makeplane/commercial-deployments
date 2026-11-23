@@ -10,6 +10,7 @@ mock_provider "google" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 
 variables {
   name                 = "plane-test"
@@ -154,4 +155,35 @@ run "external_secrets_identity" {
     condition     = length(helm_release.cert_manager) == 1
     error_message = "cert-manager must run with Let's Encrypt."
   }
+}
+
+# The mock check reports the plugin found (exit code 0), so the releases are planned.
+run "gke_auth_plugin_found" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+
+  assert {
+    condition     = data.local_command.gke_gcloud_auth_plugin.command == "sh" && data.local_command.gke_gcloud_auth_plugin.arguments == tolist(["-c", "command -v gke-gcloud-auth-plugin >/dev/null"])
+    error_message = "Outside Windows the plugin check must look gke-gcloud-auth-plugin up on PATH through sh."
+  }
+  assert {
+    condition     = helm_release.external_secrets.name == "external-secrets"
+    error_message = "With the plugin found, the releases must be planned."
+  }
+}
+
+run "gke_auth_plugin_missing" {
+  command = plan
+  module {
+    source = "./modules/addons"
+  }
+  override_data {
+    target = data.local_command.gke_gcloud_auth_plugin
+    values = { exit_code = 1 }
+  }
+
+  # The plan stops before any Helm release is read or planned.
+  expect_failures = [data.local_command.gke_gcloud_auth_plugin]
 }

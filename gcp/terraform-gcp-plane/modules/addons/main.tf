@@ -24,11 +24,30 @@ locals {
     { "networking.gke.io/load-balancer-ip-addresses" = var.web_address_name },
     var.load_balancer_scheme == "internal" ? { "networking.gke.io/load-balancer-type" = "Internal" } : {},
   )
+
+  # Windows paths start C:/ or //server/: the plugin check uses where.exe there and sh elsewhere.
+  windows = can(regex("^([A-Za-z]:|//)", abspath(path.root)))
 }
 
-# Every release waits for the node pool through this gate.
+# Without the plugin the helm provider reads the releases as gone and plans them as new: stop the plan instead.
+data "local_command" "gke_gcloud_auth_plugin" {
+  command                  = local.windows ? "where" : "sh"
+  arguments                = local.windows ? ["/q", "gke-gcloud-auth-plugin"] : ["-c", "command -v gke-gcloud-auth-plugin >/dev/null"]
+  allow_non_zero_exit_code = true
+
+  lifecycle {
+    postcondition {
+      condition     = self.exit_code == 0
+      error_message = "gke-gcloud-auth-plugin isn't on PATH. Helm authenticates to GKE with it; without it the helm provider can't read the installed releases and the plan shows them as new. Install it with `gcloud components install gke-gcloud-auth-plugin` and run the plan again."
+    }
+  }
+}
+
+# Every release waits for the node pool, and for the plugin check, through this gate.
 resource "terraform_data" "cluster_ready" {
   input = var.cluster_ready
+
+  depends_on = [data.local_command.gke_gcloud_auth_plugin]
 }
 
 resource "helm_release" "external_secrets" {

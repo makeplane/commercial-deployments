@@ -13,6 +13,7 @@ mock_provider "google" {
   }
 }
 mock_provider "helm" {}
+mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
 

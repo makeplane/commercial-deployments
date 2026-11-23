@@ -72,7 +72,7 @@ calculator for your region.
 |---|---|---|
 | Terraform | 1.10 or later | The deployment |
 | gcloud CLI | any recent | Authentication, and the state bucket |
-| `gke-gcloud-auth-plugin` | any recent | Authentication to the cluster during the apply (`gcloud components install gke-gcloud-auth-plugin`) |
+| `gke-gcloud-auth-plugin` | any recent | Authentication to the cluster during the plan and apply (`gcloud components install gke-gcloud-auth-plugin`). The plan stops with an error if it isn't on `PATH` |
 | kubectl | any recent | Checking the installation |
 | Helm | 3 or later | Only if you bring your own ingress (option B) |
 | jq | any | Only if you store your own certificates in Secret Manager |
@@ -645,7 +645,8 @@ SQL's week-long reservation of deleted instance names doesn't block you.
 | Apply fails because an API "has not been used in project … or it is disabled" | A newly enabled API wasn't ready yet, or `enable_apis = false` and the API is off | Wait a few minutes and apply again, or enable the API (section 2) |
 | Apply fails with `Insufficient regional quota` or `QUOTA_EXCEEDED` | Quota too low (often N2D CPUs or external IPs) | Raise the quota (section 2) and apply again |
 | Apply fails with `Constraint constraints/… violated` | An organisation policy blocks a resource | Ask your organisation admin to allow it for this project (section 2) |
-| `terraform plan` can't reach the cluster, or `gke-gcloud-auth-plugin` not found | Your IP isn't in `master_authorized_networks`, or the plugin isn't installed | Add your network's range and apply; install the plugin (section 2) and run `gcloud auth login` |
+| `terraform plan` fails with `Resource postcondition failed` on `data.local_command.gke_gcloud_auth_plugin`: `gke-gcloud-auth-plugin isn't on PATH` | The plugin isn't installed, or isn't on the `PATH` of the shell running Terraform. The plan stops here so the Helm releases aren't read without it | Install it (`gcloud components install gke-gcloud-auth-plugin`, section 2), check `gke-gcloud-auth-plugin --version` in the same shell, run `gcloud auth login`, and plan again |
+| `terraform plan` can't reach the cluster | Your IP isn't in `master_authorized_networks` | Add your network's range and apply |
 | `helm_release.plane` runs for a long time | Database migrations on a new installation (about 20 minutes) | Wait; check with `kubectl -n plane get pods` |
 | The load balancer has no external IP (`kubectl -n traefik get svc traefik`, `EXTERNAL-IP` pending) | An organisation policy blocks the load balancer type, or quota | `kubectl -n traefik describe svc traefik` shows the reason in its events |
 | `helm_release.plane` fails with `StatefulSet.apps "plane-rabbitmq-wl"` (or `"plane-opensearch-wl"`) `is invalid: spec: Forbidden: updates to statefulset spec for fields other than … are forbidden` | `rabbitmq.volume_size_gb` or `opensearch.volume_size_gb` was changed after the first install | Set it back to the size it was installed with and apply again. To grow the disk, see section 10 |
