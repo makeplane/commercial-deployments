@@ -1,0 +1,486 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: plane-openshift
+
+resources:
+  - ../../base
+  - vars.yaml
+  - secrets-vars.yaml
+
+# ============================================================
+# COMPONENTS
+# ============================================================
+# Enable/disable optional capabilities by commenting in/out entries.
+components:
+  # Email service (transactional email)
+  - ../../components/email-service
+
+  # Credential injection from secrets-vars.yaml. These are about STATIC
+  # credentials vs a cloud workload identity -- NOT about in-cluster vs external
+  # datastores -- so they are needed here too:
+  #   static-db-url          -> DATABASE_URL into plane-app-secrets AND
+  #                             plane-silo-secrets (silo gets it from nowhere else)
+  #   s3-static-credentials  -> AWS keys into plane-doc-store-secrets
+  # Drop s3-static-credentials only if the ServiceAccount assumes a cloud role
+  # instead, and then leave the AWS key fields out of secrets-vars.yaml entirely
+  # rather than setting them empty -- an empty AWS_ACCESS_KEY_ID shadows the role.
+  - ../../components/static-db-url
+  - ../../components/s3-static-credentials
+
+  # Ingress: OpenShift Routes. Replaces the base nginx Ingress, which no
+  # controller on OpenShift serves. Do NOT also enable ingress-nginx,
+  # ingress-traefik or aws-load-balancer-controller.
+  - ../../components/ingress-openshift
+
+  # Hardening: the OpenShift variant. Same controls as nonroot-security-context
+  # but names no UID, because restricted-v2 assigns one from the namespace's
+  # range and REJECTS any pod that asks for a specific runAsUser/fsGroup.
+  - ../../components/openshift-security-context
+
+  # Node runner service (automation script execution)
+  - ../../components/runner
+
+  # External API (cloud-entrypoint API workload)
+  - ../../components/external-api
+
+  # Worker importers (celery.importer queue)
+  - ../../components/worker-importers
+
+  # Webhook consumer (RabbitMQ consumer for webhook delivery)
+  - ../../components/webhook-consumer
+
+  # Agent consumer (RabbitMQ consumer for agent events)
+  - ../../components/agent-consumer
+
+  # Optional: external OpenSearch with username/password auth
+  # - ../../components/opensearch-external-auth
+
+  # Optional: mount a custom CA certificate into all containers
+  # Paste your CA cert (PEM) into ../../components/custom-ca/customCA.crt, then uncomment:
+  # - ../../components/custom-ca
+
+  # Optional: OpenTelemetry env vars for the backend-api. Enable AFTER custom-ca,
+  # add the OTEL_* vars to vars.yaml and the OTEL replacements to this file
+  # (see overlays/phoenix for a worked example).
+  # - ../../components/otel-observability
+
+  # ------------------------------------------------------------------
+  # NO BUNDLED DATASTORES.
+  #
+  # postgres / redis / rabbitmq / minio / opensearch are third-party images with
+  # baked-in UID and data-directory ownership. They cannot run under the
+  # arbitrary UID restricted-v2 assigns, so this overlay expects EXTERNAL
+  # services and the corresponding hosts/credentials in vars.yaml +
+  # secrets-vars.yaml.
+  #
+  # If you must run them in-cluster, grant their ServiceAccounts a relaxed SCC
+  # (`oc adm policy add-scc-to-user anyuid -z plane-srv-account`), re-add the
+  # components below, and restore the storage-class patches that this overlay
+  # drops along with them.
+  #
+  #   - ../../components/postgres
+  #   - ../../components/redis
+  #   - ../../components/rabbitmq
+  #   - ../../components/minio
+  #   - ../../components/opensearch
+  # ------------------------------------------------------------------
+
+# ============================================================
+# APPLICATION VERSION
+# ============================================================
+# Pin ALL images to the same release tag. Update this for upgrades.
+# Image tags for all artifacts.plane.so/makeplane/*-commercial workloads are
+# driven from APP_VERSION in vars.yaml at build time (see the APP_VERSION
+# replacement in the replacements: block below). The `newTag` values here
+# exist ONLY so the `images:` transformer tags bare image references injected
+# by patches (e.g. custom-ca's init container) — they are ALWAYS overridden
+# by the replacement. To bump versions, edit APP_VERSION in vars.yaml.
+images:
+  - name: artifacts.plane.so/makeplane/backend-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/web-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/space-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/admin-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/live-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/monitor-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/silo-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/email-commercial
+    newTag: app-version-driven
+  - name: artifacts.plane.so/makeplane/node-runner-commercial
+    newTag: app-version-driven
+  # Independent versioning — not driven by APP_VERSION:
+  - name: artifacts.plane.so/makeplane/iframely
+    newTag: v1.2.0
+
+# ============================================================
+# REPLACEMENTS
+# ============================================================
+replacements:
+  # ====== FROM vars.yaml (ConfigMap) ======
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_VERSION
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_VERSION
+
+  # Drive every workload's image tag from APP_VERSION (single source of truth).
+  # plane-iframely-wl has independent versioning — rejected.
+  # In-cluster infra StatefulSets (postgres/redis/rabbitmq/minio/opensearch) and
+  # the minio bucket-create Job use unrelated images — only the matching
+  # workloads (plane-monitor StatefulSet, plane-migrator Job) are explicitly
+  # selected so infra is never retagged.
+  # If custom-ca is enabled in this overlay, add an initContainers.*.image target
+  # block (mirroring the phoenix overlay) to tag the CA-cert init containers.
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_VERSION
+    targets:
+      - select:
+          kind: Deployment
+        reject:
+          - name: plane-iframely-wl
+          - name: plane-draw-io-wl   # pinned makeplane/drawio tag — not APP_VERSION-driven
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+      - select:
+          kind: Job
+          name: plane-migrator
+        fieldPaths:
+          - spec.template.spec.containers.*.image
+        options:
+          delimiter: ":"
+          index: 1
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.APP_DOMAIN
+
+  # NOTE: the `default` overlay has two replacements here that target
+  # kind: Ingress (spec.rules.0.host from APP_DOMAIN, spec.ingressClassName from
+  # INGRESS_CLASS). Both are omitted: the ingress-openshift component deletes the
+  # base Ingress, and it carries its own APP_DOMAIN -> Route spec.host
+  # replacement, so nothing here needs to know about ingress.
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.WEB_URL
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.WEB_URL
+          - data.APP_BASE_URL
+      - select:
+          kind: ConfigMap
+          name: plane-silo-vars
+        fieldPaths:
+          - data.APP_BASE_URL
+          - data.SILO_API_BASE_URL
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.CORS_ALLOWED_ORIGINS
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.CORS_ALLOWED_ORIGINS
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.ALLOW_ALL_ATTACHMENT_TYPES
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.ALLOW_ALL_ATTACHMENT_TYPES
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.IS_AIRGAPPED
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.IS_AIRGAPPED
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.MONITOR_STORAGE_CLASS
+    targets:
+      - select:
+          kind: StatefulSet
+          name: plane-monitor
+        fieldPaths:
+          - spec.volumeClaimTemplates.0.spec.storageClassName
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.PRIME_HOST
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-app-vars
+        fieldPaths:
+          - data.PRIME_HOST
+      - select:
+          kind: ConfigMap
+          name: plane-monitor-vars
+        fieldPaths:
+          - data.PRIME_HOST
+
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.OPENSEARCH_INDEX_PREFIX
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_INDEX_PREFIX
+
+  # ====== FROM secrets-vars.yaml (Secret) ======
+  # DATABASE_URL — overlay-level replacement overrides the postgres component's app-db-url patch,
+  # which otherwise wins because component patches run before component replacements.
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.DATABASE_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.DATABASE_URL
+
+  # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are injected by the s3-static-credentials component
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.REDIS_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.REDIS_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AMQP_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-silo-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.AMQP_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.SECRET_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AES_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.AES_SECRET_KEY
+
+  # LIVE_SERVER_SECRET_KEY must match across app and live for HMAC signatures to validate.
+  # (Add a plane-pi-api-secrets target if the pi-service component is enabled in this overlay.)
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.LIVE_SERVER_SECRET_KEY
+    targets:
+      - select:
+          kind: Secret
+          name: plane-app-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+      - select:
+          kind: Secret
+          name: plane-live-secrets
+        fieldPaths:
+          - stringData.LIVE_SERVER_SECRET_KEY
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_ENABLED
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_ENABLED
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.OPENSEARCH_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-opensearch-secrets
+        fieldPaths:
+          - stringData.OPENSEARCH_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_ENDPOINT_URL
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_ENDPOINT_URL
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_S3_BUCKET_NAME
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_S3_BUCKET_NAME
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.AWS_REGION
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.AWS_REGION
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.USE_MINIO
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.USE_MINIO
+
+  - source:
+      kind: Secret
+      name: overlay-secret-vars
+      fieldPath: stringData.FILE_SIZE_LIMIT
+    targets:
+      - select:
+          kind: Secret
+          name: plane-doc-store-secrets
+        fieldPaths:
+          - stringData.FILE_SIZE_LIMIT
+
+  # SMTP_DOMAIN — replaces the hardcoded value in plane-email-vars configmap
+  # and the dnsNames[0] in the Certificate resource (when email-tls-cert component is enabled)
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.SMTP_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: plane-email-vars
+        fieldPaths:
+          - data.SMTP_DOMAIN

@@ -1,0 +1,64 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# OpenShift ingress: replaces the base nginx Ingress with one
+# route.openshift.io/v1 Route per path, served by the cluster's HAProxy router.
+#
+# Pair with the `openshift-security-context` component; do NOT also enable
+# `ingress-nginx`, `ingress-traefik` or `aws-load-balancer-controller`.
+#
+# WHY EXPLICIT ROUTES
+#
+# OpenShift's ingress-to-route controller can convert a plain Ingress into Routes,
+# and that path also works: skip this component, keep the base Ingress, and set
+# INGRESS_CLASS to "openshift-default" in vars.yaml (the controller only picks up
+# an Ingress whose class maps to openshift.io/ingress-to-route -- "nginx" is
+# ignored). But Plane needs a per-route HAProxy timeout, and whether annotations
+# survive that conversion varies by OCP version. Declaring the Routes removes the
+# guesswork.
+#
+# WHAT IS LOST vs THE TRAEFIK PATH
+#
+#   - No body-size limit. Traefik's `plane-body-limit` Middleware
+#     (buffering.maxRequestBodyBytes) has no Route equivalent -- HAProxy cannot cap
+#     request bodies per route. Enforce upload limits in the app or at a WAF/CDN.
+#   - No path rewriting. A path needing a prefix strip (e.g. the draw-io component's
+#     stripPrefix) requires `haproxy.router.openshift.io/rewrite-target` on that
+#     Route instead, and Routes cannot express Traefik's redirectRegex at all.
+#   - Path-based Routes require edge or reencrypt termination; passthrough cannot
+#     do path routing.
+#
+# TLS: these Routes edge-terminate on the Ingress Operator's wildcard certificate.
+# To serve your own cert, add `spec.tls.externalCertificate.name: <tls-secret>`
+# (OpenShift 4.16+, and the router needs a RoleBinding to read that Secret).
+
+resources:
+  - routes.yaml
+
+# The base nginx Ingress is inert on OpenShift (no controller serves class
+# "nginx", and ingress-to-route ignores it). Remove it so the Routes are the only
+# ingress surface and there is nothing stale to mislead an operator.
+patches:
+  - target:
+      kind: Ingress
+      name: plane-ingress
+    patch: |
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: plane-ingress
+
+# The overlay's own replacement targets `kind: Ingress` for the host, which no
+# longer exists once the patch above runs. Carry the equivalent here so an overlay
+# needs no extra wiring beyond enabling this component.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: overlay-vars
+      fieldPath: data.APP_DOMAIN
+    targets:
+      - select:
+          kind: Route
+        fieldPaths:
+          - spec.host

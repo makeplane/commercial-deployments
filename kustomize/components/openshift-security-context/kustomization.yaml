@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# OpenShift "restricted-v2" SCC security context.
+#
+# Use this INSTEAD OF `nonroot-security-context` on OpenShift. The two differ in
+# exactly one respect: this one does not name a UID.
+#
+# OpenShift ignores the image's USER, assigns an arbitrary UID from the
+# namespace's range, and places the process in group 0. It also validates the
+# pod's own request with MustRunAsRange, so a manifest asking for a specific
+# runAsUser / runAsGroup / fsGroup outside that range is REJECTED at admission --
+# `nonroot-security-context` pins 1000 and therefore prevents every pod from
+# scheduling. Everything else (runAsNonRoot, dropped capabilities, seccomp) is
+# kept; only the IDs are left for the platform to assign.
+#
+# REQUIRES images that grant group 0 write access to the paths they write at
+# runtime (plane-ee #9018). Older images crash under an arbitrary UID -- nginx
+# exits with `mkdir() "/var/cache/nginx/client_temp" failed (13: Permission
+# denied)` and celery beat cannot create its schedule DB.
+#
+# NOT for the bundled datastores. postgres / redis / rabbitmq / minio /
+# opensearch are third-party images with baked-in UID and data-directory
+# ownership; they cannot run under an arbitrary UID. On OpenShift use managed
+# services and leave those components out of the overlay, or grant their
+# ServiceAccounts a relaxed SCC.
+
+patches:
+  - path: patches/pod-security-context.json
+    target:
+      kind: Deployment
+  - path: patches/container-security-context.json
+    target:
+      kind: Deployment
+  - path: patches/pod-security-context.json
+    target:
+      kind: StatefulSet
+  - path: patches/container-security-context.json
+    target:
+      kind: StatefulSet
+  - path: patches/pod-security-context.json
+    target:
+      kind: Job
+  - path: patches/container-security-context.json
+    target:
+      kind: Job

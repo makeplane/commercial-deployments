@@ -1,0 +1,164 @@
+# OpenShift Routes — one per path, mirroring base/ingress.yaml.
+#
+# `host` is the placeholder that the overlay's DOMAIN_NAME/APP_DOMAIN replacement
+# rewrites (see kustomization.yaml in this directory, which carries the matching
+# replacement so the overlay needs no extra wiring).
+#
+# Ordering is irrelevant: HAProxy matches the most specific path prefix, so the
+# "/" catch-all cannot shadow the others the way it would in Traefik.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-spaces
+  namespace: plane
+  annotations:
+    # The router default is 30s, which severs /live/'s collaborative-editing
+    # WebSockets and /pi/'s streaming responses. Applied uniformly for simplicity.
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /spaces/
+  to: { kind: Service, name: plane-space, weight: 100 }
+  port: { targetPort: 3000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-god-mode
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /god-mode/
+  to: { kind: Service, name: plane-admin, weight: 100 }
+  port: { targetPort: 3000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-api
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /api/
+  to: { kind: Service, name: plane-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-auth
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /auth/
+  to: { kind: Service, name: plane-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-graphql
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /graphql/
+  to: { kind: Service, name: plane-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-marketplace
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /marketplace/
+  to: { kind: Service, name: plane-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-dav
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /dav/
+  to: { kind: Service, name: plane-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-live
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /live/
+  to: { kind: Service, name: plane-live, weight: 100 }
+  port: { targetPort: 3000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-silo
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /silo/
+  to: { kind: Service, name: plane-silo, weight: 100 }
+  port: { targetPort: 3000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-pi
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /pi/
+  to: { kind: Service, name: plane-pi-api, weight: 100 }
+  port: { targetPort: 8000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
+---
+# Catch-all LAST, purely for readability.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: plane-route-web
+  namespace: plane
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+spec:
+  host: plane.example.com
+  path: /
+  to: { kind: Service, name: plane-web, weight: 100 }
+  port: { targetPort: 3000 }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
