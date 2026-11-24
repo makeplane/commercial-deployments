@@ -138,10 +138,15 @@ it into Key Vault (next section) and set `email.certificate_secret_id`.
 
 Use a Key Vault of yours, because the module's own vault doesn't exist before the first apply. It must be in the **same
 subscription** as Plane and use the **RBAC permission model**. To import, you need a data-plane role on it, such as *Key
-Vault Certificates Officer*: Owner alone doesn't grant one. Import PEM or PFX, with the full chain and the private key:
+Vault Certificates Officer*: Owner alone doesn't grant one. Import PEM or PFX, with the full chain and the private key.
+In PEM, the key must be PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Many tools, cert-manager among them, write PKCS#1
+(`-----BEGIN RSA PRIVATE KEY-----`), which the import refuses; convert it first:
 
 ```bash
+openssl pkcs8 -topk8 -nocrypt -in key.pem -out key-pkcs8.pem   # only if the key isn't PKCS#8 already
+cat key-pkcs8.pem fullchain.pem > fullchain-and-key.pem
 az keyvault certificate import --vault-name <vault> --name plane-web --file fullchain-and-key.pem
+rm key-pkcs8.pem fullchain-and-key.pem
 ```
 
 Refer to it in `terraform.tfvars` by its **versionless resource ID**, which the module checks at plan
@@ -621,6 +626,7 @@ reinstall generates new app keys, so talk to Plane support before restoring old 
 | An ExternalSecret isn't `SecretSynced` | External Secrets' workload identity can't read the vault yet, the vault's firewall blocks it, or a secret is missing | `kubectl -n plane describe externalsecret <name>` and `kubectl -n external-secrets logs deploy/external-secrets`. Right after the first apply, roles and the federated credential can take a few minutes to work: the error clears on its own |
 | Plane AI keys don't sync (`plane-ai-providers` isn't `SecretSynced`) | A secret is missing or misnamed in your vault, the vault isn't in RBAC mode, or its firewall doesn't allow the cluster's egress IP | `kubectl -n plane describe externalsecret plane-ai-providers` and `kubectl -n plane describe secretstore key-vault-<vault>`. Allow `terraform output nat_public_ip` on the vault |
 | `ForbiddenByFirewall` from Key Vault during the apply | `key_vault.allowed_ips` is set without the address Terraform runs from | Add that address to `allowed_ips` |
+| `az keyvault certificate import` fails with `BadParameter: The specified PEM X.509 certificate content is in an unexpected format` | The private key in the PEM file is PKCS#1 (`BEGIN RSA PRIVATE KEY`); Key Vault accepts only PKCS#8 in PEM | Convert it with `openssl pkcs8 -topk8 -nocrypt` and import again (see "Importing a certificate into Key Vault") |
 | `Invalid value for variable "ingress"` | Path A needs exactly one certificate source, or Let's Encrypt was combined with restricted access | Set either `acme_email` or `ingress.tls_certificate_secret_id`; with Let's Encrypt keep the load balancer internet-facing and open |
 | `Invalid value for variable "redis"` | `persistence` is on with `high_availability_enabled = false`: Azure has no persistence without high availability | Keep high availability on, or also set `persistence = false` |
 | `Invalid value for variable "enable_components"`, `"plane_version"` or `"pi"` | `plane_version` is a release without Azure Blob storage; Plane AI is on without search or without both API keys, with a Plane release older than the minimum, with secrets in two vaults or another subscription, with an unsupported provider or embedding model, or with `custom` settings missing or set for a vendor | Keep `opensearch.enabled`, set both `pi.api_keys` secret IDs in one vault, raise `plane_version`, pick a supported provider and Cohere model, or set `chat_base_url` and `chat_model` only with `chat_provider = "custom"` (section 5) |
