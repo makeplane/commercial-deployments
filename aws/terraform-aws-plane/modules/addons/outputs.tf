@@ -1,8 +1,10 @@
 output "ready" {
-  description = "Available once every add-on release is installed (CRDs and webhooks ready). Gates the Plane release."
+  description = "Available once every add-on release is installed (CRDs and webhooks ready). Gates the Plane release, so on destroy Plane (and its email NLB) goes first, then the NLB cleanup wait, then the LB controller."
   value       = "ready"
   depends_on = [
     helm_release.aws_load_balancer_controller,
+    # Directly, not only through Traefik: in path B the email Service's NLB needs the wait too.
+    time_sleep.nlb_cleanup,
     helm_release.traefik,
     helm_release.external_secrets,
     helm_release.cert_manager,

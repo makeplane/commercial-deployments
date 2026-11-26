@@ -13,6 +13,11 @@ output "redis_host" {
   value       = aws_elasticache_replication_group.valkey.primary_endpoint_address
 }
 
+output "redis_port" {
+  description = "ElastiCache port (TLS)."
+  value       = aws_elasticache_replication_group.valkey.port
+}
+
 output "rabbitmq_host" {
   description = "Amazon MQ AMQPS host."
   value       = local.rabbitmq_host
@@ -26,10 +31,10 @@ output "bucket_name" {
 output "secret_arns" {
   description = "Every Secrets Manager secret Plane reads."
   value = {
-    postgres = aws_rds_cluster.postgres.master_user_secret[0].secret_arn
+    postgres = aws_secretsmanager_secret.postgres.arn
     redis    = aws_secretsmanager_secret.valkey.arn
     rabbitmq = aws_secretsmanager_secret.rabbitmq.arn
-    app_keys = aws_secretsmanager_secret.app_keys.arn
+    app_keys = local.app_keys_secret_arn
   }
 }
 
@@ -44,7 +49,7 @@ output "plane_inputs" {
     postgres_host       = aws_rds_cluster.postgres.endpoint
     postgres_port       = aws_rds_cluster.postgres.port
     postgres_db         = aws_rds_cluster.postgres.database_name
-    postgres_secret_arn = aws_rds_cluster.postgres.master_user_secret[0].secret_arn
+    postgres_secret_arn = aws_secretsmanager_secret.postgres.arn
 
     redis_host       = aws_elasticache_replication_group.valkey.primary_endpoint_address
     redis_port       = aws_elasticache_replication_group.valkey.port
@@ -54,7 +59,8 @@ output "plane_inputs" {
     rabbitmq_port       = 5671
     rabbitmq_secret_arn = aws_secretsmanager_secret.rabbitmq.arn
 
-    app_keys_secret_arn = aws_secretsmanager_secret.app_keys.arn
+    app_keys_secret_arn = local.app_keys_secret_arn
+    app_key_names       = keys(local.app_key_lengths)
 
     opensearch_enabled     = local.opensearch_enabled
     opensearch_endpoint    = local.opensearch_enabled ? aws_opensearch_domain.this[0].endpoint : null

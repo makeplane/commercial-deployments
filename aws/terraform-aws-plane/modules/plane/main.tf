@@ -53,20 +53,35 @@ locals {
       "plane-db"       = var.data.postgres_secret_arn
       "plane-redis"    = var.data.redis_secret_arn
       "plane-rabbitmq" = var.data.rabbitmq_secret_arn
-      "plane-app-keys" = var.data.app_keys_secret_arn
       } : name => {
       apiVersion = "external-secrets.io/v1"
       kind       = "ExternalSecret"
       metadata   = { name = name, annotations = local.hook.secrets }
       spec = {
-        # RDS rotates its managed master password every 7 days and the old one stops working at
-        # once: re-read it every minute (Reloader then rolls the pods). The others don't rotate.
+        # Re-read the database password every minute, so a rotation (postgres.password_version)
+        # reaches the pods quickly (Reloader then rolls them). The others don't rotate.
         refreshInterval = name == "plane-db" ? "1m" : "1h"
         secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
         # Orphan: recreating the hook object on upgrade must not garbage-collect the live Secret.
         target   = { name = name, creationPolicy = "Orphan" }
         dataFrom = [{ extract = { key = arn } }]
       }
+    }
+  }
+
+  # Each key is mapped by name, so a secret missing one fails to sync rather than Plane starting
+  # without it.
+  app_keys_external_secret = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = "plane-app-keys", annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = "plane-app-keys", creationPolicy = "Orphan" }
+      data = [
+        for k in var.data.app_key_names : { secretKey = k, remoteRef = { key = var.data.app_keys_secret_arn, property = k } }
+      ]
     }
   }
 
@@ -77,6 +92,83 @@ locals {
     # No auth block: the External Secrets controller uses its own Pod Identity role.
     spec = { provider = { aws = { service = "SecretsManager", region = var.region } } }
   }
+
+  # Plane AI: an embedding model (pi creates it in OpenSearch at startup) and a chat model, either on
+  # Amazon Bedrock through inference profiles (keyless) or with provider API keys from Secrets Manager.
+  pi_bedrock   = var.pi.mode == "bedrock"
+  pi_api_keys  = var.pi.mode == "api_keys"
+  pi_ai_secret = "${local.release}-ai-providers"
+
+  pi_ai_providers = merge(
+    { for k, v in {
+      embedding_model = {
+        enabled             = true
+        name                = var.pi.embedding_model
+        embedding_dimension = var.pi.embedding_dimension
+        aws_region          = var.region
+      }
+    } : k => v if var.pi.mode != null },
+    # pi's custom LLM on Bedrock: with a profile and a pod identity it calls the profile keylessly.
+    { for k, v in {
+      custom_llm = {
+        enabled    = true
+        provider   = "bedrock"
+        model_key  = try(var.pi.bedrock.chat_model_id, null)
+        name       = try(var.pi.bedrock.chat_model_name, null)
+        max_tokens = try(var.pi.bedrock.chat_max_tokens, null)
+        aws_region = var.region
+      }
+      bedrock = {
+        enabled               = true
+        inference_profile_arn = try(aws_bedrock_inference_profile.pi["chat"].arn, null)
+        region                = var.region
+      }
+    } : k => v if local.pi_bedrock },
+    # pi's custom LLM on an OpenAI-compatible API (key: CUSTOM_LLM_API_KEY). A vendor key needs no
+    # values: the synced Secret reaches pi through envFrom and pi offers that vendor's models.
+    { for k, v in {
+      custom_llm = {
+        enabled    = true
+        provider   = "openai"
+        base_url   = try(var.pi.chat.base_url, null)
+        model_key  = try(var.pi.chat.model, null)
+        name       = try(var.pi.chat.name, null)
+        max_tokens = try(var.pi.chat.max_tokens, null)
+      }
+    } : k => v if local.pi_api_keys && var.pi.chat != null },
+  )
+
+  # Each key in the env var pi reads (the chat key's, COHERE_API_KEY), from a plain-text secret or a JSON field.
+  # pi puts the embedding key into the OpenSearch connector it creates.
+  pi_api_keys_object = {
+    apiVersion = "external-secrets.io/v1"
+    kind       = "ExternalSecret"
+    metadata   = { name = local.pi_ai_secret, annotations = local.hook.secrets }
+    spec = {
+      refreshInterval = "1h"
+      secretStoreRef  = { name = local.secret_store, kind = "SecretStore" }
+      target          = { name = local.pi_ai_secret, creationPolicy = "Orphan" }
+      data = [for env, s in var.pi.api_key_secrets : {
+        secretKey = env
+        remoteRef = merge({ key = s.arn }, s.property == null ? {} : { property = s.property })
+      }]
+    }
+  }
+
+  # The chart has no values for these: identifiers, not secrets, so they go in extraEnv.
+  pi_connector_env = concat(
+    local.pi_bedrock ? [
+      { name = "BEDROCK_EMBEDDING_INFERENCE_PROFILE_ARN", value = try(aws_bedrock_inference_profile.pi["embeddings"].arn, null) },
+    ] : [],
+    local.pi_connector ? [
+      { name = "AWS_OPENSEARCH_CONNECTOR_ROLE_ARN", value = one(aws_iam_role.pi_connector[*].arn) },
+    ] : [],
+    # Amazon OpenSearch Service takes no raw key in a connector: it reads this secret's field itself.
+    local.pi_connector && local.pi_api_keys ? [
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_ARN", value = try(local.pi_embedding_key.arn, null) },
+      { name = "AWS_OPENSEARCH_CONNECTOR_SECRET_KEY", value = try(local.pi_embedding_key.property, null) },
+    ] : [],
+  )
 
   # pi needs its own database; the chart doesn't create it yet (chart change C-1).
   db_init_job = {
@@ -195,8 +287,11 @@ locals {
   component_services = {
     email_service = local.email_service
     silo          = { enabled = var.enable_components.silo }
-    pi            = { enabled = var.enable_components.pi }
-    drawio        = { local_setup = var.enable_components.drawio }
+    pi = merge(
+      { enabled = var.enable_components.pi },
+      { for k, v in { ai_providers = local.pi_ai_providers } : k => v if length(local.pi_ai_providers) > 0 },
+    )
+    drawio = { local_setup = var.enable_components.drawio }
   }
 
   reloader_services = {
@@ -217,7 +312,9 @@ locals {
 
     ssl = { tls_secret_name = var.tls_secret_name }
 
-    serviceAccount = { create = true }
+    # Bound to Plane's role by an EKS Pod Identity association (outside the chart). Renders nothing;
+    # it lets helm upgrade warn about settings that conflict with an attached identity.
+    serviceAccount = { create = true, cloudIdentity = true }
 
     podDisruptionBudget = { enabled = true }
 
@@ -235,7 +332,7 @@ locals {
       )
     }
 
-    env = {
+    env = merge({
       # Fail the render rather than fall back to the chart's public example keys.
       requireExplicitSecrets = true
 
@@ -269,32 +366,44 @@ locals {
       aws_region            = var.region
       aws_access_key        = ""
       aws_secret_access_key = ""
-      use_storage_proxy     = false
+      use_storage_proxy     = var.use_storage_proxy
 
       # As today's managed deployment: any attachment type can be uploaded.
       allow_all_attachment_types = true
-    }
+      },
+      # The api's and pi's vector indexes use this dimension, pi on or off: it must match the embedding model
+      # pi uses (now or when turned on later), since the api creates its indexes once.
+      { for k, v in { opensearch_embedding_dimension = tostring(var.pi.embedding_dimension) } : k => v if var.data.opensearch_enabled },
+      # pi embeds workspace data only with these periodic syncs on (the chart defaults them off).
+      { for k, v in { pi_envs = { celery = { vector_sync_enabled = true, workspace_plan_sync_enabled = true } } } : k => v if var.enable_components.pi },
+    )
 
-    external_secrets = {
+    external_secrets = merge({
       database                = { secretName = "plane-db", usernameKey = "username", passwordKey = "password" }
       redis                   = { secretName = "plane-redis", passwordKey = "password" }
       rabbitmq                = { secretName = "plane-rabbitmq", usernameKey = "username", passwordKey = "password" }
       app_keys_existingSecret = "plane-app-keys"
-    }
+      },
+      { for k, v in { ai_providers_existingSecret = local.pi_ai_secret } : k => v if local.pi_api_keys },
+    )
 
-    # The chart has no value for the api's TRUSTED_PROXIES yet (chart change C-8). Traefik sits
-    # behind the NLB inside the VPC, so the VPC CIDR is the trusted proxy range.
-    extraEnv = [
-      { name = "TRUSTED_PROXIES", value = var.vpc_cidr },
+    # The api trusts forwarded client IPs only from TRUSTED_PROXY_IPS; the chart has no value for it
+    # yet (chart change C-8). The proxies in front of the api sit in the VPC, so the VPC CIDR.
+    extraEnv = concat([
+      { name = "TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       # Route import tasks to worker_importers' queue (the chart doesn't set this for the api).
       { name = "CELERY_IMPORTERS_QUEUE_ENABLED", value = "1" },
-    ]
+      ],
+      local.pi_connector_env,
+    )
 
     extraObjects = concat(
       [local.secret_store_object],
       values(local.external_secret),
+      [local.app_keys_external_secret],
       # Plane AI's database, only when pi is on.
       var.enable_components.pi ? [local.db_init_job] : [],
+      local.pi_api_keys ? [local.pi_api_keys_object] : [],
       local.certificate_objects,
       values(local.customer_certificates),
     )
@@ -320,7 +429,9 @@ resource "helm_release" "plane" {
 
   values = compact([yamlencode(local.values), var.plane_values])
 
-  depends_on = [terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane]
+  depends_on = [
+    terraform_data.addons_ready, module.plane_pod_identity, aws_opensearch_domain_policy.plane, aws_iam_role_policy.pi_connector,
+  ]
 }
 
 # The email NLB the LB controller creates for the chart's email Service, found by its fixed name once

@@ -1,5 +1,21 @@
 # Secrets Manager entries, in the JSON shape the plane-enterprise chart reads through External
-# Secrets. The RDS master secret is created and rotated by RDS itself (postgres.tf).
+# Secrets.
+
+resource "aws_secretsmanager_secret" "postgres" {
+  # checkov:skip=CKV2_AWS_57:The database password isn't rotated automatically; bump postgres.password_version.
+  name                    = "plane/${var.name}/postgres"
+  description             = "Plane (${var.name}) RDS PostgreSQL master user"
+  kms_key_id              = aws_kms_key.this.arn
+  recovery_window_in_days = 7
+
+  tags = var.tags
+}
+
+# The keys the plane-db ExternalSecret reads, as in the RDS-managed secret this replaces.
+resource "aws_secretsmanager_secret_version" "postgres" {
+  secret_id     = aws_secretsmanager_secret.postgres.id
+  secret_string = jsonencode({ username = aws_rds_cluster.postgres.master_username, password = random_password.postgres.result })
+}
 
 resource "aws_secretsmanager_secret" "valkey" {
   # checkov:skip=CKV2_AWS_57:The ElastiCache AUTH token isn't rotated automatically in this release.
@@ -34,8 +50,8 @@ resource "aws_secretsmanager_secret_version" "rabbitmq" {
 # Signing and encryption keys shared by api, live, silo and pi (chart external_secrets.app_keys_existingSecret).
 # SECRET_KEY, AES_SECRET_KEY and AES_SALT encrypt stored data: they are generated once and must
 # never change, or existing ciphertext becomes unreadable without any error.
-resource "random_password" "app_keys" {
-  for_each = {
+locals {
+  app_key_lengths = {
     SECRET_KEY             = 50
     AES_SECRET_KEY         = 32
     AES_SALT               = 32
@@ -45,13 +61,26 @@ resource "random_password" "app_keys" {
     CURSOR_WEBHOOK_SECRET  = 48
     RUNNER_HMAC_SECRET_KEY = 48
   }
+  app_keys_secret_arn = aws_secretsmanager_secret.app_keys[0].arn
+}
+
+resource "random_password" "app_keys" {
+  for_each = local.app_key_lengths
 
   length  = each.value
   special = false
+
+  lifecycle {
+    # Never regenerate, even if the lengths above change in a later module version.
+    ignore_changes = all
+  }
 }
 
 resource "aws_secretsmanager_secret" "app_keys" {
   # checkov:skip=CKV2_AWS_57:These keys encrypt stored data and must never rotate.
+  # Always one: count keeps the [0] address existing installs have state at. Never remove it.
+  count = 1
+
   name                    = "plane/${var.name}/app-keys"
   description             = "Plane (${var.name}) signing and encryption keys. Never rotate."
   kms_key_id              = aws_kms_key.this.arn
@@ -61,6 +90,19 @@ resource "aws_secretsmanager_secret" "app_keys" {
 }
 
 resource "aws_secretsmanager_secret_version" "app_keys" {
-  secret_id     = aws_secretsmanager_secret.app_keys.id
+  count = 1 # keeps the [0] address, as above
+
+  secret_id     = aws_secretsmanager_secret.app_keys[0].id
   secret_string = jsonencode({ for k, v in random_password.app_keys : k => v.result })
+}
+
+# Addresses from before count was added: keep the secret, never recreate it.
+moved {
+  from = aws_secretsmanager_secret.app_keys
+  to   = aws_secretsmanager_secret.app_keys[0]
+}
+
+moved {
+  from = aws_secretsmanager_secret_version.app_keys
+  to   = aws_secretsmanager_secret_version.app_keys[0]
 }

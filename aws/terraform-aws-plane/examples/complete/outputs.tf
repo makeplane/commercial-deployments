@@ -19,7 +19,7 @@ output "email_load_balancer_dns_name" {
 }
 
 output "dns_records" {
-  description = "The DNS records to create (the module creates none)."
+  description = "The DNS records to create (the module creates none): web, email_host (always null on AWS) and email_mx."
   value       = module.plane.dns_records
 }
 

@@ -19,6 +19,13 @@ locals {
     "eks-pod-identity-agent" = var.addon_versions.eks_pod_identity_agent
     "aws-ebs-csi-driver"     = var.addon_versions.aws_ebs_csi_driver
   }
+
+  # Node image: never follow AWS's newest release on its own. A null release keeps the group's current one
+  # (AWS's latest at creation); setting one rolls the nodes to it.
+  node_image = {
+    use_latest_ami_release_version = false
+    ami_release_version            = var.node_group.ami_release_version
+  }
 }
 
 # EBS CSI driver identity. No Plane workload needs a volume by default (all data is external),
@@ -90,12 +97,14 @@ module "eks" {
   # manual (or future autoscaler) scale-out isn't reverted by the next apply.
   eks_managed_node_groups = {
     default = {
-      ami_type       = "AL2023_x86_64_STANDARD"
-      instance_types = var.node_group.instance_types
-      min_size       = var.node_group.min_size
-      max_size       = var.node_group.max_size
-      desired_size   = var.node_group.desired_size
-      subnet_ids     = var.private_subnet_ids
+      ami_type                       = "AL2023_x86_64_STANDARD"
+      use_latest_ami_release_version = local.node_image.use_latest_ami_release_version
+      ami_release_version            = local.node_image.ami_release_version
+      instance_types                 = var.node_group.instance_types
+      min_size                       = var.node_group.min_size
+      max_size                       = var.node_group.max_size
+      desired_size                   = var.node_group.desired_size
+      subnet_ids                     = var.private_subnet_ids
 
       block_device_mappings = {
         xvda = {
@@ -109,7 +118,7 @@ module "eks" {
         }
       }
 
-      # Replace one node at a time during node-group upgrades.
+      # Replace one node at a time during node-group upgrades (image or Kubernetes version).
       update_config = {
         max_unavailable = 1
       }

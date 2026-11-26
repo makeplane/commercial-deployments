@@ -31,11 +31,12 @@ variable "cluster_admin_principal_arns" {
 variable "node_group" {
   description = "Managed node group settings."
   type = object({
-    instance_types = list(string)
-    min_size       = number
-    max_size       = number
-    desired_size   = number
-    disk_size_gb   = number
+    instance_types      = list(string)
+    min_size            = number
+    max_size            = number
+    desired_size        = number
+    disk_size_gb        = number
+    ami_release_version = string
   })
 }
 

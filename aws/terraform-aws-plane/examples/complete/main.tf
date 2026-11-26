@@ -31,6 +31,7 @@ module "plane" {
   acme_email                           = var.acme_email
   acme_server                          = var.acme_server
   enable_components                    = var.enable_components
+  pi                                   = var.pi
   tags                                 = var.tags
   ingress                              = var.ingress
   tls_secret_name                      = var.tls_secret_name
@@ -49,5 +50,6 @@ module "plane" {
   rabbitmq                             = var.rabbitmq
   opensearch                           = var.opensearch
   email                                = var.email
+  use_storage_proxy                    = var.use_storage_proxy
   bucket_force_destroy                 = var.bucket_force_destroy
 }

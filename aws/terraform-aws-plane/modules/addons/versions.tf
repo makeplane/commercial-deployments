@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/helm"
       version = ">= 3.0"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = ">= 2.6"
+    }
     time = {
       source  = "hashicorp/time"
       version = ">= 0.9"

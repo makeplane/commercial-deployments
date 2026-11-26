@@ -21,9 +21,9 @@ researched and picked up on its own.
 | Docs | Module README, customer deployment guide |
 
 **Known limits of v0.1.0:** the module always creates its own VPC and cluster; no node or pod autoscaling; images
-pulled from Docker Hub anonymously; SMTP, SSO and AI keys are set in the admin UI; the EKS API endpoint is public
-(`0.0.0.0/0`) by default; one module-managed KMS key; backups are RDS automated backups and a final snapshot only;
-the email load balancer is internet-facing; releases are tested by hand.
+pulled from Docker Hub anonymously; SMTP and SSO are set in god-mode (the module configures the Plane AI keys); the EKS
+API endpoint is public (`0.0.0.0/0`) by default; one module-managed KMS key; backups are RDS automated backups and a
+final snapshot only; the email load balancer is internet-facing; releases are tested by hand.
 
 ## 2. Future releases
 
@@ -37,7 +37,7 @@ The next targeted items. Not in priority order; the order and release grouping a
     ALB + ACM (keeps the instance private).
   - Managed data services (RDS, S3) in Docker mode come later: `prime-cli setup` requires S3 access keys, and the
     Compose file falls back to placeholder keys, so keyless S3 from the instance role needs both fixed in prime-cli.
-- **GCP module** (`terraform-google-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
+- **GCP module** (`terraform-gcp-plane`). Same layout, inputs and edge model as AWS: VPC with Cloud NAT, private
   GKE with Workload Identity, Cloud SQL (private IP), Memorystore, GCS (Plane supports GCS natively, keyless), Secret
   Manager. RabbitMQ in-cluster (no managed option on GCP). No DNS records, as on AWS.
 - **Release CI with e2e.** On every `v*` tag: assume a role in a sandbox account through GitHub OIDC, apply
@@ -52,7 +52,8 @@ The next targeted items. Not in priority order; the order and release grouping a
 - **Bring your own VPC first, then your own cluster.** Inputs to skip creating the network (`vpc_id`, subnet IDs)
   and later the EKS cluster (`cluster_name`). Needed by customers with an existing landing zone.
 - **Node autoscaling.** Cluster Autoscaler on the managed node group's 2–4 range first (the group already has the
-  range; nothing scales it); Karpenter or EKS Auto Mode later.
+  range; nothing scales it); Karpenter or EKS Auto Mode later, with an optional Spot node group (GCP already offers
+  spot nodes).
 - **Pod autoscaling.** Revive the chart HPA PR helm-charts#133 for api, worker, agent-consumer and webhook-consumer
   (CPU, 2–5 replicas). metrics-server is already installed. Ship it with node autoscaling, or the extra pods only use
   spare capacity.
@@ -61,19 +62,30 @@ The next targeted items. Not in priority order; the order and release grouping a
   endpoint off, and either require the CIDR list or document running Terraform from inside the VPC (Terraform's Helm
   provider talks to the API directly).
 - **`extra_secrets`.** An input map → Secrets Manager → External Secrets → the chart's `*_existingSecret` values, so
-  SMTP, SSO, AI and integration keys are managed in Terraform instead of the admin UI.
+  SMTP, SSO and integration keys are managed in Terraform instead of the admin UI (the Plane AI keys already are).
 - **Amazon SES for intake email.** SES receives the intake mail (receipt rule to S3 or SNS) instead of Plane's email
   service and its internet-facing load balancer. Needs Plane to read intake mail from SES; SES email receiving is
   available in only some regions.
 - **Image pulls.** Images come from Docker Hub anonymously, so Docker Hub rate limits apply to all nodes through
   the single NAT IP. Optional authenticated pulls first, then an ECR pull-through cache. Also document the outbound
   allow-list (`prime.plane.so`, Docker Hub, `helm.plane.so`, chart repos, Let's Encrypt for path A, AWS APIs).
-- **Dedicated database user, or Plane's `RDS_SECRET_ARN` support.** The app connects as the RDS master user, whose
-  password RDS rotates; Reloader restarts pods but leaves a short window of failed connections. Either a dedicated
-  app user without rotation, or the api's built-in `RDS_SECRET_ARN` support, which handles rotation itself.
+- **Automatic database password rotation.** The app connects as the RDS master user, whose password the module
+  generates; nothing rotates it automatically, and `postgres.password_version` rotates it on a planned apply (a short
+  window of failed connections while pods restart). Automatic rotation with a dedicated app user could come later.
 - **Version and upgrade policy.** Pin and upgrade EKS, add-ons, the chart and Plane through module releases;
   Renovate on customer templates. Add a pre-upgrade RDS snapshot keyed on the Plane version and a rollback runbook
   (Helm rollback doesn't undo database migrations).
+- **Maintenance windows and reinstalls.** Set RDS and ElastiCache maintenance windows (today AWS picks them; GCP
+  sets weekend windows). Add a random suffix to the RDS final snapshot so a destroyed install can be reinstalled
+  under the same name without deleting the snapshot first.
+- **Engine upgrades.** The ElastiCache parameter group embeds the Valkey major version without
+  `create_before_destroy` (the RDS one was fixed), so a Valkey major upgrade needs the same treatment. RDS minor
+  auto-upgrades also leave `postgres.engine_version` behind, so the next plan tries a downgrade: pin only the major
+  version, or ignore minor drift.
+- **WAF.** An NLB can't take AWS WAF. Document CloudFront + WAF in front of the web load balancer, or add an ALB
+  option for customers who need WAF rules.
+- **Chart render check in CI and generated-values tests.** Run `helm template` on the `plane_helm_values` output
+  for every example in CI (all modules), and add tests on the generated chart values for AWS as GCP has.
 - **AWS Backup plan** as an option, beyond RDS automated backups and the final snapshot.
 - **KMS options.** A `kms_key_arn` input (bring your own key) and optional per-service keys. Today one
   module-managed key encrypts RDS, Valkey, S3, Secrets Manager, OpenSearch and EKS secrets.
@@ -86,7 +98,7 @@ The next targeted items. Not in priority order; the order and release grouping a
   on dev or on Plane's own installation before setting larger defaults. Then presets, e.g. `evaluation` and
   `production` (today's sizes); a small preset needs module changes (single-instance RDS on gp3, single-instance
   RabbitMQ, 1-node OpenSearch), since Multi-AZ DB clusters have no small instance classes.
-- **Azure module** (`terraform-azurerm-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
+- **Azure module** (`terraform-azure-plane`). Plane has no Azure Blob storage backend (api, silo, pi and the
   chart), so files would need MinIO today. Native Blob support is preferred over an S3-compatible gateway, which
   would need static keys.
 - **DNS automation for Route 53 and Cloudflare** (optional, off by default). v0.1.0 writes no DNS: the customer
