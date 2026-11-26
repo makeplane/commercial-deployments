@@ -1,9 +1,9 @@
 # Deploying Plane on Azure
 
-> **Not yet proven on Azure.** This module hasn't run on a real Azure subscription yet. This guide comes from the
-> module's code and Microsoft's documentation, not from an observed install, so timings are rough expectations and we
-> don't state costs. The module also needs Plane's Azure Blob support and the matching chart release, which are still
-> being built; until they ship it can't install a working Plane (see "Requires" in the [README](../README.md)).
+> **Tested on Azure.** This module was installed, tested end to end and destroyed on a real Azure subscription on
+> 2026-11-24, with preview builds of Plane and the chart. It needs Plane's Azure Blob support and the matching chart
+> release, which aren't released yet; until they ship it can't install a working Plane from a release (see "Requires"
+> in the [README](../README.md)). We don't state costs.
 
 This guide takes you from an Azure subscription to a running Plane Commercial installation, using the
 `terraform-azure-plane` module. One `terraform apply` creates the network, an AKS cluster, managed data services, Blob
@@ -329,7 +329,7 @@ terraform plan -out plane.tfplan
 terraform apply plane.tfplan
 ```
 
-We haven't measured the apply on Azure. As a rough expectation based on our other clouds, allow 40–70 minutes. The last
+On our test install (2 nodes, Central US) the apply took 36 minutes, in one run. The last
 step (`helm_release.plane`) runs for a while without output, because database migrations on a new installation are
 expected to take about 20 minutes. Terraform waits up to `helm_timeout` (one hour by default).
 
