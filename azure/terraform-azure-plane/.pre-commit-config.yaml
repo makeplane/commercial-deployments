@@ -1,0 +1,13 @@
+# From the repo root: pre-commit run -c azure/terraform-azure-plane/.pre-commit-config.yaml --all-files
+files: ^azure/terraform-azure-plane/
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.109.3
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+        args: ["--hook-config=--retry-once-with-cleanup=true"]
+      - id: terraform_tflint
+        args: ["--args=--config=__GIT_WORKING_DIR__/azure/terraform-azure-plane/.tflint.hcl"]
+      - id: terraform_docs
+        args: ["--args=--config=.terraform-docs.yml"]
