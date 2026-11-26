@@ -274,7 +274,7 @@ field (`AWS_OPENSEARCH_CONNECTOR_ROLE_ARN`, `AWS_OPENSEARCH_CONNECTOR_SECRET_ARN
 and its migrator assumes the role once to create the connector. This needs a Plane AI release that keeps Cohere's
 `Authorization: Bearer` header in this mode, so the module refuses Plane AI with an older `plane_version`. That floor
 (`pi_min_plane_version` in [`main.tf`](main.tf), `v99.0.0`) is a **placeholder** until a Plane release includes the
-fix, so with Plane AI on the `plane_version` default (`v4.0.1`) fails at plan with an error naming the floor. Bedrock mode doesn't use that code path, but it hasn't been tested yet, so the module holds it to the same floor.
+fix, so with Plane AI on the `plane_version` default (`v4.0.1`) fails at plan with an error naming the floor. Bedrock mode doesn't use that code path, but it has only been tested on a build that includes the fix, so the module holds it to the same floor.
 Build tags (branch or preview builds) aren't checked.
 
 **Moving the Cohere key to another secret.** Amazon OpenSearch Service reads the key from the secret named in the

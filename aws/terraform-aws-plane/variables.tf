@@ -47,7 +47,7 @@ variable "plane_version" {
       sum([for i, n in regex("^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)", local.pi_min_plane_version) : tonumber(n) * pow(1000, 2 - i)]),
       true
     )
-    error_message = "Plane AI (enable_components.pi) needs plane_version ${local.pi_min_plane_version} or later: in key mode, the first Plane release whose Plane AI keeps Cohere's Authorization header when Amazon OpenSearch Service reads the key from Secrets Manager; Bedrock mode is held to the same release until it is tested."
+    error_message = "Plane AI (enable_components.pi) needs plane_version ${local.pi_min_plane_version} or later: in key mode, the first Plane release whose Plane AI keeps Cohere's Authorization header when Amazon OpenSearch Service reads the key from Secrets Manager; Bedrock mode is held to the same release, since it has only been tested on builds with that fix."
   }
 }
 

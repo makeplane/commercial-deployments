@@ -418,7 +418,7 @@ run "accept_default_plane_version_pi_off" {
   }
 }
 
-# Bedrock mode doesn't use the key-mode fix, but it's held to the same floor until it is tested (A2).
+# Bedrock mode doesn't use the key-mode fix, but it's held to the same floor: A2 passed only on a build with the fix.
 run "reject_bedrock_below_plane_version_floor" {
   command = plan
   variables {

@@ -52,7 +52,7 @@ locals {
     "bedrock/cohere.embed-multilingual-v3" = "cohere.embed-multilingual-v3"
   }
   # Plane AI needs the release whose pi keeps Cohere's Authorization header when OpenSearch reads the key from Secrets
-  # Manager (key mode); Bedrock mode is held to it until tested. Placeholder until that release is known.
+  # Manager (key mode); Bedrock, tested only on builds with that fix, is held to it too. Placeholder until it's known.
   pi_min_plane_version = "v99.0.0"
 
   pi_mode = var.enable_components.pi ? var.pi.provider : null

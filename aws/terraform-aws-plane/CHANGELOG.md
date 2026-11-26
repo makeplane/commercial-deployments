@@ -83,8 +83,9 @@
   `Authorization: Bearer` header when Amazon OpenSearch Service reads the key from Secrets Manager. Older releases
   can't create the embedding model, so they are refused at plan (the `pier.cli opensearch` commands in the README need
   Plane v4.1.0 or later too). The floor is a placeholder (`v99.0.0`) until that release is known, so the `plane_version`
-  default (`v4.0.1`) is refused with Plane AI on. Bedrock mode doesn't use that code path but is held to the same
-  floor until it is tested. Build tags (branch or preview builds) and Plane AI off aren't checked.
+  default (`v4.0.1`) is refused with Plane AI on. Bedrock mode doesn't use that code path, but it has only been tested
+  on a build that includes the fix, so it is held to the same floor. Build tags (branch or preview builds) and Plane AI
+  off aren't checked.
 - `redis_endpoint` is now `host:port` (the ElastiCache TLS port), as on GCP and Azure.
 - `dns_records` has the same keys on every cloud: `web`, `email_host` and `email_mx`. On AWS `email_host` is always
   null: the MX record names the email NLB's hostname directly.
